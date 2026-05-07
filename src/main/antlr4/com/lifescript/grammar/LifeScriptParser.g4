@@ -15,19 +15,24 @@ plan
 
 tasks
     : TASKS COLON NEWLINE
-      task+ NEWLINE*
+      task+
+      NEWLINE*
     ;
 
 task
     : TASK COLON STRING NEWLINE
-      taskDuration
-      taskPriority
-      taskEffort
-      taskDeadline?
-      taskStart?
-      repeats?
-      taskDependencies?
-      taskNote?
+      taskProperty+
+    ;
+
+taskProperty
+    : taskDuration
+    | taskPriority
+    | taskEffort
+    | taskDeadline
+    | taskStart
+    | repeats
+    | taskDependencies
+    | taskNote
     ;
 
 taskDuration
@@ -70,9 +75,13 @@ routines
 
 routineEntry
     : ROUTINE COLON STRING NEWLINE
-      routineTime
-      repeats?
-      routineActivities
+      routineProperty+
+    ;
+
+routineProperty
+    : routineTime
+    | repeats
+    | routineActivities
     ;
 
 routineTime
@@ -126,7 +135,7 @@ availability
     ;
 
 availabilityEntry
-    : dayOfWeek COLON availabilityValue NEWLINE*
+    : (dayOfWeek | DATE) COLON availabilityValue NEWLINE*
     ;
 
 dayOfWeek

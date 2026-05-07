@@ -21,7 +21,6 @@ EVENING         : 'evening' ;
 AVAILABILITY    : 'availability' ;
 OFF             : 'off' ;
 FLEXIBLE        : 'flexible' ;
-COMMA           : ',' ;
 MONDAY          : 'Monday' ;
 TUESDAY         : 'Tuesday' ;
 WEDNESDAY       : 'Wednesday' ;
@@ -45,7 +44,6 @@ REPEATS         : 'repeats' ;
 DAILY           : 'daily' ;
 WEEKDAYS        : 'weekdays' ;
 WEEKENDS        : 'weekends' ;
-DURATION_VAL    : DIGIT+ 'h' (DIGIT+ 'm')? | DIGIT+ 'm' ;
 
 TASKS           : 'tasks' ;
 TASK            : 'task' ;
@@ -62,11 +60,15 @@ MEDIUM          : 'medium' ;
 // Symbols
 COLON           : ':' ;
 DASH            : '-' ;
+COMMA           : ',' ;
+
 
 // Literals
+TIME_VAL        : HOUR ':' MINUTE ;
 DATE            : YEAR '-' MONTH '-' DAY ;
 STRING          : '"' (~["\r\n])* '"' ;
-TIME_VAL        : HOUR ':' MINUTE ;
+DURATION_VAL    : DIGIT+ 'h' (DIGIT+ 'm')? | DIGIT+ 'm' ;
+
 
 // Whitespace
 NEWLINE         : '\r'? '\n' ;
