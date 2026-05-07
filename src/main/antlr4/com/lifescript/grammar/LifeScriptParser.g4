@@ -8,8 +8,58 @@ plan
       availability?
       energyProfile?
       routines?
+      tasks?
       NEWLINE*
       EOF
+    ;
+
+tasks
+    : TASKS COLON NEWLINE
+      task+ NEWLINE*
+    ;
+
+task
+    : TASK COLON STRING NEWLINE
+      taskDuration
+      taskPriority
+      taskEffort
+      taskDeadline?
+      taskStart?
+      repeats?
+      taskDependencies?
+      taskNote?
+    ;
+
+taskDuration
+    : DURATION COLON DURATION_VAL NEWLINE*
+    ;
+
+taskPriority
+    : PRIORITY COLON priorityLevel NEWLINE*
+    ;
+
+priorityLevel
+    : CRITICAL | HIGH | MEDIUM | LOW
+    ;
+
+taskEffort
+    : EFFORT COLON energyLevel NEWLINE*
+    ;
+
+taskDeadline
+    : DEADLINE COLON (dayOfWeek | DATE) NEWLINE*
+    ;
+
+taskStart
+    : START COLON TIME_VAL NEWLINE*
+    ;
+
+taskDependencies
+    : DEPENDENCIES COLON STRING (COMMA STRING)* NEWLINE*
+    ;
+
+taskNote
+    : NOTE COLON STRING NEWLINE*
     ;
 
 routines
@@ -21,7 +71,7 @@ routines
 routineEntry
     : ROUTINE COLON STRING NEWLINE
       routineTime
-      routineRepeats?
+      repeats?
       routineActivities
     ;
 
@@ -29,7 +79,7 @@ routineTime
     : TIME COLON (namedPeriod | timeRange) NEWLINE*
     ;
 
-routineRepeats
+repeats
     : REPEATS COLON repeatPattern NEWLINE*
     ;
 

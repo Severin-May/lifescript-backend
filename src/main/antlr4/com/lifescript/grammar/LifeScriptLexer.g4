@@ -47,6 +47,18 @@ WEEKDAYS        : 'weekdays' ;
 WEEKENDS        : 'weekends' ;
 DURATION_VAL    : DIGIT+ 'h' (DIGIT+ 'm')? | DIGIT+ 'm' ;
 
+TASKS           : 'tasks' ;
+TASK            : 'task' ;
+DURATION        : 'duration' ;
+PRIORITY        : 'priority' ;
+EFFORT          : 'effort' ;
+DEADLINE        : 'deadline' ;
+START           : 'start' ;
+DEPENDENCIES    : 'dependencies' ;
+NOTE            : 'note' ;
+CRITICAL        : 'critical' ;
+MEDIUM          : 'medium' ;
+
 // Symbols
 COLON           : ':' ;
 DASH            : '-' ;
