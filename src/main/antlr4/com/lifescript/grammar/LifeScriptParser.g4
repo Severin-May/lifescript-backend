@@ -4,13 +4,17 @@ options { tokenVocab=LifeScriptLexer; }
 plan
     : PLAN COLON STRING NEWLINE
       period
-      settings?
-      availability?
-      energyProfile?
-      routines?
-      tasks?
+      planSection*
       NEWLINE*
       EOF
+    ;
+
+planSection
+    : settings
+    | availability
+    | energyProfile
+    | routines
+    | tasks
     ;
 
 tasks
