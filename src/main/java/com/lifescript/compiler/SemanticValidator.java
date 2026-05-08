@@ -20,6 +20,23 @@ public class SemanticValidator extends LifeScriptParserBaseVisitor<Void> {
     }
 
     @Override
+    public Void visitPlan(LifeScriptParser.PlanContext ctx) {
+        String planName = ctx.STRING().getText();
+
+        boolean hasTasks = false;
+        for (LifeScriptParser.PlanSectionContext prop : ctx.planSection()) {
+            if (prop.tasks() != null) hasTasks = true;
+        }
+
+        int line = ctx.getStart().getLine();
+        if (!hasTasks) {
+            errors.add(String.format("Line %d: Plan %s is missing mandatory property: tasks", line, planName));
+        }
+
+        return visitChildren(ctx);
+    }
+
+    @Override
     public Void visitTask(LifeScriptParser.TaskContext ctx) {
         String taskName = ctx.STRING().getText();
 
