@@ -3,12 +3,15 @@ package com.lifescript.compiler;
 import com.lifescript.grammar.LifeScriptParser;
 import com.lifescript.grammar.LifeScriptParserBaseVisitor;
 
+import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.List;
 
 public class SemanticValidator extends LifeScriptParserBaseVisitor<Void> {
+    private LocalDate periodStart;
+    private LocalDate periodEnd;
     private final List<String> errors = new ArrayList<>();
 
     List<String> getErrors() {
@@ -133,14 +136,52 @@ public class SemanticValidator extends LifeScriptParserBaseVisitor<Void> {
 
     @Override
     public Void visitPeriod(LifeScriptParser.PeriodContext ctx) {
-        LocalDate startDate = LocalDate.parse(ctx.DATE(0).getText());
-        LocalDate endDate = LocalDate.parse(ctx.DATE(1).getText());
+        periodStart = LocalDate.parse(ctx.DATE(0).getText());
+        periodEnd = LocalDate.parse(ctx.DATE(1).getText());
 
-        int line = ctx.getStart().getLine();
-        if (!startDate.isBefore(endDate)) {
+        if (!periodStart.isBefore(periodEnd)) {
+            int line = ctx.getStart().getLine();
             errors.add(String.format("Line %d: Start date '%s' must be before end date '%s'",
-                    line, startDate.toString(), endDate.toString()));
+                    line, periodStart.toString(), periodEnd.toString()));
         }
         return visitChildren(ctx);
     }
+
+    @Override
+    public Void visitAvailabilityEntry(LifeScriptParser.AvailabilityEntryContext ctx) {
+        int line = ctx.getStart().getLine();
+
+        if (ctx.dayOfWeek() != null) {
+            String dayOfWeek = ctx.dayOfWeek().getText();
+            DayOfWeek day = DayOfWeek.valueOf(dayOfWeek.toUpperCase());
+            boolean found = false;
+
+            LocalDate current = periodStart;
+            while (!current.isAfter(periodEnd)) {
+                if (current.getDayOfWeek() == day) {
+                    found = true;
+                    break;
+                }
+                current = current.plusDays(1);
+            }
+
+            if (!found) {
+                errors.add(String.format("Line %d: Availability day of week '%s' must be within the period range '%s'-'%s'",
+                        line, dayOfWeek, periodStart.toString(), periodEnd.toString()));
+            }
+        } else if (ctx.DATE() != null) {
+            LocalDate inputDate = LocalDate.parse(ctx.DATE().getText());
+            if (inputDate.isBefore(periodStart)) {
+                errors.add(String.format("Line %d: Availability date '%s' is before the period start date '%s'",
+                        line, inputDate.toString(), periodStart.toString()));
+            }
+            if (inputDate.isAfter(periodEnd)) {
+                errors.add(String.format("Line %d: Availability date '%s' is after the period end date '%s'",
+                        line, inputDate.toString(), periodEnd.toString()));
+            }
+        }
+
+        return visitChildren(ctx);
+    }
 }
+
