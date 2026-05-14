@@ -7,16 +7,18 @@ import org.antlr.v4.runtime.tree.TerminalNode;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalTime;
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 
 public class SemanticValidator extends LifeScriptParserBaseVisitor<Void> {
     private LocalDate periodStart;
     private LocalDate periodEnd;
     private final List<String> errors = new ArrayList<>();
     private final Set<String> taskNames = new HashSet<>();
+    private final Map<String, List<String>> dependencyGraph = new HashMap<>();
+
+    private static final String WHITE = "WHITE";
+    private static final String GRAY = "GRAY";
+    private static final String BLACK = "BLACK";
 
     List<String> getErrors() {
         return this.errors;
@@ -71,6 +73,28 @@ public class SemanticValidator extends LifeScriptParserBaseVisitor<Void> {
         return visitChildren(ctx);
     }
 
+    private boolean detectTaskCycle(String task, Map<String, String> colors, List<String> path) {
+        if (GRAY.equals(colors.get(task))) {
+            int cycleStart = path.indexOf(task);
+            List<String> cycle = path.subList(cycleStart, path.size());
+            errors.add(String.format("Circular dependency detected: %s → %s",
+                    String.join(" → ", cycle), task));
+            return true;
+        }
+        if (BLACK.equals(colors.get(task))) return false;
+
+        colors.put(task, GRAY);
+        path.add(task);
+
+        for (String dep : dependencyGraph.getOrDefault(task, List.of())) {
+            if (detectTaskCycle(dep, colors, path)) return true;
+        }
+
+        path.remove(path.size() - 1);
+        colors.put(task, BLACK);
+        return false;
+    }
+
     @Override
     public Void visitTasks(LifeScriptParser.TasksContext ctx) {
 
@@ -82,7 +106,11 @@ public class SemanticValidator extends LifeScriptParserBaseVisitor<Void> {
             }
         }
 
+
         for (LifeScriptParser.TaskContext task: ctx.task()) {
+            String taskName = task.STRING().getText();
+            List<String> deps = new ArrayList<>();
+
             for (LifeScriptParser.TaskPropertyContext prop : task.taskProperty()) {
                 if (prop.taskDependencies() != null) {
                     for (TerminalNode dep : prop.taskDependencies().STRING()) {
@@ -90,10 +118,19 @@ public class SemanticValidator extends LifeScriptParserBaseVisitor<Void> {
                             int line = prop.getStart().getLine();
                             errors.add(String.format("Line %d: Task %s has non-existing dependency task %s ", line, task.STRING().getText(), dep.getText()));
                         }
+                        deps.add(dep.getText());
                     }
                 }
             }
             visit(task);
+            dependencyGraph.put(taskName, deps);
+        }
+
+        Map<String, String> colors = new HashMap<>();
+        for (String taskName : taskNames) {
+            if (!colors.containsKey(taskName)) {
+                detectTaskCycle(taskName, colors, new ArrayList<>());
+            }
         }
         return null;
     }
@@ -121,7 +158,7 @@ public class SemanticValidator extends LifeScriptParserBaseVisitor<Void> {
         return visitChildren(ctx);
     }
 
-    boolean validateTime(String time, int line) {
+    private boolean validateTime(String time, int line) {
         String[] parts = time.split(":");
         int hours = Integer.parseInt(parts[0]);
         int mins = Integer.parseInt(parts[1]);
@@ -214,7 +251,5 @@ public class SemanticValidator extends LifeScriptParserBaseVisitor<Void> {
 
         return visitChildren(ctx);
     }
-
-
 }
 
