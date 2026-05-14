@@ -2,17 +2,21 @@ package com.lifescript.compiler;
 
 import com.lifescript.grammar.LifeScriptParser;
 import com.lifescript.grammar.LifeScriptParserBaseVisitor;
+import org.antlr.v4.runtime.tree.TerminalNode;
 
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 public class SemanticValidator extends LifeScriptParserBaseVisitor<Void> {
     private LocalDate periodStart;
     private LocalDate periodEnd;
     private final List<String> errors = new ArrayList<>();
+    private final Set<String> taskNames = new HashSet<>();
 
     List<String> getErrors() {
         return this.errors;
@@ -65,6 +69,29 @@ public class SemanticValidator extends LifeScriptParserBaseVisitor<Void> {
         }
 
         return visitChildren(ctx);
+    }
+
+    @Override
+    public Void visitTasks(LifeScriptParser.TasksContext ctx) {
+
+        for (LifeScriptParser.TaskContext task: ctx.task()) {
+            taskNames.add(task.STRING().getText());
+        }
+
+        for (LifeScriptParser.TaskContext task: ctx.task()) {
+            for (LifeScriptParser.TaskPropertyContext prop : task.taskProperty()) {
+                if (prop.taskDependencies() != null) {
+                    for (TerminalNode dep : prop.taskDependencies().STRING()) {
+                        if (!taskNames.contains(dep.getText())) {
+                            int line = task.getStart().getLine();
+                            errors.add(String.format("Line %d: Task %s has non-existing dependency task %s ", line, task.STRING().getText(), dep.getText()));
+                        }
+                    }
+                }
+            }
+            visit(task);
+        }
+        return null;
     }
 
     @Override
@@ -183,5 +210,7 @@ public class SemanticValidator extends LifeScriptParserBaseVisitor<Void> {
 
         return visitChildren(ctx);
     }
+
+
 }
 
