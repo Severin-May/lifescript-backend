@@ -75,7 +75,11 @@ public class SemanticValidator extends LifeScriptParserBaseVisitor<Void> {
     public Void visitTasks(LifeScriptParser.TasksContext ctx) {
 
         for (LifeScriptParser.TaskContext task: ctx.task()) {
-            taskNames.add(task.STRING().getText());
+            String taskName = task.STRING().getText();
+            if (!taskNames.add(taskName)) {
+                int line = task.getStart().getLine();
+                errors.add(String.format("Line %d: Duplicate task name %s", line, taskName));
+            }
         }
 
         for (LifeScriptParser.TaskContext task: ctx.task()) {
@@ -83,7 +87,7 @@ public class SemanticValidator extends LifeScriptParserBaseVisitor<Void> {
                 if (prop.taskDependencies() != null) {
                     for (TerminalNode dep : prop.taskDependencies().STRING()) {
                         if (!taskNames.contains(dep.getText())) {
-                            int line = task.getStart().getLine();
+                            int line = prop.getStart().getLine();
                             errors.add(String.format("Line %d: Task %s has non-existing dependency task %s ", line, task.STRING().getText(), dep.getText()));
                         }
                     }
