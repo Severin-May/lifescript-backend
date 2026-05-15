@@ -1,19 +1,25 @@
 package com.lifescript;
 import com.lifescript.compiler.*;
 import com.lifescript.compiler.Compiler;
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
 
-//TIP To <b>Run</b> code, press <shortcut actionId="Run"/> or
-// click the <icon src="AllIcons.Actions.Execute"/> icon in the gutter.
+
+@SpringBootApplication
 public class Main {
+//    public static void main(String[] args) {
+//        if (args.length == 0) {
+//            System.err.println("File input is missing!");
+//            return;
+//        }
+//
+//        String filePath = args[0];
+//
+//        Compiler compiler = new Compiler();
+//        compiler.compile(filePath);
+//    }
+
     public static void main(String[] args) {
-        if (args.length == 0) {
-            System.err.println("File input is missing!");
-            return;
-        }
-
-        String filePath = args[0];
-
-        Compiler compiler = new Compiler();
-        compiler.compile(filePath);
+        SpringApplication.run(Main.class, args);
     }
 }
