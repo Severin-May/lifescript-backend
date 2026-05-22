@@ -2,12 +2,11 @@ package com.lifescript.compiler;
 
 import com.lifescript.grammar.LifeScriptLexer;
 import com.lifescript.grammar.LifeScriptParser;
-import org.antlr.v4.runtime.CharStream;
-import org.antlr.v4.runtime.CharStreams;
-import org.antlr.v4.runtime.CommonTokenStream;
+import org.antlr.v4.runtime.*;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 
 public class Compiler {
@@ -50,11 +49,35 @@ public class Compiler {
         CommonTokenStream tokens = new CommonTokenStream(lexer);
         LifeScriptParser parser = new LifeScriptParser(tokens);
 
+        List<String> errors = new ArrayList<>();
+
+        lexer.removeErrorListeners();
+        parser.removeErrorListeners();
+
+        lexer.addErrorListener(new BaseErrorListener() {
+            @Override
+            public void syntaxError(Recognizer<?, ?> recognizer, Object offendingSymbol,
+                                    int line, int charPositionInLine, String msg, RecognitionException e) {
+                errors.add(String.format("Line %d:%d: Syntax error - %s", line, charPositionInLine, msg));
+            }
+        });
+
+        parser.addErrorListener(new BaseErrorListener() {
+            @Override
+            public void syntaxError(Recognizer<?, ?> recognizer, Object offendingSymbol,
+                                    int line, int charPositionInLine, String msg, RecognitionException e) {
+                errors.add(String.format("Line %d:%d: Syntax error - %s", line, charPositionInLine, msg));
+            }
+        });
+
         LifeScriptParser.PlanContext tree = parser.plan();
+
+        if (!errors.isEmpty()) return errors;
 
         SemanticValidator validator = new SemanticValidator();
         validator.visit(tree);
+        errors.addAll(validator.getErrors());
 
-        return validator.getErrors();
+        return errors;
     }
 }

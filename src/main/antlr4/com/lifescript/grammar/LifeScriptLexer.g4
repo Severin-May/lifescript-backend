@@ -73,3 +73,4 @@ DURATION_VAL    : DIGIT+ 'h' (DIGIT+ 'm')? | DIGIT+ 'm' ;
 // Whitespace
 NEWLINE         : '\r'? '\n' ;
 WS              : [ \t]+ -> skip ;
+COMMENT : '#' ~[\r\n]* ('\r'? '\n')? -> skip ;
