@@ -181,5 +181,5 @@ timeRange
     ;
 
 period
-    : PERIOD COLON DATE TO DATE NEWLINE
+    : PERIOD COLON DATE TO DATE NEWLINE+
     ;

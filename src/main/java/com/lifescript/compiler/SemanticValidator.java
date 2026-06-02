@@ -106,7 +106,6 @@ public class SemanticValidator extends LifeScriptParserBaseVisitor<Void> {
             }
         }
 
-
         for (LifeScriptParser.TaskContext task: ctx.task()) {
             String taskName = task.STRING().getText();
             List<String> deps = new ArrayList<>();
@@ -204,7 +203,6 @@ public class SemanticValidator extends LifeScriptParserBaseVisitor<Void> {
 
     @Override
     public Void visitPeriod(LifeScriptParser.PeriodContext ctx) {
-        System.out.println("visitPeriod called");
         periodStart = LocalDate.parse(ctx.DATE(0).getText());
         periodEnd = LocalDate.parse(ctx.DATE(1).getText());
 
