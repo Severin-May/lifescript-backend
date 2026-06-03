@@ -16,9 +16,20 @@ import java.util.List;
 public class CompilerController {
     private final Compiler compiler = new Compiler();
 
+    @PostMapping("/validate")
+    public CompileResponse validate(@RequestBody CompileRequest request) {
+        List<String> errors = compiler.syntaxValidate(request.getContent());
+
+        CompileResponse response = new CompileResponse();
+        response.setErrors(errors);
+        response.setValid(errors.isEmpty());
+
+        return response;
+    }
+
     @PostMapping("/compile")
     public CompileResponse compile(@RequestBody CompileRequest request) {
-        List<String> errors = compiler.compileFromString(request.getContent());
+        List<String> errors = compiler.fullCompile(request.getContent());
 
         CompileResponse response = new CompileResponse();
         response.setErrors(errors);

@@ -2,6 +2,7 @@ package com.lifescript.compiler;
 
 import com.lifescript.grammar.LifeScriptLexer;
 import com.lifescript.grammar.LifeScriptParser;
+import com.lifescript.model.Plan;
 import org.antlr.v4.runtime.*;
 
 import java.io.File;
@@ -39,38 +40,10 @@ public class Compiler {
         }
     }
 
-    public List<String> compileFromString(String content) {
+    public List<String> fullCompile(String content) {
         CharStream input = CharStreams.fromString(content);
-        return compileFromCharStream(input);
-    }
-
-    private List<String> compileFromCharStream(CharStream input) {
-        LifeScriptLexer lexer = new LifeScriptLexer(input);
-        CommonTokenStream tokens = new CommonTokenStream(lexer);
-        LifeScriptParser parser = new LifeScriptParser(tokens);
-
         List<String> errors = new ArrayList<>();
-
-        lexer.removeErrorListeners();
-        parser.removeErrorListeners();
-
-        lexer.addErrorListener(new BaseErrorListener() {
-            @Override
-            public void syntaxError(Recognizer<?, ?> recognizer, Object offendingSymbol,
-                                    int line, int charPositionInLine, String msg, RecognitionException e) {
-                errors.add(String.format("Line %d:%d: Syntax error - %s", line, charPositionInLine, msg));
-            }
-        });
-
-        parser.addErrorListener(new BaseErrorListener() {
-            @Override
-            public void syntaxError(Recognizer<?, ?> recognizer, Object offendingSymbol,
-                                    int line, int charPositionInLine, String msg, RecognitionException e) {
-                errors.add(String.format("Line %d:%d: Syntax error - %s", line, charPositionInLine, msg));
-            }
-        });
-
-        LifeScriptParser.PlanContext tree = parser.plan();
+        LifeScriptParser.PlanContext tree = parseWithSyntaxChecks(input, errors);
 
         if (!errors.isEmpty()) return errors;
 
@@ -78,6 +51,48 @@ public class Compiler {
         validator.visit(tree);
         errors.addAll(validator.getErrors());
 
+        if (!errors.isEmpty()) return errors;
+
+        PlanModelBuilder modelBuilder = new PlanModelBuilder();
+        modelBuilder.visit(tree);
+        Plan plan = modelBuilder.getPlan();
+
+//        try {
+//            Scheduler scheduler = new Scheduler(plan);
+//            Schedule schedule = scheduler.schedule();
+//        } catch (Exception e) {
+//            errors.add("Scheduling error: " + e.getMessage());
+//        }
+
         return errors;
+    }
+
+    public List<String> syntaxValidate(String content) {
+        CharStream input = CharStreams.fromString(content);
+        List<String> errors = new ArrayList<>();
+        parseWithSyntaxChecks(input, errors);
+        return errors;
+    }
+
+    private LifeScriptParser.PlanContext parseWithSyntaxChecks(CharStream input, List<String> errors) {
+        LifeScriptLexer lexer = new LifeScriptLexer(input);
+        CommonTokenStream tokens = new CommonTokenStream(lexer);
+        LifeScriptParser parser = new LifeScriptParser(tokens);
+
+        lexer.removeErrorListeners();
+        parser.removeErrorListeners();
+
+        BaseErrorListener syntaxErrorListener = new BaseErrorListener() {
+            @Override
+            public void syntaxError(Recognizer<?, ?> recognizer, Object offendingSymbol,
+                                    int line, int charPositionInLine, String msg, RecognitionException e) {
+                errors.add(String.format("Line %d:%d: Syntax error - %s", line, charPositionInLine, msg));
+            }
+        };
+
+        lexer.addErrorListener(syntaxErrorListener);
+        parser.addErrorListener(syntaxErrorListener);
+
+        return parser.plan();
     }
 }
