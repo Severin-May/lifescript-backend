@@ -6,6 +6,9 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.bind.annotation.RequestMapping;
 
+import com.lifescript.api.CompileRequest;
+import com.lifescript.api.CompileResponse;
+
 import java.util.List;
 
 @RestController

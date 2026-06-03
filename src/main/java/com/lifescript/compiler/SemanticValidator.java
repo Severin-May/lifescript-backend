@@ -7,6 +7,7 @@ import org.antlr.v4.runtime.tree.TerminalNode;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalTime;
+import java.time.format.DateTimeParseException;
 import java.util.*;
 
 public class SemanticValidator extends LifeScriptParserBaseVisitor<Void> {
@@ -183,6 +184,22 @@ public class SemanticValidator extends LifeScriptParserBaseVisitor<Void> {
     }
 
     @Override
+    public Void visitTaskDeadline(LifeScriptParser.TaskDeadlineContext ctx) {
+        int line = ctx.getStart().getLine();
+
+        if (ctx.DATE() != null) {
+            try {
+                LocalDate.parse(ctx.DATE().getText());
+            }
+            catch (DateTimeParseException e) {
+                String invalidDate = ctx.DATE().getText();
+                errors.add(String.format("Line %d: Invalid deadline date '%s'", line, invalidDate));
+            }
+        }
+        return visitChildren(ctx);
+    }
+
+    @Override
     public Void visitTimeRange(LifeScriptParser.TimeRangeContext ctx) {
         int line = ctx.getStart().getLine();
         boolean startValid = validateTime(ctx.TIME_VAL(0).getText(), line);
@@ -203,11 +220,29 @@ public class SemanticValidator extends LifeScriptParserBaseVisitor<Void> {
 
     @Override
     public Void visitPeriod(LifeScriptParser.PeriodContext ctx) {
-        periodStart = LocalDate.parse(ctx.DATE(0).getText());
-        periodEnd = LocalDate.parse(ctx.DATE(1).getText());
+        int line = ctx.getStart().getLine();
 
-        if (!periodStart.isBefore(periodEnd)) {
-            int line = ctx.getStart().getLine();
+        try {
+            periodStart = LocalDate.parse(ctx.DATE(0).getText());
+        } catch (DateTimeParseException e) {
+            System.out.println("Exception caught: " + e.getMessage());
+            String invalidDate = ctx.DATE(0).getText();
+            errors.add(String.format("Line %d: Invalid date '%s'",
+                    line, invalidDate));
+            return visitChildren(ctx);
+        }
+
+        try {
+            periodEnd = LocalDate.parse(ctx.DATE(1).getText());
+        } catch (DateTimeParseException e) {
+            System.out.println("Exception caught: " + e.getMessage());
+            String invalidDate = ctx.DATE(1).getText();
+            errors.add(String.format("Line %d: Invalid date '%s'",
+                    line, invalidDate));
+            return visitChildren(ctx);
+        }
+
+        if (periodStart != null && periodEnd != null && !periodStart.isBefore(periodEnd)) {
             errors.add(String.format("Line %d: Start date '%s' must be before end date '%s'",
                     line, periodStart.toString(), periodEnd.toString()));
         }
@@ -221,30 +256,42 @@ public class SemanticValidator extends LifeScriptParserBaseVisitor<Void> {
         if (ctx.dayOfWeek() != null) {
             String dayOfWeek = ctx.dayOfWeek().getText();
             DayOfWeek day = DayOfWeek.valueOf(dayOfWeek.toUpperCase());
-            boolean found = false;
 
-            LocalDate current = periodStart;
-            while (!current.isAfter(periodEnd)) {
-                if (current.getDayOfWeek() == day) {
-                    found = true;
-                    break;
+            if (periodStart != null && periodEnd != null) {
+                boolean found = false;
+
+                LocalDate current = periodStart;
+                while (!current.isAfter(periodEnd)) {
+                    if (current.getDayOfWeek() == day) {
+                        found = true;
+                        break;
+                    }
+                    current = current.plusDays(1);
                 }
-                current = current.plusDays(1);
-            }
 
-            if (!found) {
-                errors.add(String.format("Line %d: Availability day of week '%s' must be within the period range '%s'-'%s'",
-                        line, dayOfWeek, periodStart.toString(), periodEnd.toString()));
+                if (!found) {
+                    errors.add(String.format("Line %d: Availability day of week '%s' must be within the period range '%s'-'%s'",
+                            line, dayOfWeek, periodStart.toString(), periodEnd.toString()));
+                }
             }
         } else if (ctx.DATE() != null) {
-            LocalDate inputDate = LocalDate.parse(ctx.DATE().getText());
-            if (inputDate.isBefore(periodStart)) {
-                errors.add(String.format("Line %d: Availability date '%s' is before the period start date '%s'",
-                        line, inputDate.toString(), periodStart.toString()));
+            try {
+                LocalDate inputDate = LocalDate.parse(ctx.DATE().getText());
+
+                if (periodStart != null && periodEnd != null) {
+                    if (inputDate.isBefore(periodStart)) {
+                        errors.add(String.format("Line %d: Availability date '%s' is before the period start date '%s'",
+                                line, inputDate.toString(), periodStart.toString()));
+                    }
+                    if (inputDate.isAfter(periodEnd)) {
+                        errors.add(String.format("Line %d: Availability date '%s' is after the period end date '%s'",
+                                line, inputDate.toString(), periodEnd.toString()));
+                    }
+                }
             }
-            if (inputDate.isAfter(periodEnd)) {
-                errors.add(String.format("Line %d: Availability date '%s' is after the period end date '%s'",
-                        line, inputDate.toString(), periodEnd.toString()));
+            catch (DateTimeParseException e) {
+                String invalidDate = ctx.DATE().getText();
+                errors.add(String.format("Line %d: Invalid availability date '%s'", line, invalidDate));
             }
         }
 
