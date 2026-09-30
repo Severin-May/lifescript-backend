@@ -2,6 +2,7 @@ package com.lifescript.compiler;
 
 import com.lifescript.grammar.LifeScriptParser;
 import com.lifescript.grammar.LifeScriptParserBaseVisitor;
+import org.antlr.v4.runtime.ParserRuleContext;
 import org.antlr.v4.runtime.tree.TerminalNode;
 
 import java.time.DayOfWeek;
@@ -9,6 +10,7 @@ import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.format.DateTimeParseException;
 import java.util.*;
+import java.util.function.Function;
 
 public class SemanticValidator extends LifeScriptParserBaseVisitor<Void> {
     private LocalDate periodStart;
@@ -31,11 +33,22 @@ public class SemanticValidator extends LifeScriptParserBaseVisitor<Void> {
 
     @Override
     public Void visitPlan(LifeScriptParser.PlanContext ctx) {
-        String planName = ctx.STRING().getText();
+        String planName = ctx.IDENTIFIER().getText();
 
+        visit(ctx.period());
+
+        Set<String> seenSections = new HashSet<>();
         boolean hasTasks = false;
-        for (LifeScriptParser.PlanSectionContext prop : ctx.planSection()) {
-            if (prop.tasks() != null) hasTasks = true;
+
+        for (LifeScriptParser.PlanSectionContext section : ctx.planSection()) {
+            String kind = sectionKind(section);
+            if (!seenSections.add(kind)) {
+                int sectionLine = section.getStart().getLine();
+                errors.add(String.format("Line %d: Plan has duplicate '%s' section", sectionLine, kind));
+                continue;
+            }
+            if (section.tasks() != null) hasTasks = true;
+            visit(section);
         }
 
         int line = ctx.getStart().getLine();
@@ -43,12 +56,20 @@ public class SemanticValidator extends LifeScriptParserBaseVisitor<Void> {
             errors.add(String.format("Line %d: Plan %s is missing mandatory property: tasks", line, planName));
         }
 
-        return visitChildren(ctx);
+        return null;
+    }
+
+    private String sectionKind(LifeScriptParser.PlanSectionContext ctx) {
+        if (ctx.settings() != null) return "settings";
+        if (ctx.availability() != null) return "availability";
+        if (ctx.energyProfile() != null) return "energy profile";
+        if (ctx.routines() != null) return "routines";
+        return "tasks";
     }
 
     @Override
     public Void visitTask(LifeScriptParser.TaskContext ctx) {
-        String taskName = ctx.STRING().getText();
+        String taskName = ctx.IDENTIFIER().getText();
 
         boolean hasDuration = false;
         boolean hasPriority = false;
@@ -72,6 +93,18 @@ public class SemanticValidator extends LifeScriptParserBaseVisitor<Void> {
         }
 
         return visitChildren(ctx);
+    }
+
+    private <T extends ParserRuleContext> void checkDuplicateKeys(
+            List<T> entries, Function<T, String> keyOf, String label) {
+        Set<String> seen = new HashSet<>();
+        for (T entry : entries) {
+            String key = keyOf.apply(entry);
+            if (!seen.add(key)) {
+                int line = entry.getStart().getLine();
+                errors.add(String.format("Line %d: Duplicate %s '%s'", line, label, key));
+            }
+        }
     }
 
     private boolean detectTaskCycle(String task, Map<String, String> colors, List<String> path) {
@@ -100,7 +133,7 @@ public class SemanticValidator extends LifeScriptParserBaseVisitor<Void> {
     public Void visitTasks(LifeScriptParser.TasksContext ctx) {
 
         for (LifeScriptParser.TaskContext task: ctx.task()) {
-            String taskName = task.STRING().getText();
+            String taskName = task.IDENTIFIER().getText();
             if (!taskNames.add(taskName)) {
                 int line = task.getStart().getLine();
                 errors.add(String.format("Line %d: Duplicate task name %s", line, taskName));
@@ -108,15 +141,15 @@ public class SemanticValidator extends LifeScriptParserBaseVisitor<Void> {
         }
 
         for (LifeScriptParser.TaskContext task: ctx.task()) {
-            String taskName = task.STRING().getText();
+            String taskName = task.IDENTIFIER().getText();
             List<String> deps = new ArrayList<>();
 
             for (LifeScriptParser.TaskPropertyContext prop : task.taskProperty()) {
                 if (prop.taskDependencies() != null) {
-                    for (TerminalNode dep : prop.taskDependencies().STRING()) {
+                    for (TerminalNode dep : prop.taskDependencies().IDENTIFIER()) {
                         if (!taskNames.contains(dep.getText())) {
                             int line = prop.getStart().getLine();
-                            errors.add(String.format("Line %d: Task %s has non-existing dependency task %s ", line, task.STRING().getText(), dep.getText()));
+                            errors.add(String.format("Line %d: Task %s has non-existing dependency task %s ", line, task.IDENTIFIER().getText(), dep.getText()));
                         }
                         deps.add(dep.getText());
                     }
@@ -136,8 +169,20 @@ public class SemanticValidator extends LifeScriptParserBaseVisitor<Void> {
     }
 
     @Override
+    public Void visitRoutines(LifeScriptParser.RoutinesContext ctx) {
+        checkDuplicateKeys(ctx.routineEntry(), e -> e.IDENTIFIER().getText(), "routine name");
+        return visitChildren(ctx);
+    }
+
+    @Override
+    public Void visitRoutineActivities(LifeScriptParser.RoutineActivitiesContext ctx) {
+        checkDuplicateKeys(ctx.activityEntry(), e -> e.IDENTIFIER().getText(), "activity name");
+        return visitChildren(ctx);
+    }
+
+    @Override
     public Void visitRoutineEntry(LifeScriptParser.RoutineEntryContext ctx) {
-        String routineName = ctx.STRING().getText();
+        String routineName = ctx.IDENTIFIER().getText();
 
         boolean hasTime = false;
         boolean hasActivities = false;
@@ -250,48 +295,53 @@ public class SemanticValidator extends LifeScriptParserBaseVisitor<Void> {
     }
 
     @Override
+    public Void visitSettings(LifeScriptParser.SettingsContext ctx) {
+        checkDuplicateKeys(ctx.settingsEntry(), e -> e.namedPeriod().getText(), "settings entry");
+        return visitChildren(ctx);
+    }
+
+    @Override
+    public Void visitAvailability(LifeScriptParser.AvailabilityContext ctx) {
+        checkDuplicateKeys(ctx.availabilityEntry(), e -> e.dayOfWeek().getText(), "availability day");
+        return visitChildren(ctx);
+    }
+
+    @Override
+    public Void visitEnergyProfile(LifeScriptParser.EnergyProfileContext ctx) {
+        checkDuplicateKeys(ctx.energyProfileEntry(),
+                e -> e.DEFAULT() != null ? "default" : e.dayOfWeek().getText(), "energy profile entry");
+        return visitChildren(ctx);
+    }
+
+    @Override
+    public Void visitEnergyProfileEntry(LifeScriptParser.EnergyProfileEntryContext ctx) {
+        checkDuplicateKeys(ctx.energyEntry(),
+                e -> e.namedPeriod() != null ? e.namedPeriod().getText() : e.timeRange().getText(), "energy entry");
+        return visitChildren(ctx);
+    }
+
+    @Override
     public Void visitAvailabilityEntry(LifeScriptParser.AvailabilityEntryContext ctx) {
         int line = ctx.getStart().getLine();
 
-        if (ctx.dayOfWeek() != null) {
-            String dayOfWeek = ctx.dayOfWeek().getText();
-            DayOfWeek day = DayOfWeek.valueOf(dayOfWeek.toUpperCase());
+        String dayOfWeek = ctx.dayOfWeek().getText();
+        DayOfWeek day = DayOfWeek.valueOf(dayOfWeek.toUpperCase());
 
-            if (periodStart != null && periodEnd != null) {
-                boolean found = false;
+        if (periodStart != null && periodEnd != null) {
+            boolean found = false;
 
-                LocalDate current = periodStart;
-                while (!current.isAfter(periodEnd)) {
-                    if (current.getDayOfWeek() == day) {
-                        found = true;
-                        break;
-                    }
-                    current = current.plusDays(1);
+            LocalDate current = periodStart;
+            while (!current.isAfter(periodEnd)) {
+                if (current.getDayOfWeek() == day) {
+                    found = true;
+                    break;
                 }
-
-                if (!found) {
-                    errors.add(String.format("Line %d: Availability day of week '%s' must be within the period range '%s'-'%s'",
-                            line, dayOfWeek, periodStart.toString(), periodEnd.toString()));
-                }
+                current = current.plusDays(1);
             }
-        } else if (ctx.DATE() != null) {
-            try {
-                LocalDate inputDate = LocalDate.parse(ctx.DATE().getText());
 
-                if (periodStart != null && periodEnd != null) {
-                    if (inputDate.isBefore(periodStart)) {
-                        errors.add(String.format("Line %d: Availability date '%s' is before the period start date '%s'",
-                                line, inputDate.toString(), periodStart.toString()));
-                    }
-                    if (inputDate.isAfter(periodEnd)) {
-                        errors.add(String.format("Line %d: Availability date '%s' is after the period end date '%s'",
-                                line, inputDate.toString(), periodEnd.toString()));
-                    }
-                }
-            }
-            catch (DateTimeParseException e) {
-                String invalidDate = ctx.DATE().getText();
-                errors.add(String.format("Line %d: Invalid availability date '%s'", line, invalidDate));
+            if (!found) {
+                errors.add(String.format("Line %d: Availability day of week '%s' must be within the period range '%s'-'%s'",
+                        line, dayOfWeek, periodStart.toString(), periodEnd.toString()));
             }
         }
 
