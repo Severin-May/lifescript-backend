@@ -15,7 +15,7 @@ public class PlanModelBuilder extends LifeScriptParserBaseVisitor<Void> {
 
     @Override
     public Void visitPlan(LifeScriptParser.PlanContext ctx) {
-        plan.setName(ctx.STRING().getText().replace("\"", ""));
+        plan.setName(ctx.IDENTIFIER().getText());
         return visitChildren(ctx);
     }
 
