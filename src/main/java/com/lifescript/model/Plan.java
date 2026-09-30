@@ -11,7 +11,8 @@ public class Plan {
     private LocalDate endDate;
     private Map<String, TimeRange> timeSettings;
     private Map<DayOfWeek, List<TimeRange>> availability;
-    private Map<DayOfWeek, Map<TimeRange, EnergyLevel>> energyProfile;
+    private Map<TimeRange, EnergyLevel> defaultEnergyProfile;
+    private Map<DayOfWeek, Map<TimeRange, EnergyLevel>> energyProfileOverrides;
     private List<Task> tasks;
     private List<Routine> routines;
 
@@ -55,12 +56,20 @@ public class Plan {
         this.availability = availability;
     }
 
-    public Map<DayOfWeek, Map<TimeRange, EnergyLevel>> getEnergyProfile() {
-        return energyProfile;
+    public Map<TimeRange, EnergyLevel> getDefaultEnergyProfile() {
+        return defaultEnergyProfile;
     }
 
-    public void setEnergyProfile(Map<DayOfWeek, Map<TimeRange, EnergyLevel>> energyProfile) {
-        this.energyProfile = energyProfile;
+    public void setDefaultEnergyProfile(Map<TimeRange, EnergyLevel> defaultEnergyProfile) {
+        this.defaultEnergyProfile = defaultEnergyProfile;
+    }
+
+    public Map<DayOfWeek, Map<TimeRange, EnergyLevel>> getEnergyProfileOverrides() {
+        return energyProfileOverrides;
+    }
+
+    public void setEnergyProfileOverrides(Map<DayOfWeek, Map<TimeRange, EnergyLevel>> energyProfileOverrides) {
+        this.energyProfileOverrides = energyProfileOverrides;
     }
 
     public List<Task> getTasks() {

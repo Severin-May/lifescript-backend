@@ -1,8 +1,10 @@
 package com.lifescript.model;
 
+import java.time.Duration;
+
 public class Activity {
     private String name;
-    private int duration;
+    private Duration duration;
 
     public String getName() {
         return name;
@@ -12,11 +14,11 @@ public class Activity {
         this.name = name;
     }
 
-    public int getDuration() {
+    public Duration getDuration() {
         return duration;
     }
 
-    public void setDuration(int duration) {
+    public void setDuration(Duration duration) {
         this.duration = duration;
     }
 }

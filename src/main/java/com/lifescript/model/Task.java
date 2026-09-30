@@ -1,6 +1,7 @@
 package com.lifescript.model;
 
 import java.time.DayOfWeek;
+import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.List;
@@ -8,7 +9,7 @@ import java.util.List;
 public class Task {
 
     private String name;
-    private int duration;
+    private Duration duration;
     private Priority priority;
     private EnergyLevel effort;
     private LocalDate deadline;
@@ -26,11 +27,11 @@ public class Task {
         this.name = name;
     }
 
-    public int getDuration() {
+    public Duration getDuration() {
         return duration;
     }
 
-    public void setDuration(int duration) {
+    public void setDuration(Duration duration) {
         this.duration = duration;
     }
 
