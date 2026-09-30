@@ -2,11 +2,14 @@ parser grammar LifeScriptParser;
 options { tokenVocab=LifeScriptLexer; }
 
 plan
-    : PLAN COLON STRING NEWLINE
+    : eol? PLAN COLON IDENTIFIER eol
       period
       planSection*
-      NEWLINE*
       EOF
+    ;
+
+period
+    : PERIOD COLON DATE TO DATE eol
     ;
 
 planSection
@@ -17,14 +20,111 @@ planSection
     | tasks
     ;
 
+// Settings
+settings
+    : SETTINGS COLON eol
+      settingsEntry+
+    ;
+
+settingsEntry
+    : namedPeriod COLON timeRange eol
+    ;
+
+// Availability
+availability
+    : AVAILABILITY COLON eol
+      availabilityEntry+
+    ;
+
+availabilityEntry
+    : dayOfWeek COLON availabilityValue eol
+    ;
+
+availabilityValue
+    : OFF
+    | FLEXIBLE
+    | namedPeriodList
+    | timeRangeList
+    ;
+
+namedPeriodList
+    : namedPeriod (COMMA namedPeriod)*
+    ;
+
+timeRangeList
+    : timeRange (COMMA timeRange)*
+    ;
+
+// Energy profile
+energyProfile
+    : ENERGY PROFILE COLON eol
+      energyProfileEntry+
+    ;
+
+energyProfileEntry
+    : (DEFAULT | dayOfWeek) COLON eol
+      energyEntry+
+    ;
+
+energyEntry
+    : (namedPeriod | timeRange) COLON energyLevel eol
+    ;
+
+energyLevel
+    : HIGH | MODERATE | LOW
+    ;
+
+// Routines
+routines
+    : ROUTINES COLON eol
+      routineEntry+
+    ;
+
+routineEntry
+    : ROUTINE COLON IDENTIFIER eol
+      routineProperty+
+    ;
+
+routineProperty
+    : routineTime
+    | repeats
+    | routineActivities
+    ;
+
+routineTime
+    : TIME COLON (namedPeriod | timeRange) eol
+    ;
+
+routineActivities
+    : ACTIVITIES COLON eol
+      activityEntry+
+    ;
+
+activityEntry
+    : IDENTIFIER COLON DURATION_VAL eol
+    ;
+
+// Repetition
+repeats
+    : REPEATS COLON repeatPattern eol
+    ;
+
+repeatPattern
+    : DAILY | WEEKDAYS | WEEKENDS | dayList
+    ;
+
+dayList
+    : dayOfWeek (COMMA dayOfWeek)*
+    ;
+
+// Tasks
 tasks
-    : TASKS COLON NEWLINE
+    : TASKS COLON eol
       task+
-      NEWLINE*
     ;
 
 task
-    : TASK COLON STRING NEWLINE
+    : TASK COLON IDENTIFIER eol
       taskProperty+
     ;
 
@@ -40,11 +140,11 @@ taskProperty
     ;
 
 taskDuration
-    : DURATION COLON DURATION_VAL NEWLINE*
+    : DURATION COLON DURATION_VAL eol
     ;
 
 taskPriority
-    : PRIORITY COLON priorityLevel NEWLINE*
+    : PRIORITY COLON priorityLevel eol
     ;
 
 priorityLevel
@@ -52,124 +152,28 @@ priorityLevel
     ;
 
 taskEffort
-    : EFFORT COLON energyLevel NEWLINE*
+    : EFFORT COLON energyLevel eol
     ;
 
 taskDeadline
-    : DEADLINE COLON (dayOfWeek | DATE) NEWLINE*
+    : DEADLINE COLON DATE eol
     ;
 
 taskStart
-    : START COLON TIME_VAL NEWLINE*
+    : START COLON TIME_VAL eol
     ;
 
 taskDependencies
-    : DEPENDENCIES COLON STRING (COMMA STRING)* NEWLINE*
+    : DEPENDENCIES COLON IDENTIFIER (COMMA IDENTIFIER)* eol
     ;
 
 taskNote
-    : NOTE COLON STRING NEWLINE*
+    : NOTE COLON STRING eol
     ;
 
-routines
-    : ROUTINES COLON NEWLINE
-      routineEntry+
-      NEWLINE*
-    ;
-
-routineEntry
-    : ROUTINE COLON STRING NEWLINE
-      routineProperty+
-    ;
-
-routineProperty
-    : routineTime
-    | repeats
-    | routineActivities
-    ;
-
-routineTime
-    : TIME COLON (namedPeriod | timeRange) NEWLINE*
-    ;
-
-repeats
-    : REPEATS COLON repeatPattern NEWLINE*
-    ;
-
-repeatPattern
-    : DAILY | WEEKDAYS | WEEKENDS | dayList
-    ;
-
-dayList
-    : dayOfWeek (COMMA dayOfWeek)*
-    ;
-
-routineActivities
-    : ACTIVITIES COLON NEWLINE
-      activityEntry+
-      NEWLINE*
-    ;
-activityEntry
-    : STRING COLON DURATION_VAL NEWLINE*
-    ;
-
-energyProfile
-    : ENERGY PROFILE COLON NEWLINE
-      energyProfileEntry+
-      NEWLINE*
-    ;
-
-energyProfileEntry
-    : (DEFAULT | dayOfWeek) COLON NEWLINE
-      energyEntry+
-    ;
-
-energyEntry
-    : (namedPeriod | timeRange) COLON energyLevel NEWLINE*
-    ;
-
-energyLevel
-    : HIGH | MODERATE | LOW
-    ;
-
-availability
-    : AVAILABILITY COLON NEWLINE
-      availabilityEntry+
-      NEWLINE*
-    ;
-
-availabilityEntry
-    : (dayOfWeek | DATE) COLON availabilityValue NEWLINE*
-    ;
-
+// Common stuff
 dayOfWeek
     : MONDAY | TUESDAY | WEDNESDAY | THURSDAY | FRIDAY | SATURDAY | SUNDAY
-    ;
-
-availabilityValue
-    : OFF
-    | FLEXIBLE
-    | namedPeriodList
-    | timeRangeList
-    | namedPeriodList COMMA timeRangeList
-    ;
-
-namedPeriodList
-    : namedPeriod (COMMA namedPeriod)*
-    ;
-
-timeRangeList
-    : timeRange (COMMA timeRange)*
-    ;
-
-settings
-    : SETTINGS COLON NEWLINE
-      settingsEntry+
-      NEWLINE*
-    ;
-
-settingsEntry
-    : namedPeriod COLON timeRange NEWLINE*
     ;
 
 namedPeriod
@@ -180,6 +184,6 @@ timeRange
     : TIME_VAL DASH TIME_VAL
     ;
 
-period
-    : PERIOD COLON DATE TO DATE NEWLINE+
+eol
+    : NEWLINE+
     ;
