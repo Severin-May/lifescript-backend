@@ -2,8 +2,8 @@ lexer grammar LifeScriptLexer;
 
 // Fragments
 fragment DIGIT  : [0-9] ;
-fragment HOUR   : DIGIT DIGIT ;
-fragment MINUTE : DIGIT DIGIT ;
+fragment HOUR   : [01][0-9] | '2'[0-3] ;
+fragment MINUTE : [0-5][0-9] ;
 fragment YEAR   : DIGIT DIGIT DIGIT DIGIT ;
 fragment MONTH  : DIGIT DIGIT ;
 fragment DAY    : DIGIT DIGIT ;
@@ -21,13 +21,13 @@ EVENING         : 'evening' ;
 AVAILABILITY    : 'availability' ;
 OFF             : 'off' ;
 FLEXIBLE        : 'flexible' ;
-MONDAY          : 'Monday' ;
-TUESDAY         : 'Tuesday' ;
-WEDNESDAY       : 'Wednesday' ;
-THURSDAY        : 'Thursday' ;
-FRIDAY          : 'Friday' ;
-SATURDAY        : 'Saturday' ;
-SUNDAY          : 'Sunday' ;
+MONDAY          : 'monday' ;
+TUESDAY         : 'tuesday' ;
+WEDNESDAY       : 'wednesday' ;
+THURSDAY        : 'thursday' ;
+FRIDAY          : 'friday' ;
+SATURDAY        : 'saturday' ;
+SUNDAY          : 'sunday' ;
 
 ENERGY          : 'energy' ;
 PROFILE         : 'profile' ;
@@ -57,11 +57,15 @@ NOTE            : 'note' ;
 CRITICAL        : 'critical' ;
 MEDIUM          : 'medium' ;
 
+// Identifiers
+IDENTIFIER
+    : [a-z_] [a-z0-9_]*
+    ;
+
 // Symbols
 COLON           : ':' ;
 DASH            : '-' ;
 COMMA           : ',' ;
-
 
 // Literals
 TIME_VAL        : HOUR ':' MINUTE ;
@@ -69,8 +73,7 @@ DATE            : YEAR '-' MONTH '-' DAY ;
 STRING          : '"' (~["\r\n])* '"' ;
 DURATION_VAL    : DIGIT+ 'h' (DIGIT+ 'm')? | DIGIT+ 'm' ;
 
-
 // Whitespace
 NEWLINE         : '\r'? '\n' ;
 WS              : [ \t]+ -> skip ;
-COMMENT : '#' ~[\r\n]* ('\r'? '\n')? -> skip ;
+COMMENT         : '#' ~[\r\n]* -> skip;
