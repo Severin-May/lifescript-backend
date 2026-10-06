@@ -2,6 +2,9 @@ package com.lifescript.compiler;
 
 import org.junit.jupiter.api.Test;
 
+import java.io.IOException;
+import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -12,49 +15,17 @@ class CompilerTest {
 
     private final Compiler compiler = new Compiler();
 
+    // Loads a LifeScript file from src/test/resources/lifescript/.
+    private String load(String name) throws IOException {
+        try (InputStream in = getClass().getResourceAsStream("/lifescript/" + name)) {
+            if (in == null) throw new IOException("Test resource not found: " + name);
+            return new String(in.readAllBytes(), StandardCharsets.UTF_8);
+        }
+    }
+
     @Test
-    void validPlan_hasNoErrors() {
-        String plan = """
-                # weekly plan
-                # with comments and blank lines
-
-                plan: my_week
-                period: 2024-01-01 to 2024-01-31
-
-                settings:
-                morning: 08:00-12:00
-                afternoon: 13:00-17:00
-
-                availability:
-                monday: flexible
-                tuesday: 09:00-17:00
-
-                energy profile:
-                default:
-                morning: high
-                afternoon: low
-
-                routines:
-                routine: morning_routine
-                time: morning
-                activities:
-                stretch: 15m
-                shower: 20m
-
-                tasks:
-                task: write_report
-                duration: 2h
-                priority: high
-                effort: high
-
-                task: review_report
-                duration: 1h
-                priority: medium
-                effort: low
-                dependencies: write_report
-                """;
-
-        List<String> errors = compiler.fullCompile(plan);
+    void validPlan_hasNoErrors() throws IOException {
+        List<String> errors = compiler.fullCompile(load("fullPlan.ls"));
 
         assertTrue(errors.isEmpty(), () -> "Expected no errors but got: " + errors);
     }
@@ -232,6 +203,78 @@ class CompilerTest {
         List<String> errors = compiler.fullCompile(plan);
 
         assertTrue(errors.stream().anyMatch(e -> e.contains("Circular dependency detected")));
+    }
+
+    @Test
+    void nonExistingDependency_isReported() {
+        String plan = """
+                plan: p
+                period: 2024-01-01 to 2024-01-31
+
+                availability:
+                monday: flexible
+
+                tasks:
+                task: a
+                duration: 1h
+                priority: high
+                effort: high
+                dependencies: ghost
+                """;
+
+        List<String> errors = compiler.fullCompile(plan);
+
+        assertTrue(errors.stream().anyMatch(e -> e.contains("Task a has non-existing dependency task ghost")));
+    }
+
+    @Test
+    void duplicateTaskName_isReported() {
+        String plan = """
+                plan: p
+                period: 2024-01-01 to 2024-01-31
+
+                availability:
+                monday: flexible
+
+                tasks:
+                task: a
+                duration: 1h
+                priority: high
+                effort: high
+
+                task: a
+                duration: 2h
+                priority: low
+                effort: low
+                """;
+
+        List<String> errors = compiler.fullCompile(plan);
+
+        assertTrue(errors.stream().anyMatch(e -> e.contains("Duplicate task name a")));
+    }
+
+    @Test
+    void availabilityDayOutsidePeriod_isReported() {
+        // 2024-01-01 is a Monday, so the period covers Monday to Wednesday only.
+        String plan = """
+                plan: p
+                period: 2024-01-01 to 2024-01-03
+
+                availability:
+                monday: flexible
+                friday: 09:00-17:00
+
+                tasks:
+                task: a
+                duration: 1h
+                priority: high
+                effort: high
+                """;
+
+        List<String> errors = compiler.fullCompile(plan);
+
+        assertTrue(errors.stream().anyMatch(e -> e.contains("Availability day of week 'friday' must be within the period range")));
+        assertFalse(errors.stream().anyMatch(e -> e.contains("'monday' must be within the period range")));
     }
 
     @Test
