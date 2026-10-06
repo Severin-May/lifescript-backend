@@ -76,6 +76,9 @@ public class SemanticValidator extends LifeScriptParserBaseVisitor<Void> {
     public Void visitTask(LifeScriptParser.TaskContext ctx) {
         String taskName = ctx.IDENTIFIER().getText();
 
+        // Every property starts with its keyword (duration, priority, ...), so the first token is its key.
+        checkDuplicateKeys(ctx.taskProperty(), p -> p.getStart().getText(), "task property");
+
         boolean hasDuration = false;
         boolean hasPriority = false;
         boolean hasEffort = false;
@@ -188,6 +191,8 @@ public class SemanticValidator extends LifeScriptParserBaseVisitor<Void> {
     @Override
     public Void visitRoutineEntry(LifeScriptParser.RoutineEntryContext ctx) {
         String routineName = ctx.IDENTIFIER().getText();
+
+        checkDuplicateKeys(ctx.routineProperty(), p -> p.getStart().getText(), "routine property");
 
         boolean hasTime = false;
         boolean hasActivities = false;

@@ -116,6 +116,24 @@ class CompilerTest {
     }
 
     @Test
+    void plan_missingAvailabilitySection_reportsError() {
+        String plan = """
+                plan: p
+                period: 2024-01-01 to 2024-01-31
+
+                tasks:
+                task: a
+                duration: 1h
+                priority: high
+                effort: high
+                """;
+
+        List<String> errors = compiler.fullCompile(plan);
+
+        assertTrue(errors.stream().anyMatch(e -> e.contains("missing mandatory property: availability")));
+    }
+
+    @Test
     void duplicateSection_isFlaggedAndContentsSkipped() {
         String plan = """
                 plan: p
@@ -162,6 +180,7 @@ class CompilerTest {
                 routines:
                 routine: r1
                 time: morning
+                time: evening
                 activities:
                 stretch: 15m
                 stretch: 10m
@@ -174,6 +193,7 @@ class CompilerTest {
                 tasks:
                 task: a
                 duration: 1h
+                duration: 2h
                 priority: high
                 effort: high
                 """;
@@ -185,6 +205,8 @@ class CompilerTest {
         assertTrue(errors.stream().anyMatch(e -> e.contains("Duplicate energy profile entry 'default'")));
         assertTrue(errors.stream().anyMatch(e -> e.contains("Duplicate routine name 'r1'")));
         assertTrue(errors.stream().anyMatch(e -> e.contains("Duplicate activity name 'stretch'")));
+        assertTrue(errors.stream().anyMatch(e -> e.contains("Duplicate routine property 'time'")));
+        assertTrue(errors.stream().anyMatch(e -> e.contains("Duplicate task property 'duration'")));
     }
 
     @Test
