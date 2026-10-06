@@ -19,7 +19,6 @@ AFTERNOON       : 'afternoon' ;
 EVENING         : 'evening' ;
 
 AVAILABILITY    : 'availability' ;
-OFF             : 'off' ;
 FLEXIBLE        : 'flexible' ;
 MONDAY          : 'monday' ;
 TUESDAY         : 'tuesday' ;

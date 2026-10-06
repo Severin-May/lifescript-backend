@@ -39,6 +39,7 @@ public class SemanticValidator extends LifeScriptParserBaseVisitor<Void> {
 
         Set<String> seenSections = new HashSet<>();
         boolean hasTasks = false;
+        boolean hasAvailability = false;
 
         for (LifeScriptParser.PlanSectionContext section : ctx.planSection()) {
             String kind = sectionKind(section);
@@ -48,12 +49,16 @@ public class SemanticValidator extends LifeScriptParserBaseVisitor<Void> {
                 continue;
             }
             if (section.tasks() != null) hasTasks = true;
+            if (section.availability() != null) hasAvailability = true;
             visit(section);
         }
 
         int line = ctx.getStart().getLine();
         if (!hasTasks) {
             errors.add(String.format("Line %d: Plan %s is missing mandatory property: tasks", line, planName));
+        }
+        if (!hasAvailability) {
+            errors.add(String.format("Line %d: Plan %s is missing mandatory property: availability", line, planName));
         }
 
         return null;

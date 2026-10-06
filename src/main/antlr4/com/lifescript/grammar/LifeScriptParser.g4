@@ -41,8 +41,7 @@ availabilityEntry
     ;
 
 availabilityValue
-    : OFF
-    | FLEXIBLE
+    : FLEXIBLE
     | namedPeriodList
     | timeRangeList
     ;

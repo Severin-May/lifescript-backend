@@ -151,7 +151,7 @@ class CompilerTest {
 
                 availability:
                 monday: flexible
-                monday: off
+                monday: 09:00-12:00
 
                 energy profile:
                 default:
