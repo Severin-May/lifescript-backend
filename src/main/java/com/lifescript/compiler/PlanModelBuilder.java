@@ -27,60 +27,59 @@ public class PlanModelBuilder extends LifeScriptParserBaseVisitor<Void> {
         return plan;
     }
 
+    // Single entry point: the only method that writes to `plan`. Every section
+    // is built by a build* method that returns its result, and anything a
+    // builder depends on (e.g. time settings) is passed in explicitly.
     @Override
     public Void visitPlan(LifeScriptParser.PlanContext ctx) {
         plan.setName(ctx.IDENTIFIER().getText());
-        visit(ctx.period());
+        plan.setStartDate(LocalDate.parse(ctx.period().DATE(0).getText()));
+        plan.setEndDate(LocalDate.parse(ctx.period().DATE(1).getText()));
 
         // Resolve named periods (morning/afternoon/evening) before building any
         // section that references them, regardless of where "settings" appears
         // in the file.
-        plan.setTimeSettings(resolveTimeSettings(ctx));
+        Map<String, TimeRange> timeSettings = resolveTimeSettings(ctx);
+        plan.setTimeSettings(timeSettings);
 
         for (LifeScriptParser.PlanSectionContext section : ctx.planSection()) {
-            if (section.settings() == null) {
-                visit(section);
+            if (section.routines() != null) {
+                plan.setRoutines(buildRoutines(section.routines(), timeSettings));
             }
         }
 
         return null;
     }
 
-    @Override
-    public Void visitPeriod(LifeScriptParser.PeriodContext ctx) {
-        plan.setStartDate(LocalDate.parse(ctx.DATE(0).getText()));
-        plan.setEndDate(LocalDate.parse(ctx.DATE(1).getText()));
-        return visitChildren(ctx);
-    }
-
-    @Override
-    public Void visitRoutines(LifeScriptParser.RoutinesContext ctx) {
+    private List<Routine> buildRoutines(LifeScriptParser.RoutinesContext ctx,
+                                        Map<String, TimeRange> timeSettings) {
         List<Routine> routines = new ArrayList<>();
         for (LifeScriptParser.RoutineEntryContext entry : ctx.routineEntry()) {
-            routines.add(buildRoutine(entry));
+            routines.add(buildRoutine(entry, timeSettings));
         }
-        plan.setRoutines(routines);
-        return null;
+        return routines;
     }
 
-    private Routine buildRoutine(LifeScriptParser.RoutineEntryContext ctx) {
+    private Routine buildRoutine(LifeScriptParser.RoutineEntryContext ctx,
+                                 Map<String, TimeRange> timeSettings) {
         Routine routine = new Routine();
         routine.setName(ctx.IDENTIFIER().getText());
 
         for (LifeScriptParser.RoutinePropertyContext prop : ctx.routineProperty()) {
             if (prop.routineTime() != null) {
-                routine.setTimeRange(resolveTimeRange(prop.routineTime()));
+                routine.setTimeRange(resolveTimeRange(prop.routineTime(), timeSettings));
             }
         }
 
         return routine;
     }
 
-    private TimeRange resolveTimeRange(LifeScriptParser.RoutineTimeContext ctx) {
+    private TimeRange resolveTimeRange(LifeScriptParser.RoutineTimeContext ctx,
+                                       Map<String, TimeRange> timeSettings) {
         if (ctx.timeRange() != null) {
             return buildTimeRange(ctx.timeRange());
         }
-        return plan.getTimeSettings().get(ctx.namedPeriod().getText());
+        return timeSettings.get(ctx.namedPeriod().getText());
     }
 
     private Map<String, TimeRange> resolveTimeSettings(LifeScriptParser.PlanContext ctx) {

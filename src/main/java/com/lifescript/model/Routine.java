@@ -2,13 +2,14 @@ package com.lifescript.model;
 
 import java.time.DayOfWeek;
 import java.time.LocalTime;
+import java.util.ArrayList;
 import java.util.List;
 
 public class Routine {
     private String name;
     private TimeRange timeRange;
-    private List<DayOfWeek> repeatDays;
-    private List<Activity> activities;
+    private List<DayOfWeek> repeatDays = new ArrayList<>();
+    private List<Activity> activities = new ArrayList<>();
 
     public String getName() {
         return name;

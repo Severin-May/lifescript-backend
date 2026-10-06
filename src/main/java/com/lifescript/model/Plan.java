@@ -2,6 +2,9 @@ package com.lifescript.model;
 
 import java.time.DayOfWeek;
 import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.EnumMap;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -9,12 +12,12 @@ public class Plan {
     private String name;
     private LocalDate startDate;
     private LocalDate endDate;
-    private Map<String, TimeRange> timeSettings;
-    private Map<DayOfWeek, List<TimeRange>> availability;
-    private Map<TimeRange, EnergyLevel> defaultEnergyProfile;
-    private Map<DayOfWeek, Map<TimeRange, EnergyLevel>> energyProfileOverrides;
-    private List<Task> tasks;
-    private List<Routine> routines;
+    private Map<String, TimeRange> timeSettings = new HashMap<>();
+    private Map<DayOfWeek, List<TimeRange>> availability = new EnumMap<>(DayOfWeek.class);
+    private Map<TimeRange, EnergyLevel> defaultEnergyProfile = new HashMap<>();
+    private Map<DayOfWeek, Map<TimeRange, EnergyLevel>> energyProfileOverrides = new EnumMap<>(DayOfWeek.class);
+    private List<Task> tasks = new ArrayList<>();
+    private List<Routine> routines = new ArrayList<>();
 
     public String getName() {
         return name;

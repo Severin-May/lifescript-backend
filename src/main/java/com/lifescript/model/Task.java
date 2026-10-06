@@ -4,6 +4,7 @@ import java.time.DayOfWeek;
 import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalTime;
+import java.util.ArrayList;
 import java.util.List;
 
 public class Task {
@@ -14,8 +15,8 @@ public class Task {
     private EnergyLevel effort;
     private LocalDate deadline;
     private LocalTime start;
-    private List<DayOfWeek> repeatDays;
-    private List<String> dependencies;
+    private List<DayOfWeek> repeatDays = new ArrayList<>();
+    private List<String> dependencies = new ArrayList<>();
     private String note;
 
 
