@@ -213,38 +213,13 @@ public class SemanticValidator extends LifeScriptParserBaseVisitor<Void> {
         return visitChildren(ctx);
     }
 
-    private boolean validateTime(String time, int line) {
-        String[] parts = time.split(":");
-        int hours = Integer.parseInt(parts[0]);
-        int mins = Integer.parseInt(parts[1]);
-
-        boolean isValid = true;
-        if  (hours > 23) {
-            errors.add(String.format("Line %d: Invalid hour '%d' in time '%s' — must be between 0 and 23", line, hours, time));
-            isValid = false;
-        }
-        if (mins > 59) {
-            errors.add(String.format("Line %d: Invalid minute '%d' in time '%s' — must be between 0 and 59", line, mins, time));
-            isValid = false;
-        }
-
-        return isValid;
-    }
-
-    @Override
-    public Void visitTaskStart(LifeScriptParser.TaskStartContext ctx) {
-        int line = ctx.getStart().getLine();
-        validateTime(ctx.TIME_VAL().getText(), line);
-        return visitChildren(ctx);
-    }
-
     @Override
     public Void visitTaskDeadline(LifeScriptParser.TaskDeadlineContext ctx) {
         int line = ctx.getStart().getLine();
 
         if (ctx.DATE() != null) {
             try {
-                LocalDate.parse(ctx.DATE().getText());
+                Literals.parseDate(ctx.DATE().getText());
             }
             catch (DateTimeParseException e) {
                 String invalidDate = ctx.DATE().getText();
@@ -256,18 +231,14 @@ public class SemanticValidator extends LifeScriptParserBaseVisitor<Void> {
 
     @Override
     public Void visitTimeRange(LifeScriptParser.TimeRangeContext ctx) {
+        // Hour/minute ranges are already enforced by the TIME_VAL lexer rule.
         int line = ctx.getStart().getLine();
-        boolean startValid = validateTime(ctx.TIME_VAL(0).getText(), line);
-        boolean endValid = validateTime(ctx.TIME_VAL(1).getText(), line);
+        LocalTime start = Literals.parseTime(ctx.TIME_VAL(0).getText());
+        LocalTime end = Literals.parseTime(ctx.TIME_VAL(1).getText());
 
-        if (startValid && endValid) {
-            LocalTime start = LocalTime.parse(ctx.TIME_VAL(0).getText());
-            LocalTime end = LocalTime.parse(ctx.TIME_VAL(1).getText());
-
-            if (!start.isBefore(end)) {
-                errors.add(String.format("Line %d: Start time '%s' must be before end time '%s'",
-                        line, ctx.TIME_VAL(0).getText(), ctx.TIME_VAL(1).getText()));
-            }
+        if (!start.isBefore(end)) {
+            errors.add(String.format("Line %d: Start time '%s' must be before end time '%s'",
+                    line, ctx.TIME_VAL(0).getText(), ctx.TIME_VAL(1).getText()));
         }
         return visitChildren(ctx);
     }
@@ -278,9 +249,8 @@ public class SemanticValidator extends LifeScriptParserBaseVisitor<Void> {
         int line = ctx.getStart().getLine();
 
         try {
-            periodStart = LocalDate.parse(ctx.DATE(0).getText());
+            periodStart = Literals.parseDate(ctx.DATE(0).getText());
         } catch (DateTimeParseException e) {
-            System.out.println("Exception caught: " + e.getMessage());
             String invalidDate = ctx.DATE(0).getText();
             errors.add(String.format("Line %d: Invalid date '%s'",
                     line, invalidDate));
@@ -288,9 +258,8 @@ public class SemanticValidator extends LifeScriptParserBaseVisitor<Void> {
         }
 
         try {
-            periodEnd = LocalDate.parse(ctx.DATE(1).getText());
+            periodEnd = Literals.parseDate(ctx.DATE(1).getText());
         } catch (DateTimeParseException e) {
-            System.out.println("Exception caught: " + e.getMessage());
             String invalidDate = ctx.DATE(1).getText();
             errors.add(String.format("Line %d: Invalid date '%s'",
                     line, invalidDate));
@@ -335,7 +304,7 @@ public class SemanticValidator extends LifeScriptParserBaseVisitor<Void> {
         int line = ctx.getStart().getLine();
 
         String dayOfWeek = ctx.dayOfWeek().getText();
-        DayOfWeek day = DayOfWeek.valueOf(dayOfWeek.toUpperCase());
+        DayOfWeek day = Literals.parseDay(dayOfWeek);
 
         if (periodStart != null && periodEnd != null) {
             boolean found = false;

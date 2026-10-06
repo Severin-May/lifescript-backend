@@ -11,7 +11,6 @@ import com.lifescript.model.TimeRange;
 import org.antlr.v4.runtime.tree.TerminalNode;
 
 import java.time.DayOfWeek;
-import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -38,8 +37,8 @@ public class PlanModelBuilder extends LifeScriptParserBaseVisitor<Void> {
     @Override
     public Void visitPlan(LifeScriptParser.PlanContext ctx) {
         plan.setName(ctx.IDENTIFIER().getText());
-        plan.setStartDate(LocalDate.parse(ctx.period().DATE(0).getText()));
-        plan.setEndDate(LocalDate.parse(ctx.period().DATE(1).getText()));
+        plan.setStartDate(Literals.parseDate(ctx.period().DATE(0).getText()));
+        plan.setEndDate(Literals.parseDate(ctx.period().DATE(1).getText()));
 
         // Resolve named periods (morning/afternoon/evening) before building any
         // section that references them, regardless of where "settings" appears
@@ -84,7 +83,7 @@ public class PlanModelBuilder extends LifeScriptParserBaseVisitor<Void> {
     private TimeRange resolveTimeRange(LifeScriptParser.RoutineTimeContext ctx,
                                        Map<String, TimeRange> timeSettings) {
         if (ctx.timeRange() != null) {
-            return buildTimeRange(ctx.timeRange());
+            return Literals.parseTimeRange(ctx.timeRange().getText());
         }
         return timeSettings.get(ctx.namedPeriod().getText());
     }
@@ -103,15 +102,15 @@ public class PlanModelBuilder extends LifeScriptParserBaseVisitor<Void> {
 
         for (LifeScriptParser.TaskPropertyContext prop : ctx.taskProperty()) {
             if (prop.taskDuration() != null) {
-                task.setDuration(DurationParser.parse(prop.taskDuration().DURATION_VAL().getText()));
+                task.setDuration(Literals.parseDuration(prop.taskDuration().DURATION_VAL().getText()));
             } else if (prop.taskPriority() != null) {
                 task.setPriority(Priority.valueOf(prop.taskPriority().priorityLevel().getText().toUpperCase()));
             } else if (prop.taskEffort() != null) {
                 task.setEffort(EnergyLevel.valueOf(prop.taskEffort().energyLevel().getText().toUpperCase()));
             } else if (prop.taskDeadline() != null) {
-                task.setDeadline(LocalDate.parse(prop.taskDeadline().DATE().getText()));
+                task.setDeadline(Literals.parseDate(prop.taskDeadline().DATE().getText()));
             } else if (prop.taskStart() != null) {
-                task.setStart(LocalTime.parse(prop.taskStart().TIME_VAL().getText()));
+                task.setStart(Literals.parseTime(prop.taskStart().TIME_VAL().getText()));
             } else if (prop.repeats() != null) {
                 task.setRepeatDays(buildRepeatDays(prop.repeats().repeatPattern()));
             } else if (prop.taskDependencies() != null) {
@@ -143,7 +142,7 @@ public class PlanModelBuilder extends LifeScriptParserBaseVisitor<Void> {
 
         List<DayOfWeek> days = new ArrayList<>();
         for (LifeScriptParser.DayOfWeekContext day : ctx.dayList().dayOfWeek()) {
-            days.add(DayOfWeek.valueOf(day.getText().toUpperCase()));
+            days.add(Literals.parseDay(day.getText()));
         }
         return days;
     }
@@ -154,19 +153,12 @@ public class PlanModelBuilder extends LifeScriptParserBaseVisitor<Void> {
         for (LifeScriptParser.PlanSectionContext section : ctx.planSection()) {
             if (section.settings() != null) {
                 for (LifeScriptParser.SettingsEntryContext entry : section.settings().settingsEntry()) {
-                    timeSettings.put(entry.namedPeriod().getText(), buildTimeRange(entry.timeRange()));
+                    timeSettings.put(entry.namedPeriod().getText(), Literals.parseTimeRange(entry.timeRange().getText()));
                 }
             }
         }
 
         return timeSettings;
-    }
-
-    private TimeRange buildTimeRange(LifeScriptParser.TimeRangeContext ctx) {
-        TimeRange range = new TimeRange();
-        range.setStartTime(LocalTime.parse(ctx.TIME_VAL(0).getText()));
-        range.setEndTime(LocalTime.parse(ctx.TIME_VAL(1).getText()));
-        return range;
     }
 
     private static TimeRange timeRange(LocalTime startTime, LocalTime endTime) {
