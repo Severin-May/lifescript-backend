@@ -2,10 +2,15 @@ package com.lifescript.compiler;
 
 import com.lifescript.grammar.LifeScriptParser;
 import com.lifescript.grammar.LifeScriptParserBaseVisitor;
+import com.lifescript.model.EnergyLevel;
 import com.lifescript.model.Plan;
+import com.lifescript.model.Priority;
 import com.lifescript.model.Routine;
+import com.lifescript.model.Task;
 import com.lifescript.model.TimeRange;
+import org.antlr.v4.runtime.tree.TerminalNode;
 
+import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.ArrayList;
@@ -45,6 +50,8 @@ public class PlanModelBuilder extends LifeScriptParserBaseVisitor<Void> {
         for (LifeScriptParser.PlanSectionContext section : ctx.planSection()) {
             if (section.routines() != null) {
                 plan.setRoutines(buildRoutines(section.routines(), timeSettings));
+            } else if (section.tasks() != null) {
+                plan.setTasks(buildTasks(section.tasks()));
             }
         }
 
@@ -80,6 +87,65 @@ public class PlanModelBuilder extends LifeScriptParserBaseVisitor<Void> {
             return buildTimeRange(ctx.timeRange());
         }
         return timeSettings.get(ctx.namedPeriod().getText());
+    }
+
+    private List<Task> buildTasks(LifeScriptParser.TasksContext ctx) {
+        List<Task> tasks = new ArrayList<>();
+        for (LifeScriptParser.TaskContext entry : ctx.task()) {
+            tasks.add(buildTask(entry));
+        }
+        return tasks;
+    }
+
+    private Task buildTask(LifeScriptParser.TaskContext ctx) {
+        Task task = new Task();
+        task.setName(ctx.IDENTIFIER().getText());
+
+        for (LifeScriptParser.TaskPropertyContext prop : ctx.taskProperty()) {
+            if (prop.taskDuration() != null) {
+                task.setDuration(DurationParser.parse(prop.taskDuration().DURATION_VAL().getText()));
+            } else if (prop.taskPriority() != null) {
+                task.setPriority(Priority.valueOf(prop.taskPriority().priorityLevel().getText().toUpperCase()));
+            } else if (prop.taskEffort() != null) {
+                task.setEffort(EnergyLevel.valueOf(prop.taskEffort().energyLevel().getText().toUpperCase()));
+            } else if (prop.taskDeadline() != null) {
+                task.setDeadline(LocalDate.parse(prop.taskDeadline().DATE().getText()));
+            } else if (prop.taskStart() != null) {
+                task.setStart(LocalTime.parse(prop.taskStart().TIME_VAL().getText()));
+            } else if (prop.repeats() != null) {
+                task.setRepeatDays(buildRepeatDays(prop.repeats().repeatPattern()));
+            } else if (prop.taskDependencies() != null) {
+                List<String> dependencies = new ArrayList<>();
+                for (TerminalNode name : prop.taskDependencies().IDENTIFIER()) {
+                    dependencies.add(name.getText());
+                }
+                task.setDependencies(dependencies);
+            } else if (prop.taskNote() != null) {
+                String quoted = prop.taskNote().STRING().getText();
+                task.setNote(quoted.substring(1, quoted.length() - 1));
+            }
+        }
+
+        return task;
+    }
+
+    private List<DayOfWeek> buildRepeatDays(LifeScriptParser.RepeatPatternContext ctx) {
+        if (ctx.DAILY() != null) {
+            return new ArrayList<>(List.of(DayOfWeek.values()));
+        }
+        if (ctx.WEEKDAYS() != null) {
+            return new ArrayList<>(List.of(DayOfWeek.MONDAY, DayOfWeek.TUESDAY, DayOfWeek.WEDNESDAY,
+                    DayOfWeek.THURSDAY, DayOfWeek.FRIDAY));
+        }
+        if (ctx.WEEKENDS() != null) {
+            return new ArrayList<>(List.of(DayOfWeek.SATURDAY, DayOfWeek.SUNDAY));
+        }
+
+        List<DayOfWeek> days = new ArrayList<>();
+        for (LifeScriptParser.DayOfWeekContext day : ctx.dayList().dayOfWeek()) {
+            days.add(DayOfWeek.valueOf(day.getText().toUpperCase()));
+        }
+        return days;
     }
 
     private Map<String, TimeRange> resolveTimeSettings(LifeScriptParser.PlanContext ctx) {

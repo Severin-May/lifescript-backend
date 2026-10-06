@@ -14,7 +14,9 @@ public class Task {
     private Priority priority;
     private EnergyLevel effort;
     private LocalDate deadline;
+    // Fixed start time: the task must begin exactly at this time. Null = scheduler picks.
     private LocalTime start;
+    // Days the task repeats on. Empty = the task happens once.
     private List<DayOfWeek> repeatDays = new ArrayList<>();
     private List<String> dependencies = new ArrayList<>();
     private String note;
