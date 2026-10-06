@@ -2,8 +2,8 @@ lexer grammar LifeScriptLexer;
 
 // Fragments
 fragment DIGIT  : [0-9] ;
-fragment HOUR   : [01][0-9] | '2'[0-3] ;
-fragment MINUTE : [0-5][0-9] ;
+fragment HOUR   : DIGIT DIGIT ;
+fragment MINUTE : DIGIT DIGIT ;
 fragment YEAR   : DIGIT DIGIT DIGIT DIGIT ;
 fragment MONTH  : DIGIT DIGIT ;
 fragment DAY    : DIGIT DIGIT ;

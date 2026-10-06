@@ -298,6 +298,101 @@ class CompilerTest {
     }
 
     @Test
+    void invalidTimes_areReported() {
+        String plan = """
+                plan: p
+                period: 2024-01-01 to 2024-01-31
+
+                availability:
+                monday: 09:00-25:00
+                tuesday: 09:61-10:00
+
+                tasks:
+                task: a
+                duration: 1h
+                priority: high
+                effort: high
+                start: 24:00
+                """;
+
+        List<String> errors = compiler.fullCompile(plan);
+
+        assertTrue(errors.stream().anyMatch(e -> e.contains("Invalid time '25:00'")));
+        assertTrue(errors.stream().anyMatch(e -> e.contains("Invalid time '09:61'")));
+        assertTrue(errors.stream().anyMatch(e -> e.contains("Invalid time '24:00'")));
+        assertFalse(errors.stream().anyMatch(e -> e.contains("Syntax error")));
+    }
+
+    @Test
+    void midnightBoundaries_areAccepted() {
+        String plan = """
+                plan: p
+                period: 2024-01-01 to 2024-01-31
+
+                availability:
+                monday: 22:00-00:00
+                tuesday: 00:00-08:00
+                wednesday: 00:00-23:59
+
+                tasks:
+                task: a
+                duration: 1h
+                priority: high
+                effort: high
+                start: 00:00
+                """;
+
+        List<String> errors = compiler.fullCompile(plan);
+
+        assertTrue(errors.isEmpty(), () -> "Expected no errors but got: " + errors);
+    }
+
+    @Test
+    void midnightToMidnight_isReported() {
+        String plan = """
+                plan: p
+                period: 2024-01-01 to 2024-01-31
+
+                availability:
+                monday: 00:00-00:00
+
+                tasks:
+                task: a
+                duration: 1h
+                priority: high
+                effort: high
+                """;
+
+        List<String> errors = compiler.fullCompile(plan);
+
+        assertTrue(errors.stream().anyMatch(e ->
+                e.contains("Start time '00:00' must be before end time '00:00'")));
+        assertFalse(errors.stream().anyMatch(e -> e.contains("to go past midnight")));
+    }
+
+    @Test
+    void overnightRange_isReportedWithMidnightHint() {
+        String plan = """
+                plan: p
+                period: 2024-01-01 to 2024-01-31
+
+                availability:
+                monday: 23:00-02:00
+
+                tasks:
+                task: a
+                duration: 1h
+                priority: high
+                effort: high
+                """;
+
+        List<String> errors = compiler.fullCompile(plan);
+
+        assertTrue(errors.stream().anyMatch(e ->
+                e.contains("Start time '23:00' must be before end time '02:00' (to go past midnight, end at 00:00 and continue on the next day)")));
+    }
+
+    @Test
     void invalidTimeRange_startNotBeforeEnd_isReported() {
         String plan = """
                 plan: p

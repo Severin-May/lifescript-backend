@@ -2,6 +2,7 @@ package com.lifescript.compiler;
 
 import com.lifescript.grammar.LifeScriptParser;
 import com.lifescript.grammar.LifeScriptParserBaseVisitor;
+import com.lifescript.model.TimeRange;
 import org.antlr.v4.runtime.ParserRuleContext;
 import org.antlr.v4.runtime.tree.TerminalNode;
 
@@ -229,16 +230,44 @@ public class SemanticValidator extends LifeScriptParserBaseVisitor<Void> {
         return visitChildren(ctx);
     }
 
+    // The lexer accepts any HH:MM; this rejects values like 25:00 or 09:61.
+    // Returns null (after recording an error) when the time is invalid.
+    private LocalTime checkTime(String text, int line) {
+        try {
+            return Literals.parseTime(text);
+        } catch (DateTimeParseException e) {
+            errors.add(String.format("Line %d: Invalid time '%s'", line, text));
+            return null;
+        }
+    }
+
+    @Override
+    public Void visitTaskStart(LifeScriptParser.TaskStartContext ctx) {
+        checkTime(ctx.TIME_VAL().getText(), ctx.getStart().getLine());
+        return visitChildren(ctx);
+    }
+
     @Override
     public Void visitTimeRange(LifeScriptParser.TimeRangeContext ctx) {
-        // Hour/minute ranges are already enforced by the TIME_VAL lexer rule.
         int line = ctx.getStart().getLine();
-        LocalTime start = Literals.parseTime(ctx.TIME_VAL(0).getText());
-        LocalTime end = Literals.parseTime(ctx.TIME_VAL(1).getText());
+        LocalTime start = checkTime(ctx.TIME_VAL(0).getText(), line);
+        LocalTime end = checkTime(ctx.TIME_VAL(1).getText(), line);
 
-        if (!start.isBefore(end)) {
-            errors.add(String.format("Line %d: Start time '%s' must be before end time '%s'",
-                    line, ctx.TIME_VAL(0).getText(), ctx.TIME_VAL(1).getText()));
+        if (start == null || end == null) {
+            return visitChildren(ctx);
+        }
+
+        TimeRange range = new TimeRange();
+        range.setStartTime(start);
+        range.setEndTime(end);
+
+        if (!range.isOrdered()) {
+            // End earlier than start usually means the range was meant to cross midnight.
+            String hint = end.isBefore(start) && !range.endsAtMidnight()
+                    ? " (to go past midnight, end at 00:00 and continue on the next day)"
+                    : "";
+            errors.add(String.format("Line %d: Start time '%s' must be before end time '%s'%s",
+                    line, ctx.TIME_VAL(0).getText(), ctx.TIME_VAL(1).getText(), hint));
         }
         return visitChildren(ctx);
     }
