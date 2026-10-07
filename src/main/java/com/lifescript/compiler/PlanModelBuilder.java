@@ -13,6 +13,8 @@ import org.antlr.v4.runtime.tree.TerminalNode;
 import java.time.DayOfWeek;
 import java.time.LocalTime;
 import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -51,6 +53,8 @@ public class PlanModelBuilder extends LifeScriptParserBaseVisitor<Void> {
                 plan.setRoutines(buildRoutines(section.routines(), timeSettings));
             } else if (section.tasks() != null) {
                 plan.setTasks(buildTasks(section.tasks()));
+            } else if (section.availability() != null) {
+                plan.setAvailability(buildAvailability(section.availability(), timeSettings));
             }
         }
 
@@ -86,6 +90,45 @@ public class PlanModelBuilder extends LifeScriptParserBaseVisitor<Void> {
             return Literals.parseTimeRange(ctx.timeRange().getText());
         }
         return timeSettings.get(ctx.namedPeriod().getText());
+    }
+
+    // Every day gets an entry; days not listed in the file are off (empty list).
+    private Map<DayOfWeek, List<TimeRange>> buildAvailability(LifeScriptParser.AvailabilityContext ctx,
+                                                              Map<String, TimeRange> timeSettings) {
+        Map<DayOfWeek, List<TimeRange>> availability = new EnumMap<>(DayOfWeek.class);
+        for (DayOfWeek day : DayOfWeek.values()) {
+            availability.put(day, new ArrayList<>());
+        }
+
+        for (LifeScriptParser.AvailabilityEntryContext entry : ctx.availabilityEntry()) {
+            DayOfWeek day = Literals.parseDay(entry.dayOfWeek().getText());
+            availability.put(day, buildAvailabilityValue(entry.availabilityValue(), timeSettings));
+        }
+
+        return availability;
+    }
+
+    // Returns the day's ranges sorted by start time.
+    private List<TimeRange> buildAvailabilityValue(LifeScriptParser.AvailabilityValueContext ctx,
+                                                   Map<String, TimeRange> timeSettings) {
+        List<TimeRange> ranges = new ArrayList<>();
+
+        if (ctx.FLEXIBLE() != null) {
+            // flexible = from the start of morning to the end of evening, as configured in settings
+            ranges.add(timeRange(timeSettings.get("morning").getStartTime(),
+                    timeSettings.get("evening").getEndTime()));
+        } else if (ctx.namedPeriodList() != null) {
+            for (LifeScriptParser.NamedPeriodContext period : ctx.namedPeriodList().namedPeriod()) {
+                ranges.add(timeSettings.get(period.getText()));
+            }
+        } else {
+            for (LifeScriptParser.TimeRangeContext range : ctx.timeRangeList().timeRange()) {
+                ranges.add(Literals.parseTimeRange(range.getText()));
+            }
+        }
+
+        ranges.sort(Comparator.comparing(TimeRange::getStartTime));
+        return ranges;
     }
 
     private List<Task> buildTasks(LifeScriptParser.TasksContext ctx) {
