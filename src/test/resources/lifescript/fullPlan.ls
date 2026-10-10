@@ -24,20 +24,20 @@ energy profile:
 
 routines:
   routine: morning_routine
-    time: morning
+    time: 07:00
     repeats: daily
     activities:
       stretch: 15m
       shower: 20m
 
   routine: evening_walk
-    time: 19:00-19:45
+    time: 19:00
     repeats: weekdays
     activities:
       walk: 45m
 
   routine: team_sync
-    time: 10:00-10:30
+    time: 10:00
     repeats: monday, wednesday
     activities:
       standup: 30m

@@ -211,7 +211,9 @@ class PlanModelBuilderTest {
                 routines.stream().map(Routine::getName).toList());
 
         Routine morning = routines.get(0);
-        assertEquals(range("08:00", "12:00"), morning.getTimeRange());   // named period, overridden in settings
+        assertEquals(LocalTime.of(7, 0), morning.getStartTime());
+        assertEquals(Duration.ofMinutes(35), morning.getDuration());     // stretch 15m + shower 20m
+        assertEquals(range("07:00", "07:35"), morning.getTimeRange());
         assertEquals(List.of(DayOfWeek.values()), morning.getRepeatDays()); // daily
         assertEquals(List.of("stretch", "shower"),
                 morning.getActivities().stream().map(Activity::getName).toList());
@@ -219,7 +221,7 @@ class PlanModelBuilderTest {
                 morning.getActivities().stream().map(Activity::getDuration).toList());
 
         Routine walk = routines.get(1);
-        assertEquals(range("19:00", "19:45"), walk.getTimeRange());
+        assertEquals(range("19:00", "19:45"), walk.getTimeRange());      // start + walk 45m
         assertEquals(List.of(MONDAY, TUESDAY, WEDNESDAY, THURSDAY, FRIDAY), walk.getRepeatDays()); // weekdays
         assertEquals(Duration.ofMinutes(45), walk.getActivities().get(0).getDuration());
 
@@ -233,7 +235,7 @@ class PlanModelBuilderTest {
         String routines = """
                 routines:
                 routine: weekly_review
-                time: 17:00-18:30
+                time: 17:00
                 repeats: friday
                 activities:
                 plan_next_week: 1h
@@ -243,8 +245,27 @@ class PlanModelBuilderTest {
         Routine review = plan.getRoutines().get(0);
 
         assertEquals(List.of(FRIDAY), review.getRepeatDays());
-        assertEquals(Duration.ofMinutes(90), review.getActivities().get(0).getDuration()
-                .plus(review.getActivities().get(1).getDuration()));
+        assertEquals(Duration.ofMinutes(90), review.getDuration());       // 1h + 30m
+        assertEquals(range("17:00", "18:30"), review.getTimeRange());
+    }
+
+    @Test
+    void routines_endingExactlyAtMidnight() {
+        String routines = """
+                routines:
+                routine: night_reading
+                time: 23:00
+                repeats: daily
+                activities:
+                read: 1h
+                """;
+        Plan plan = build(planWithAvailability(routines, "monday: flexible"));
+        TimeRange range = plan.getRoutines().get(0).getTimeRange();
+
+        assertEquals(range("23:00", "00:00"), range);
+        assertTrue(range.endsAtMidnight());
+        assertTrue(range.isOrdered());
+        assertEquals(Duration.ofHours(1), range.duration());
     }
 
     // --- tasks ---

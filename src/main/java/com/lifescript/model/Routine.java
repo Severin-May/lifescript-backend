@@ -1,12 +1,14 @@
 package com.lifescript.model;
 
 import java.time.DayOfWeek;
+import java.time.Duration;
+import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.List;
 
 public class Routine {
     private String name;
-    private TimeRange timeRange;
+    private LocalTime startTime;
     // Days the routine repeats on. Mandatory in LifeScript, so never empty after validation
     // (unlike Task, where empty means once).
     private List<DayOfWeek> repeatDays = new ArrayList<>();
@@ -36,11 +38,25 @@ public class Routine {
         this.activities = activities;
     }
 
-    public TimeRange getTimeRange() {
-        return timeRange;
+    public LocalTime getStartTime() {
+        return startTime;
     }
 
-    public void setTimeRange(TimeRange timeRange) {
-        this.timeRange = timeRange;
+    public void setStartTime(LocalTime startTime) {
+        this.startTime = startTime;
+    }
+
+    // Total of all activities: this is how long the routine lasts.
+    public Duration getDuration() {
+        return activities.stream().map(Activity::getDuration).reduce(Duration.ZERO, Duration::plus);
+    }
+
+    // From the start time until the activities are done. A routine ending exactly at
+    // midnight gets an end of 00:00, which TimeRange treats as end of day.
+    public TimeRange getTimeRange() {
+        TimeRange range = new TimeRange();
+        range.setStartTime(startTime);
+        range.setEndTime(startTime.plus(getDuration()));
+        return range;
     }
 }

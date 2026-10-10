@@ -51,7 +51,7 @@ public class PlanModelBuilder extends LifeScriptParserBaseVisitor<Void> {
 
         for (LifeScriptParser.PlanSectionContext section : ctx.planSection()) {
             if (section.routines() != null) {
-                plan.setRoutines(buildRoutines(section.routines(), timeSettings));
+                plan.setRoutines(buildRoutines(section.routines()));
             } else if (section.tasks() != null) {
                 plan.setTasks(buildTasks(section.tasks()));
             } else if (section.availability() != null) {
@@ -65,23 +65,21 @@ public class PlanModelBuilder extends LifeScriptParserBaseVisitor<Void> {
         return null;
     }
 
-    private List<Routine> buildRoutines(LifeScriptParser.RoutinesContext ctx,
-                                        Map<String, TimeRange> timeSettings) {
+    private List<Routine> buildRoutines(LifeScriptParser.RoutinesContext ctx) {
         List<Routine> routines = new ArrayList<>();
         for (LifeScriptParser.RoutineEntryContext entry : ctx.routineEntry()) {
-            routines.add(buildRoutine(entry, timeSettings));
+            routines.add(buildRoutine(entry));
         }
         return routines;
     }
 
-    private Routine buildRoutine(LifeScriptParser.RoutineEntryContext ctx,
-                                 Map<String, TimeRange> timeSettings) {
+    private Routine buildRoutine(LifeScriptParser.RoutineEntryContext ctx) {
         Routine routine = new Routine();
         routine.setName(ctx.IDENTIFIER().getText());
 
         for (LifeScriptParser.RoutinePropertyContext prop : ctx.routineProperty()) {
             if (prop.routineTime() != null) {
-                routine.setTimeRange(resolveTimeRange(prop.routineTime(), timeSettings));
+                routine.setStartTime(Literals.parseTime(prop.routineTime().TIME_VAL().getText()));
             } else if (prop.repeats() != null) {
                 routine.setRepeatDays(buildRepeatDays(prop.repeats().repeatPattern()));
             } else if (prop.routineActivities() != null) {
@@ -101,14 +99,6 @@ public class PlanModelBuilder extends LifeScriptParserBaseVisitor<Void> {
             activities.add(activity);
         }
         return activities;
-    }
-
-    private TimeRange resolveTimeRange(LifeScriptParser.RoutineTimeContext ctx,
-                                       Map<String, TimeRange> timeSettings) {
-        if (ctx.timeRange() != null) {
-            return Literals.parseTimeRange(ctx.timeRange().getText());
-        }
-        return timeSettings.get(ctx.namedPeriod().getText());
     }
 
     // Every day gets an entry; days not listed in the file are off (empty list).

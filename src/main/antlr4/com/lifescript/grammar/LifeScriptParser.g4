@@ -90,8 +90,9 @@ routineProperty
     | routineActivities
     ;
 
+// Start time only; the routine lasts as long as its activities add up to.
 routineTime
-    : TIME COLON (namedPeriod | timeRange) eol
+    : TIME COLON TIME_VAL eol
     ;
 
 routineActivities

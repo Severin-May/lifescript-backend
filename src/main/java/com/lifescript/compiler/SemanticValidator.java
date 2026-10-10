@@ -7,6 +7,7 @@ import org.antlr.v4.runtime.ParserRuleContext;
 import org.antlr.v4.runtime.tree.TerminalNode;
 
 import java.time.DayOfWeek;
+import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.format.DateTimeParseException;
@@ -216,10 +217,20 @@ public class SemanticValidator extends LifeScriptParserBaseVisitor<Void> {
         boolean hasTime = false;
         boolean hasActivities = false;
         boolean hasRepeats = false;
+        String startText = null;
+        Duration total = Duration.ZERO;
 
         for (LifeScriptParser.RoutinePropertyContext prop : ctx.routineProperty()) {
-            if (prop.routineTime() != null) hasTime = true;
-            if (prop.routineActivities() != null) hasActivities = true;
+            if (prop.routineTime() != null) {
+                hasTime = true;
+                startText = prop.routineTime().TIME_VAL().getText();
+            }
+            if (prop.routineActivities() != null) {
+                hasActivities = true;
+                for (LifeScriptParser.ActivityEntryContext activity : prop.routineActivities().activityEntry()) {
+                    total = total.plus(Literals.parseDuration(activity.DURATION_VAL().getText()));
+                }
+            }
             if (prop.repeats() != null) hasRepeats = true;
         }
 
@@ -235,6 +246,19 @@ public class SemanticValidator extends LifeScriptParserBaseVisitor<Void> {
             errors.add(String.format("Line %d: Routine %s is missing mandatory property: repeats", line, routineName));
         }
 
+        // The routine lasts as long as its activities and, like a time range, can't go past midnight.
+        // An invalid start time is already reported by visitRoutineTime.
+        if (startText != null && hasActivities) {
+            try {
+                LocalTime start = Literals.parseTime(startText);
+                if (start.toSecondOfDay() + total.toSeconds() > Duration.ofDays(1).toSeconds()) {
+                    errors.add(String.format("Line %d: Routine %s starting at %s lasts %s and would run past midnight",
+                            line, routineName, startText, formatDuration(total)));
+                }
+            } catch (DateTimeParseException ignored) {
+            }
+        }
+
         return visitChildren(ctx);
     }
 
@@ -243,6 +267,20 @@ public class SemanticValidator extends LifeScriptParserBaseVisitor<Void> {
     public Void visitDayList(LifeScriptParser.DayListContext ctx) {
         checkDuplicateKeys(ctx.dayOfWeek(), d -> d.getText(), "day in repeats");
         return visitChildren(ctx);
+    }
+
+    @Override
+    public Void visitRoutineTime(LifeScriptParser.RoutineTimeContext ctx) {
+        checkTime(ctx.TIME_VAL().getText(), ctx.getStart().getLine());
+        return visitChildren(ctx);
+    }
+
+    // 95 minutes -> "1h35m", 2 hours -> "2h", 45 minutes -> "45m" (same style as DURATION_VAL)
+    private static String formatDuration(Duration duration) {
+        long hours = duration.toHours();
+        long minutes = duration.toMinutesPart();
+        if (hours == 0) return minutes + "m";
+        return minutes == 0 ? hours + "h" : hours + "h" + minutes + "m";
     }
 
     @Override

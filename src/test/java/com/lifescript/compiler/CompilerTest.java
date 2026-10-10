@@ -82,7 +82,7 @@ class CompilerTest {
 
                 routines:
                 routine: r
-                time: morning
+                time: 07:00
                 activities:
                 stretch: 15m
 
@@ -99,7 +99,74 @@ class CompilerTest {
     }
 
     @Test
-    void duplicateDayInRepeats_isReported() {
+    void routine_runningPastMidnight_isReported() {
+        String plan = """
+                plan: p
+                period: 2024-01-01 to 2024-01-31
+
+                availability:
+                monday: flexible
+
+                routines:
+                routine: late
+                time: 23:30
+                repeats: daily
+                activities:
+                read: 45m
+                stretch: 20m
+
+                routine: until_midnight
+                time: 23:00
+                repeats: daily
+                activities:
+                read: 1h
+
+                tasks:
+                task: a
+                duration: 1h
+                priority: high
+                effort: high
+                """;
+
+        List<String> errors = compiler.fullCompile(plan);
+
+        assertTrue(errors.stream().anyMatch(e ->
+                e.contains("Routine late starting at 23:30 lasts 1h5m and would run past midnight")), () -> "Got: " + errors);
+        assertFalse(errors.stream().anyMatch(e -> e.contains("until_midnight")), () -> "Got: " + errors);
+    }
+
+    @Test
+    void routine_invalidStartTime_isReported() {
+        String plan = """
+                plan: p
+                period: 2024-01-01 to 2024-01-31
+
+                availability:
+                monday: flexible
+
+                routines:
+                routine: r
+                time: 25:00
+                repeats: daily
+                activities:
+                stretch: 15m
+
+                tasks:
+                task: a
+                duration: 1h
+                priority: high
+                effort: high
+                """;
+
+        List<String> errors = compiler.fullCompile(plan);
+
+        assertTrue(errors.stream().anyMatch(e -> e.contains("Invalid time '25:00'")), () -> "Got: " + errors);
+        assertFalse(errors.stream().anyMatch(e -> e.contains("past midnight")));
+    }
+
+    @Test
+    void routine_namedPeriodAsTime_isSyntaxError() {
+        // A routine's time is a start time; named periods are ranges, so they no longer fit.
         String plan = """
                 plan: p
                 period: 2024-01-01 to 2024-01-31
@@ -110,6 +177,34 @@ class CompilerTest {
                 routines:
                 routine: r
                 time: morning
+                repeats: daily
+                activities:
+                stretch: 15m
+
+                tasks:
+                task: a
+                duration: 1h
+                priority: high
+                effort: high
+                """;
+
+        List<String> errors = compiler.syntaxValidate(plan);
+
+        assertTrue(errors.stream().anyMatch(e -> e.contains("Syntax error")), () -> "Got: " + errors);
+    }
+
+    @Test
+    void duplicateDayInRepeats_isReported() {
+        String plan = """
+                plan: p
+                period: 2024-01-01 to 2024-01-31
+
+                availability:
+                monday: flexible
+
+                routines:
+                routine: r
+                time: 07:00
                 repeats: monday, wednesday, monday
                 activities:
                 stretch: 15m
@@ -208,14 +303,14 @@ class CompilerTest {
 
                 routines:
                 routine: r1
-                time: morning
-                time: evening
+                time: 07:00
+                time: 19:00
                 activities:
                 stretch: 15m
                 stretch: 10m
 
                 routine: r1
-                time: evening
+                time: 19:00
                 activities:
                 jog: 20m
 
