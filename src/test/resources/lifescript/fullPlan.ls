@@ -36,6 +36,12 @@ routines:
     activities:
       walk: 45m
 
+  routine: team_sync
+    time: 10:00-10:30
+    repeats: monday, wednesday
+    activities:
+      standup: 30m
+
 tasks:
   task: research
     duration: 2h
@@ -50,13 +56,6 @@ tasks:
     deadline: 2026-10-09
     dependencies: research
     note: "final draft for review"
-
-  task: team_sync
-    duration: 30m
-    priority: medium
-    effort: low
-    start: 10:00
-    repeats: monday, wednesday
 
   task: inbox_zero
     duration: 20m

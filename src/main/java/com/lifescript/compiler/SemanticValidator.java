@@ -140,12 +140,16 @@ public class SemanticValidator extends LifeScriptParserBaseVisitor<Void> {
 
     @Override
     public Void visitTasks(LifeScriptParser.TasksContext ctx) {
+        Set<String> repeatingTasks = new HashSet<>();
 
         for (LifeScriptParser.TaskContext task: ctx.task()) {
             String taskName = task.IDENTIFIER().getText();
             if (!taskNames.add(taskName)) {
                 int line = task.getStart().getLine();
                 errors.add(String.format("Line %d: Duplicate task name %s", line, taskName));
+            }
+            if (task.taskProperty().stream().anyMatch(p -> p.repeats() != null)) {
+                repeatingTasks.add(taskName);
             }
         }
 
@@ -160,8 +164,22 @@ public class SemanticValidator extends LifeScriptParserBaseVisitor<Void> {
                             int line = prop.getStart().getLine();
                             errors.add(String.format("Line %d: Task %s has non-existing dependency task %s ", line, task.IDENTIFIER().getText(), dep.getText()));
                         }
+                        // Dependencies describe a one-off sequence of work, which a repeating task doesn't fit into.
+                        if (repeatingTasks.contains(dep.getText())) {
+                            int line = prop.getStart().getLine();
+                            errors.add(String.format("Line %d: Task %s cannot depend on repeating task %s", line, taskName, dep.getText()));
+                        }
                         deps.add(dep.getText());
                     }
+                    if (repeatingTasks.contains(taskName)) {
+                        int line = prop.getStart().getLine();
+                        errors.add(String.format("Line %d: Repeating task %s cannot have dependencies", line, taskName));
+                    }
+                }
+                // Each occurrence of a repeating task is due on its own day, so a single deadline is ambiguous.
+                if (prop.taskDeadline() != null && repeatingTasks.contains(taskName)) {
+                    int line = prop.getStart().getLine();
+                    errors.add(String.format("Line %d: Repeating task %s cannot have a deadline", line, taskName));
                 }
             }
             visit(task);
@@ -197,10 +215,12 @@ public class SemanticValidator extends LifeScriptParserBaseVisitor<Void> {
 
         boolean hasTime = false;
         boolean hasActivities = false;
+        boolean hasRepeats = false;
 
         for (LifeScriptParser.RoutinePropertyContext prop : ctx.routineProperty()) {
             if (prop.routineTime() != null) hasTime = true;
             if (prop.routineActivities() != null) hasActivities = true;
+            if (prop.repeats() != null) hasRepeats = true;
         }
 
         int line = ctx.getStart().getLine();
@@ -210,7 +230,18 @@ public class SemanticValidator extends LifeScriptParserBaseVisitor<Void> {
         if (!hasActivities) {
             errors.add(String.format("Line %d: Routine %s is missing mandatory property: activities", line, routineName));
         }
+        // Repeating is what distinguishes a routine from a task.
+        if (!hasRepeats) {
+            errors.add(String.format("Line %d: Routine %s is missing mandatory property: repeats", line, routineName));
+        }
 
+        return visitChildren(ctx);
+    }
+
+    // Applies to both task and routine repeats, e.g. "repeats: monday, monday".
+    @Override
+    public Void visitDayList(LifeScriptParser.DayListContext ctx) {
+        checkDuplicateKeys(ctx.dayOfWeek(), d -> d.getText(), "day in repeats");
         return visitChildren(ctx);
     }
 
@@ -239,12 +270,6 @@ public class SemanticValidator extends LifeScriptParserBaseVisitor<Void> {
             errors.add(String.format("Line %d: Invalid time '%s'", line, text));
             return null;
         }
-    }
-
-    @Override
-    public Void visitTaskStart(LifeScriptParser.TaskStartContext ctx) {
-        checkTime(ctx.TIME_VAL().getText(), ctx.getStart().getLine());
-        return visitChildren(ctx);
     }
 
     @Override

@@ -2,9 +2,11 @@ package com.lifescript.compiler;
 
 import com.lifescript.grammar.LifeScriptLexer;
 import com.lifescript.grammar.LifeScriptParser;
+import com.lifescript.model.Activity;
 import com.lifescript.model.EnergyLevel;
 import com.lifescript.model.Plan;
 import com.lifescript.model.Priority;
+import com.lifescript.model.Routine;
 import com.lifescript.model.Task;
 import com.lifescript.model.TimeRange;
 import org.antlr.v4.runtime.CharStreams;
@@ -198,6 +200,53 @@ class PlanModelBuilderTest {
         assertEquals(EnergyLevel.MODERATE, plan.energyAt(MONDAY, LocalTime.parse("09:00")));
     }
 
+    // --- routines ---
+
+    @Test
+    void routines_fullPlan() throws IOException {
+        Plan plan = build(load("fullPlan.ls"));
+        List<Routine> routines = plan.getRoutines();
+
+        assertEquals(List.of("morning_routine", "evening_walk", "team_sync"),
+                routines.stream().map(Routine::getName).toList());
+
+        Routine morning = routines.get(0);
+        assertEquals(range("08:00", "12:00"), morning.getTimeRange());   // named period, overridden in settings
+        assertEquals(List.of(DayOfWeek.values()), morning.getRepeatDays()); // daily
+        assertEquals(List.of("stretch", "shower"),
+                morning.getActivities().stream().map(Activity::getName).toList());
+        assertEquals(List.of(Duration.ofMinutes(15), Duration.ofMinutes(20)),
+                morning.getActivities().stream().map(Activity::getDuration).toList());
+
+        Routine walk = routines.get(1);
+        assertEquals(range("19:00", "19:45"), walk.getTimeRange());
+        assertEquals(List.of(MONDAY, TUESDAY, WEDNESDAY, THURSDAY, FRIDAY), walk.getRepeatDays()); // weekdays
+        assertEquals(Duration.ofMinutes(45), walk.getActivities().get(0).getDuration());
+
+        Routine teamSync = routines.get(2);
+        assertEquals(range("10:00", "10:30"), teamSync.getTimeRange());
+        assertEquals(List.of(MONDAY, WEDNESDAY), teamSync.getRepeatDays());
+    }
+
+    @Test
+    void routines_repeatsOnDayList() {
+        String routines = """
+                routines:
+                routine: weekly_review
+                time: 17:00-18:30
+                repeats: friday
+                activities:
+                plan_next_week: 1h
+                tidy_desk: 30m
+                """;
+        Plan plan = build(planWithAvailability(routines, "monday: flexible"));
+        Routine review = plan.getRoutines().get(0);
+
+        assertEquals(List.of(FRIDAY), review.getRepeatDays());
+        assertEquals(Duration.ofMinutes(90), review.getActivities().get(0).getDuration()
+                .plus(review.getActivities().get(1).getDuration()));
+    }
+
     // --- tasks ---
 
     @Test
@@ -205,7 +254,7 @@ class PlanModelBuilderTest {
         Plan plan = build(load("fullPlan.ls"));
         List<Task> tasks = plan.getTasks();
 
-        assertEquals(List.of("research", "write_report", "team_sync", "inbox_zero"),
+        assertEquals(List.of("research", "write_report", "inbox_zero"),
                 tasks.stream().map(Task::getName).toList());
 
         Task writeReport = tasks.get(1);
@@ -215,15 +264,11 @@ class PlanModelBuilderTest {
         assertEquals(LocalDate.of(2026, 10, 9), writeReport.getDeadline());
         assertEquals(List.of("research"), writeReport.getDependencies());
         assertEquals("final draft for review", writeReport.getNote());
-        assertNull(writeReport.getStart());
         assertEquals(List.of(), writeReport.getRepeatDays());
 
-        Task teamSync = tasks.get(2);
-        assertEquals(Priority.MEDIUM, teamSync.getPriority());
-        assertEquals(LocalTime.of(10, 0), teamSync.getStart());
-        assertEquals(List.of(MONDAY, WEDNESDAY), teamSync.getRepeatDays());
-
-        Task inboxZero = tasks.get(3);
+        Task inboxZero = tasks.get(2);
+        assertEquals(Priority.LOW, inboxZero.getPriority());
+        assertNull(inboxZero.getDeadline());
         assertEquals(List.<DayOfWeek>of(MONDAY, TUESDAY, WEDNESDAY, THURSDAY, FRIDAY), inboxZero.getRepeatDays());
     }
 }

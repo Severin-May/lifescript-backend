@@ -132,7 +132,6 @@ taskProperty
     | taskPriority
     | taskEffort
     | taskDeadline
-    | taskStart
     | repeats
     | taskDependencies
     | taskNote
@@ -156,10 +155,6 @@ taskEffort
 
 taskDeadline
     : DEADLINE COLON DATE eol
-    ;
-
-taskStart
-    : START COLON TIME_VAL eol
     ;
 
 taskDependencies

@@ -2,6 +2,7 @@ package com.lifescript.compiler;
 
 import com.lifescript.grammar.LifeScriptParser;
 import com.lifescript.grammar.LifeScriptParserBaseVisitor;
+import com.lifescript.model.Activity;
 import com.lifescript.model.EnergyLevel;
 import com.lifescript.model.Plan;
 import com.lifescript.model.Routine;
@@ -81,10 +82,25 @@ public class PlanModelBuilder extends LifeScriptParserBaseVisitor<Void> {
         for (LifeScriptParser.RoutinePropertyContext prop : ctx.routineProperty()) {
             if (prop.routineTime() != null) {
                 routine.setTimeRange(resolveTimeRange(prop.routineTime(), timeSettings));
+            } else if (prop.repeats() != null) {
+                routine.setRepeatDays(buildRepeatDays(prop.repeats().repeatPattern()));
+            } else if (prop.routineActivities() != null) {
+                routine.setActivities(buildActivities(prop.routineActivities()));
             }
         }
 
         return routine;
+    }
+
+    private List<Activity> buildActivities(LifeScriptParser.RoutineActivitiesContext ctx) {
+        List<Activity> activities = new ArrayList<>();
+        for (LifeScriptParser.ActivityEntryContext entry : ctx.activityEntry()) {
+            Activity activity = new Activity();
+            activity.setName(entry.IDENTIFIER().getText());
+            activity.setDuration(Literals.parseDuration(entry.DURATION_VAL().getText()));
+            activities.add(activity);
+        }
+        return activities;
     }
 
     private TimeRange resolveTimeRange(LifeScriptParser.RoutineTimeContext ctx,
@@ -190,8 +206,6 @@ public class PlanModelBuilder extends LifeScriptParserBaseVisitor<Void> {
                 task.setEffort(Literals.parseEnergyLevel(prop.taskEffort().energyLevel().getText()));
             } else if (prop.taskDeadline() != null) {
                 task.setDeadline(Literals.parseDate(prop.taskDeadline().DATE().getText()));
-            } else if (prop.taskStart() != null) {
-                task.setStart(Literals.parseTime(prop.taskStart().TIME_VAL().getText()));
             } else if (prop.repeats() != null) {
                 task.setRepeatDays(buildRepeatDays(prop.repeats().repeatPattern()));
             } else if (prop.taskDependencies() != null) {

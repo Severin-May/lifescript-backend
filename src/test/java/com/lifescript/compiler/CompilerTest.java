@@ -72,6 +72,64 @@ class CompilerTest {
     }
 
     @Test
+    void routine_missingRepeats_reportsError() {
+        String plan = """
+                plan: p
+                period: 2024-01-01 to 2024-01-31
+
+                availability:
+                monday: flexible
+
+                routines:
+                routine: r
+                time: morning
+                activities:
+                stretch: 15m
+
+                tasks:
+                task: a
+                duration: 1h
+                priority: high
+                effort: high
+                """;
+
+        List<String> errors = compiler.fullCompile(plan);
+
+        assertTrue(errors.stream().anyMatch(e -> e.contains("Routine r is missing mandatory property: repeats")));
+    }
+
+    @Test
+    void duplicateDayInRepeats_isReported() {
+        String plan = """
+                plan: p
+                period: 2024-01-01 to 2024-01-31
+
+                availability:
+                monday: flexible
+
+                routines:
+                routine: r
+                time: morning
+                repeats: monday, wednesday, monday
+                activities:
+                stretch: 15m
+
+                tasks:
+                task: a
+                duration: 1h
+                priority: high
+                effort: high
+                repeats: friday, friday
+                """;
+
+        List<String> errors = compiler.fullCompile(plan);
+
+        assertEquals(2, errors.stream().filter(e -> e.contains("Duplicate day in repeats 'monday'")
+                || e.contains("Duplicate day in repeats 'friday'")).count(), () -> "Got: " + errors);
+        assertFalse(errors.stream().anyMatch(e -> e.contains("Duplicate day in repeats 'wednesday'")));
+    }
+
+    @Test
     void plan_missingTasksSection_reportsError() {
         String plan = """
                 plan: p
@@ -306,13 +364,13 @@ class CompilerTest {
                 availability:
                 monday: 09:00-25:00
                 tuesday: 09:61-10:00
+                wednesday: 08:00-24:00
 
                 tasks:
                 task: a
                 duration: 1h
                 priority: high
                 effort: high
-                start: 24:00
                 """;
 
         List<String> errors = compiler.fullCompile(plan);
@@ -339,12 +397,113 @@ class CompilerTest {
                 duration: 1h
                 priority: high
                 effort: high
-                start: 00:00
                 """;
 
         List<String> errors = compiler.fullCompile(plan);
 
         assertTrue(errors.isEmpty(), () -> "Expected no errors but got: " + errors);
+    }
+
+    @Test
+    void repeatingTask_withDeadline_isReported() {
+        String plan = """
+                plan: p
+                period: 2024-01-01 to 2024-01-31
+
+                availability:
+                monday: flexible
+
+                tasks:
+                task: inbox
+                duration: 20m
+                priority: low
+                effort: low
+                repeats: weekdays
+                deadline: 2024-01-10
+                """;
+
+        List<String> errors = compiler.fullCompile(plan);
+
+        assertTrue(errors.stream().anyMatch(e -> e.contains("Repeating task inbox cannot have a deadline")));
+    }
+
+    @Test
+    void repeatingTask_withDependencies_isReported() {
+        String plan = """
+                plan: p
+                period: 2024-01-01 to 2024-01-31
+
+                availability:
+                monday: flexible
+
+                tasks:
+                task: research
+                duration: 1h
+                priority: high
+                effort: high
+
+                task: inbox
+                duration: 20m
+                priority: low
+                effort: low
+                repeats: weekdays
+                dependencies: research
+                """;
+
+        List<String> errors = compiler.fullCompile(plan);
+
+        assertTrue(errors.stream().anyMatch(e -> e.contains("Repeating task inbox cannot have dependencies")));
+    }
+
+    @Test
+    void dependingOnRepeatingTask_isReported() {
+        String plan = """
+                plan: p
+                period: 2024-01-01 to 2024-01-31
+
+                availability:
+                monday: flexible
+
+                tasks:
+                task: report
+                duration: 1h
+                priority: high
+                effort: high
+                dependencies: inbox
+
+                task: inbox
+                duration: 20m
+                priority: low
+                effort: low
+                repeats: weekdays
+                """;
+
+        List<String> errors = compiler.fullCompile(plan);
+
+        assertTrue(errors.stream().anyMatch(e -> e.contains("Task report cannot depend on repeating task inbox")));
+    }
+
+    @Test
+    void taskStart_isNoLongerSupported() {
+        // Tasks are always flexible; anything at a fixed time is a routine.
+        String plan = """
+                plan: p
+                period: 2024-01-01 to 2024-01-31
+
+                availability:
+                monday: flexible
+
+                tasks:
+                task: a
+                duration: 1h
+                priority: high
+                effort: high
+                start: 10:00
+                """;
+
+        List<String> errors = compiler.syntaxValidate(plan);
+
+        assertTrue(errors.stream().anyMatch(e -> e.contains("Syntax error")), () -> "Got: " + errors);
     }
 
     @Test

@@ -7,6 +7,8 @@ import java.util.List;
 public class Routine {
     private String name;
     private TimeRange timeRange;
+    // Days the routine repeats on. Mandatory in LifeScript, so never empty after validation
+    // (unlike Task, where empty means once).
     private List<DayOfWeek> repeatDays = new ArrayList<>();
     private List<Activity> activities = new ArrayList<>();
 

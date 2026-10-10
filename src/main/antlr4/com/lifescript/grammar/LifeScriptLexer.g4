@@ -50,7 +50,6 @@ DURATION        : 'duration' ;
 PRIORITY        : 'priority' ;
 EFFORT          : 'effort' ;
 DEADLINE        : 'deadline' ;
-START           : 'start' ;
 DEPENDENCIES    : 'dependencies' ;
 NOTE            : 'note' ;
 CRITICAL        : 'critical' ;
