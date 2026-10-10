@@ -287,12 +287,12 @@ public class SemanticValidator extends LifeScriptParserBaseVisitor<Void> {
     public Void visitTaskDeadline(LifeScriptParser.TaskDeadlineContext ctx) {
         int line = ctx.getStart().getLine();
 
-        if (ctx.DATE() != null) {
+        if (ctx.DATE_VAL() != null) {
             try {
-                Literals.parseDate(ctx.DATE().getText());
+                Literals.parseDate(ctx.DATE_VAL().getText());
             }
             catch (DateTimeParseException e) {
-                String invalidDate = ctx.DATE().getText();
+                String invalidDate = ctx.DATE_VAL().getText();
                 errors.add(String.format("Line %d: Invalid deadline date '%s'", line, invalidDate));
             }
         }
@@ -341,18 +341,18 @@ public class SemanticValidator extends LifeScriptParserBaseVisitor<Void> {
         int line = ctx.getStart().getLine();
 
         try {
-            periodStart = Literals.parseDate(ctx.DATE(0).getText());
+            periodStart = Literals.parseDate(ctx.DATE_VAL(0).getText());
         } catch (DateTimeParseException e) {
-            String invalidDate = ctx.DATE(0).getText();
+            String invalidDate = ctx.DATE_VAL(0).getText();
             errors.add(String.format("Line %d: Invalid date '%s'",
                     line, invalidDate));
             return visitChildren(ctx);
         }
 
         try {
-            periodEnd = Literals.parseDate(ctx.DATE(1).getText());
+            periodEnd = Literals.parseDate(ctx.DATE_VAL(1).getText());
         } catch (DateTimeParseException e) {
-            String invalidDate = ctx.DATE(1).getText();
+            String invalidDate = ctx.DATE_VAL(1).getText();
             errors.add(String.format("Line %d: Invalid date '%s'",
                     line, invalidDate));
             return visitChildren(ctx);

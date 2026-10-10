@@ -9,7 +9,7 @@ plan
     ;
 
 period
-    : PERIOD COLON DATE TO DATE eol
+    : PERIOD COLON DATE_VAL TO DATE_VAL eol
     ;
 
 planSection
@@ -155,7 +155,7 @@ taskEffort
     ;
 
 taskDeadline
-    : DEADLINE COLON DATE eol
+    : DEADLINE COLON DATE_VAL eol
     ;
 
 taskDependencies

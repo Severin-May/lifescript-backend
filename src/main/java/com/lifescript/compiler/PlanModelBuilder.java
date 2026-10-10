@@ -40,8 +40,8 @@ public class PlanModelBuilder extends LifeScriptParserBaseVisitor<Void> {
     @Override
     public Void visitPlan(LifeScriptParser.PlanContext ctx) {
         plan.setName(ctx.IDENTIFIER().getText());
-        plan.setStartDate(Literals.parseDate(ctx.period().DATE(0).getText()));
-        plan.setEndDate(Literals.parseDate(ctx.period().DATE(1).getText()));
+        plan.setStartDate(Literals.parseDate(ctx.period().DATE_VAL(0).getText()));
+        plan.setEndDate(Literals.parseDate(ctx.period().DATE_VAL(1).getText()));
 
         // Resolve named periods (morning/afternoon/evening) before building any
         // section that references them, regardless of where "settings" appears
@@ -195,7 +195,7 @@ public class PlanModelBuilder extends LifeScriptParserBaseVisitor<Void> {
             } else if (prop.taskEffort() != null) {
                 task.setEffort(Literals.parseEnergyLevel(prop.taskEffort().energyLevel().getText()));
             } else if (prop.taskDeadline() != null) {
-                task.setDeadline(Literals.parseDate(prop.taskDeadline().DATE().getText()));
+                task.setDeadline(Literals.parseDate(prop.taskDeadline().DATE_VAL().getText()));
             } else if (prop.repeats() != null) {
                 task.setRepeatDays(buildRepeatDays(prop.repeats().repeatPattern()));
             } else if (prop.taskDependencies() != null) {

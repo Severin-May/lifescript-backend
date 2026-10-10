@@ -67,7 +67,7 @@ COMMA           : ',' ;
 
 // Literals
 TIME_VAL        : HOUR ':' MINUTE ;
-DATE            : YEAR '-' MONTH '-' DAY ;
+DATE_VAL        : YEAR '-' MONTH '-' DAY ;
 STRING          : '"' (~["\r\n])* '"' ;
 DURATION_VAL    : DIGIT+ 'h' (DIGIT+ 'm')? | DIGIT+ 'm' ;
 
