@@ -19,6 +19,7 @@ public class Plan {
     private Map<DayOfWeek, Map<TimeRange, EnergyLevel>> energyProfileOverrides = new EnumMap<>(DayOfWeek.class);
     private List<Task> tasks = new ArrayList<>();
     private List<Routine> routines = new ArrayList<>();
+    private List<Event> events = new ArrayList<>();
 
     public String getName() {
         return name;
@@ -102,6 +103,14 @@ public class Plan {
 
     public void setTasks(List<Task> tasks) {
         this.tasks = tasks;
+    }
+
+    public List<Event> getEvents() {
+        return events;
+    }
+
+    public void setEvents(List<Event> events) {
+        this.events = events;
     }
 
     public List<Routine> getRoutines() {

@@ -55,6 +55,10 @@ NOTE            : 'note' ;
 CRITICAL        : 'critical' ;
 MEDIUM          : 'medium' ;
 
+EVENTS          : 'events' ;
+EVENT           : 'event' ;
+DATE            : 'date' ;
+
 // Identifiers
 IDENTIFIER
     : [a-z_] [a-z0-9_]*

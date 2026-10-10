@@ -4,6 +4,7 @@ import com.lifescript.grammar.LifeScriptParser;
 import com.lifescript.grammar.LifeScriptParserBaseVisitor;
 import com.lifescript.model.Activity;
 import com.lifescript.model.EnergyLevel;
+import com.lifescript.model.Event;
 import com.lifescript.model.Plan;
 import com.lifescript.model.Routine;
 import com.lifescript.model.Task;
@@ -59,6 +60,8 @@ public class PlanModelBuilder extends LifeScriptParserBaseVisitor<Void> {
             } else if (section.energyProfile() != null) {
                 plan.setDefaultEnergyProfile(buildDefaultEnergyProfile(section.energyProfile(), timeSettings));
                 plan.setEnergyProfileOverrides(buildEnergyProfileOverrides(section.energyProfile(), timeSettings));
+            } else if (section.events() != null) {
+                plan.setEvents(buildEvents(section.events(), timeSettings));
             }
         }
 
@@ -99,6 +102,35 @@ public class PlanModelBuilder extends LifeScriptParserBaseVisitor<Void> {
             activities.add(activity);
         }
         return activities;
+    }
+
+    private List<Event> buildEvents(LifeScriptParser.EventsContext ctx, Map<String, TimeRange> timeSettings) {
+        List<Event> events = new ArrayList<>();
+        for (LifeScriptParser.EventContext entry : ctx.event()) {
+            events.add(buildEvent(entry, timeSettings));
+        }
+        return events;
+    }
+
+    private Event buildEvent(LifeScriptParser.EventContext ctx, Map<String, TimeRange> timeSettings) {
+        Event event = new Event();
+        event.setName(ctx.IDENTIFIER().getText());
+
+        for (LifeScriptParser.EventPropertyContext prop : ctx.eventProperty()) {
+            if (prop.eventDate() != null) {
+                event.setDate(Literals.parseDate(prop.eventDate().DATE_VAL().getText()));
+            } else if (prop.eventTime() != null) {
+                LifeScriptParser.EventTimeContext time = prop.eventTime();
+                event.setTimeRange(time.namedPeriod() != null
+                        ? timeSettings.get(time.namedPeriod().getText())
+                        : Literals.parseTimeRange(time.timeRange().getText()));
+            } else if (prop.eventNote() != null) {
+                String quoted = prop.eventNote().STRING().getText();
+                event.setNote(quoted.substring(1, quoted.length() - 1));
+            }
+        }
+
+        return event;
     }
 
     // Every day gets an entry; days not listed in the file are off (empty list).

@@ -71,7 +71,10 @@ public class SemanticValidator extends LifeScriptParserBaseVisitor<Void> {
         if (ctx.availability() != null) return "availability";
         if (ctx.energyProfile() != null) return "energy profile";
         if (ctx.routines() != null) return "routines";
-        return "tasks";
+        if (ctx.tasks() != null) return "tasks";
+        if (ctx.events() != null) return "events";
+        // Fail loudly if a new section is added to the grammar but not here.
+        throw new IllegalStateException("sectionKind: unhandled section " + ctx.getText());
     }
 
     @Override
@@ -266,6 +269,56 @@ public class SemanticValidator extends LifeScriptParserBaseVisitor<Void> {
     @Override
     public Void visitDayList(LifeScriptParser.DayListContext ctx) {
         checkDuplicateKeys(ctx.dayOfWeek(), d -> d.getText(), "day in repeats");
+        return visitChildren(ctx);
+    }
+
+    @Override
+    public Void visitEvents(LifeScriptParser.EventsContext ctx) {
+        checkDuplicateKeys(ctx.event(), e -> e.IDENTIFIER().getText(), "event name");
+        return visitChildren(ctx);
+    }
+
+    @Override
+    public Void visitEvent(LifeScriptParser.EventContext ctx) {
+        String eventName = ctx.IDENTIFIER().getText();
+
+        checkDuplicateKeys(ctx.eventProperty(), p -> p.getStart().getText(), "event property");
+
+        boolean hasDate = false;
+        boolean hasTime = false;
+        for (LifeScriptParser.EventPropertyContext prop : ctx.eventProperty()) {
+            if (prop.eventDate() != null) hasDate = true;
+            if (prop.eventTime() != null) hasTime = true;
+        }
+
+        int line = ctx.getStart().getLine();
+        if (!hasDate) {
+            errors.add(String.format("Line %d: Event %s is missing mandatory property: date", line, eventName));
+        }
+        if (!hasTime) {
+            errors.add(String.format("Line %d: Event %s is missing mandatory property: time", line, eventName));
+        }
+
+        return visitChildren(ctx);
+    }
+
+    @Override
+    public Void visitEventDate(LifeScriptParser.EventDateContext ctx) {
+        int line = ctx.getStart().getLine();
+        String text = ctx.DATE_VAL().getText();
+
+        LocalDate date;
+        try {
+            date = Literals.parseDate(text);
+        } catch (DateTimeParseException e) {
+            errors.add(String.format("Line %d: Invalid event date '%s'", line, text));
+            return visitChildren(ctx);
+        }
+
+        if (periodStart != null && periodEnd != null && (date.isBefore(periodStart) || date.isAfter(periodEnd))) {
+            errors.add(String.format("Line %d: Event date '%s' must be within the period range '%s'-'%s'",
+                    line, text, periodStart, periodEnd));
+        }
         return visitChildren(ctx);
     }
 

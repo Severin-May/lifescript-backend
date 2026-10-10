@@ -18,6 +18,7 @@ planSection
     | energyProfile
     | routines
     | tasks
+    | events
     ;
 
 // Settings
@@ -163,6 +164,35 @@ taskDependencies
     ;
 
 taskNote
+    : NOTE COLON STRING eol
+    ;
+
+// Events: one-off, at a fixed date and time
+events
+    : EVENTS COLON eol
+      event+
+    ;
+
+event
+    : EVENT COLON IDENTIFIER eol
+      eventProperty+
+    ;
+
+eventProperty
+    : eventDate
+    | eventTime
+    | eventNote
+    ;
+
+eventDate
+    : DATE COLON DATE_VAL eol
+    ;
+
+eventTime
+    : TIME COLON (namedPeriod | timeRange) eol
+    ;
+
+eventNote
     : NOTE COLON STRING eol
     ;
 

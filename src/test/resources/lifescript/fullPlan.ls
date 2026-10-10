@@ -62,3 +62,13 @@ tasks:
     priority: low
     effort: low
     repeats: weekdays
+
+events:
+  event: dentist
+    date: 2026-10-07
+    time: 10:00-11:00
+    note: "bring insurance card"
+
+  event: team_offsite
+    date: 2026-10-09
+    time: afternoon

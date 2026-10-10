@@ -4,6 +4,7 @@ import com.lifescript.grammar.LifeScriptLexer;
 import com.lifescript.grammar.LifeScriptParser;
 import com.lifescript.model.Activity;
 import com.lifescript.model.EnergyLevel;
+import com.lifescript.model.Event;
 import com.lifescript.model.Plan;
 import com.lifescript.model.Priority;
 import com.lifescript.model.Routine;
@@ -266,6 +267,33 @@ class PlanModelBuilderTest {
         assertTrue(range.endsAtMidnight());
         assertTrue(range.isOrdered());
         assertEquals(Duration.ofHours(1), range.duration());
+    }
+
+    // --- events ---
+
+    @Test
+    void events_fullPlan() throws IOException {
+        Plan plan = build(load("fullPlan.ls"));
+        List<Event> events = plan.getEvents();
+
+        assertEquals(List.of("dentist", "team_offsite"), events.stream().map(Event::getName).toList());
+
+        Event dentist = events.get(0);
+        assertEquals(LocalDate.of(2026, 10, 7), dentist.getDate());
+        assertEquals(range("10:00", "11:00"), dentist.getTimeRange());
+        assertEquals("bring insurance card", dentist.getNote());
+
+        Event offsite = events.get(1);
+        assertEquals(LocalDate.of(2026, 10, 9), offsite.getDate());
+        assertEquals(range("13:00", "17:00"), offsite.getTimeRange());   // afternoon, overridden in fullPlan settings
+        assertNull(offsite.getNote());
+    }
+
+    @Test
+    void events_noSection_isEmpty() {
+        Plan plan = build(planWithAvailability("", "monday: flexible"));
+
+        assertEquals(List.of(), plan.getEvents());
     }
 
     // --- tasks ---
