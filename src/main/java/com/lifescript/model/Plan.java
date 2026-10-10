@@ -2,6 +2,7 @@ package com.lifescript.model;
 
 import java.time.DayOfWeek;
 import java.time.LocalDate;
+import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.EnumMap;
 import java.util.HashMap;
@@ -73,6 +74,26 @@ public class Plan {
 
     public void setEnergyProfileOverrides(Map<DayOfWeek, Map<TimeRange, EnergyLevel>> energyProfileOverrides) {
         this.energyProfileOverrides = energyProfileOverrides;
+    }
+
+    // Energy at a given moment: the day's own block wins, then the default block,
+    // then MODERATE when no entry covers the time (or there is no energy profile).
+    public EnergyLevel energyAt(DayOfWeek day, LocalTime time) {
+        EnergyLevel level = levelAt(energyProfileOverrides.getOrDefault(day, Map.of()), time);
+        if (level != null) {
+            return level;
+        }
+        level = levelAt(defaultEnergyProfile, time);
+        return level != null ? level : EnergyLevel.MODERATE;
+    }
+
+    private static EnergyLevel levelAt(Map<TimeRange, EnergyLevel> levels, LocalTime time) {
+        for (Map.Entry<TimeRange, EnergyLevel> entry : levels.entrySet()) {
+            if (entry.getKey().contains(time)) {
+                return entry.getValue();
+            }
+        }
+        return null;
     }
 
     public List<Task> getTasks() {

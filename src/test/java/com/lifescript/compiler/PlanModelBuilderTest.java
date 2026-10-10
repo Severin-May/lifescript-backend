@@ -19,6 +19,7 @@ import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.List;
+import java.util.Map;
 
 import static java.time.DayOfWeek.*;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -54,7 +55,7 @@ class PlanModelBuilderTest {
         return range;
     }
 
-    private static String planWithAvailability(String settings, String availability) {
+    private static String planWithAvailability(String extraSections, String availability) {
         return """
                 plan: p
                 period: 2026-10-05 to 2026-10-11
@@ -67,7 +68,7 @@ class PlanModelBuilderTest {
                 duration: 1h
                 priority: high
                 effort: high
-                """.formatted(settings, availability);
+                """.formatted(extraSections, availability);
     }
 
     // --- availability ---
@@ -126,6 +127,75 @@ class PlanModelBuilderTest {
         Plan plan = build(planWithAvailability("", "monday: evening, morning"));
 
         assertEquals(List.of(range("06:00", "12:00"), range("18:00", "22:00")), plan.getAvailability().get(MONDAY));
+    }
+
+    // --- energy profile ---
+
+    @Test
+    void energyProfile_fullPlan_builtMaps() throws IOException {
+        Plan plan = build(load("fullPlan.ls"));
+        // fullPlan.ls: morning 08:00-12:00, afternoon 13:00-17:00, evening default 18:00-22:00.
+
+        assertEquals(Map.of(
+                range("08:00", "12:00"), EnergyLevel.HIGH,
+                range("13:00", "17:00"), EnergyLevel.MODERATE,
+                range("18:00", "22:00"), EnergyLevel.LOW), plan.getDefaultEnergyProfile());
+        assertEquals(Map.of(FRIDAY, Map.of(range("13:00", "17:00"), EnergyLevel.LOW)),
+                plan.getEnergyProfileOverrides());
+    }
+
+    @Test
+    void energyAt_dayBlockMergesWithDefault() throws IOException {
+        Plan plan = build(load("fullPlan.ls"));
+
+        assertEquals(EnergyLevel.LOW, plan.energyAt(FRIDAY, LocalTime.parse("14:00")));       // friday override
+        assertEquals(EnergyLevel.HIGH, plan.energyAt(FRIDAY, LocalTime.parse("09:00")));      // not overridden: default
+        assertEquals(EnergyLevel.MODERATE, plan.energyAt(MONDAY, LocalTime.parse("14:00")));  // default afternoon
+        assertEquals(EnergyLevel.LOW, plan.energyAt(MONDAY, LocalTime.parse("19:00")));       // default evening
+    }
+
+    @Test
+    void energyAt_uncoveredTime_isModerate() throws IOException {
+        Plan plan = build(load("fullPlan.ls"));
+
+        assertEquals(EnergyLevel.MODERATE, plan.energyAt(MONDAY, LocalTime.parse("12:30"))); // gap between morning and afternoon
+        assertEquals(EnergyLevel.MODERATE, plan.energyAt(MONDAY, LocalTime.parse("23:00"))); // after evening
+    }
+
+    @Test
+    void energyAt_noEnergyProfile_isModerateEverywhere() {
+        Plan plan = build(planWithAvailability("", "monday: flexible"));
+
+        assertTrue(plan.getDefaultEnergyProfile().isEmpty());
+        assertTrue(plan.getEnergyProfileOverrides().isEmpty());
+        assertEquals(EnergyLevel.MODERATE, plan.energyAt(MONDAY, LocalTime.parse("09:00")));
+        assertEquals(EnergyLevel.MODERATE, plan.energyAt(SUNDAY, LocalTime.parse("21:00")));
+    }
+
+    @Test
+    void energyAt_timeRangeEndingAtMidnight() {
+        String energy = """
+                energy profile:
+                default:
+                22:00-00:00: low
+                """;
+        Plan plan = build(planWithAvailability(energy, "monday: flexible"));
+
+        assertEquals(EnergyLevel.LOW, plan.energyAt(MONDAY, LocalTime.parse("23:30")));
+        assertEquals(EnergyLevel.MODERATE, plan.energyAt(MONDAY, LocalTime.parse("21:00")));
+    }
+
+    @Test
+    void energyAt_dayBlockOnly_withoutDefault() {
+        String energy = """
+                energy profile:
+                saturday:
+                morning: low
+                """;
+        Plan plan = build(planWithAvailability(energy, "monday: flexible"));
+
+        assertEquals(EnergyLevel.LOW, plan.energyAt(SATURDAY, LocalTime.parse("09:00")));
+        assertEquals(EnergyLevel.MODERATE, plan.energyAt(MONDAY, LocalTime.parse("09:00")));
     }
 
     // --- tasks ---

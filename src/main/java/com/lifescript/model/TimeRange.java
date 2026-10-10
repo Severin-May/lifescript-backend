@@ -38,6 +38,14 @@ public class TimeRange {
         return startTime.isBefore(endTime);
     }
 
+    // start <= time < end, with an end of 00:00 meaning end of day (22:00-00:00 contains 23:30).
+    public boolean contains(LocalTime time) {
+        if (time.isBefore(startTime)) {
+            return false;
+        }
+        return endsAtMidnight() || time.isBefore(endTime);
+    }
+
     // Only meaningful for ordered ranges: 22:00-00:00 is 2h, not -22h.
     public Duration duration() {
         Duration duration = Duration.between(startTime, endTime);

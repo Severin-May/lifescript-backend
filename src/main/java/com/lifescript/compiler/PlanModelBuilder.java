@@ -4,7 +4,6 @@ import com.lifescript.grammar.LifeScriptParser;
 import com.lifescript.grammar.LifeScriptParserBaseVisitor;
 import com.lifescript.model.EnergyLevel;
 import com.lifescript.model.Plan;
-import com.lifescript.model.Priority;
 import com.lifescript.model.Routine;
 import com.lifescript.model.Task;
 import com.lifescript.model.TimeRange;
@@ -16,6 +15,7 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.EnumMap;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -55,6 +55,9 @@ public class PlanModelBuilder extends LifeScriptParserBaseVisitor<Void> {
                 plan.setTasks(buildTasks(section.tasks()));
             } else if (section.availability() != null) {
                 plan.setAvailability(buildAvailability(section.availability(), timeSettings));
+            } else if (section.energyProfile() != null) {
+                plan.setDefaultEnergyProfile(buildDefaultEnergyProfile(section.energyProfile(), timeSettings));
+                plan.setEnergyProfileOverrides(buildEnergyProfileOverrides(section.energyProfile(), timeSettings));
             }
         }
 
@@ -131,6 +134,41 @@ public class PlanModelBuilder extends LifeScriptParserBaseVisitor<Void> {
         return ranges;
     }
 
+    // The "default:" block of the energy profile (empty if there is none).
+    private Map<TimeRange, EnergyLevel> buildDefaultEnergyProfile(LifeScriptParser.EnergyProfileContext ctx,
+                                                                  Map<String, TimeRange> timeSettings) {
+        for (LifeScriptParser.EnergyProfileEntryContext entry : ctx.energyProfileEntry()) {
+            if (entry.DEFAULT() != null) {
+                return buildEnergyLevels(entry, timeSettings);
+            }
+        }
+        return new LinkedHashMap<>();
+    }
+
+    // The per-day blocks of the energy profile. They are merged with the default by Plan.energyAt.
+    private Map<DayOfWeek, Map<TimeRange, EnergyLevel>> buildEnergyProfileOverrides(
+            LifeScriptParser.EnergyProfileContext ctx, Map<String, TimeRange> timeSettings) {
+        Map<DayOfWeek, Map<TimeRange, EnergyLevel>> overrides = new EnumMap<>(DayOfWeek.class);
+        for (LifeScriptParser.EnergyProfileEntryContext entry : ctx.energyProfileEntry()) {
+            if (entry.dayOfWeek() != null) {
+                overrides.put(Literals.parseDay(entry.dayOfWeek().getText()), buildEnergyLevels(entry, timeSettings));
+            }
+        }
+        return overrides;
+    }
+
+    private Map<TimeRange, EnergyLevel> buildEnergyLevels(LifeScriptParser.EnergyProfileEntryContext ctx,
+                                                          Map<String, TimeRange> timeSettings) {
+        Map<TimeRange, EnergyLevel> levels = new LinkedHashMap<>();
+        for (LifeScriptParser.EnergyEntryContext entry : ctx.energyEntry()) {
+            TimeRange range = entry.namedPeriod() != null
+                    ? timeSettings.get(entry.namedPeriod().getText())
+                    : Literals.parseTimeRange(entry.timeRange().getText());
+            levels.put(range, Literals.parseEnergyLevel(entry.energyLevel().getText()));
+        }
+        return levels;
+    }
+
     private List<Task> buildTasks(LifeScriptParser.TasksContext ctx) {
         List<Task> tasks = new ArrayList<>();
         for (LifeScriptParser.TaskContext entry : ctx.task()) {
@@ -147,9 +185,9 @@ public class PlanModelBuilder extends LifeScriptParserBaseVisitor<Void> {
             if (prop.taskDuration() != null) {
                 task.setDuration(Literals.parseDuration(prop.taskDuration().DURATION_VAL().getText()));
             } else if (prop.taskPriority() != null) {
-                task.setPriority(Priority.valueOf(prop.taskPriority().priorityLevel().getText().toUpperCase()));
+                task.setPriority(Literals.parsePriority(prop.taskPriority().priorityLevel().getText()));
             } else if (prop.taskEffort() != null) {
-                task.setEffort(EnergyLevel.valueOf(prop.taskEffort().energyLevel().getText().toUpperCase()));
+                task.setEffort(Literals.parseEnergyLevel(prop.taskEffort().energyLevel().getText()));
             } else if (prop.taskDeadline() != null) {
                 task.setDeadline(Literals.parseDate(prop.taskDeadline().DATE().getText()));
             } else if (prop.taskStart() != null) {

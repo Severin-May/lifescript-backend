@@ -50,6 +50,24 @@ class TimeRangeTest {
     }
 
     @Test
+    void contains_includesStart_excludesEnd() {
+        TimeRange r = range("09:00", "12:00");
+        assertTrue(r.contains(LocalTime.parse("09:00")));
+        assertTrue(r.contains(LocalTime.parse("11:59")));
+        assertFalse(r.contains(LocalTime.parse("12:00")));
+        assertFalse(r.contains(LocalTime.parse("08:59")));
+    }
+
+    @Test
+    void contains_endingAtMidnight_coversRestOfDay() {
+        TimeRange r = range("22:00", "00:00");
+        assertTrue(r.contains(LocalTime.parse("22:00")));
+        assertTrue(r.contains(LocalTime.parse("23:59")));
+        assertFalse(r.contains(LocalTime.parse("21:59")));
+        assertFalse(r.contains(LocalTime.parse("00:00")));
+    }
+
+    @Test
     void midnightToMidnight_isNotOrdered() {
         assertFalse(range("00:00", "00:00").isOrdered());
     }

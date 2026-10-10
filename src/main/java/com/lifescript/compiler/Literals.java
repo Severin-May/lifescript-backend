@@ -1,5 +1,7 @@
 package com.lifescript.compiler;
 
+import com.lifescript.model.EnergyLevel;
+import com.lifescript.model.Priority;
 import com.lifescript.model.TimeRange;
 
 import java.time.DayOfWeek;
@@ -57,5 +59,15 @@ public final class Literals {
     // "monday"
     public static DayOfWeek parseDay(String text) {
         return DayOfWeek.valueOf(text.toUpperCase());
+    }
+
+    // "high", "moderate", "low"
+    public static EnergyLevel parseEnergyLevel(String text) {
+        return EnergyLevel.valueOf(text.toUpperCase());
+    }
+
+    // "critical", "high", "medium", "low"
+    public static Priority parsePriority(String text) {
+        return Priority.valueOf(text.toUpperCase());
     }
 }
