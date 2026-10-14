@@ -276,7 +276,7 @@ class CompilerTest {
 
         List<String> errors = compiler.fullCompile(plan);
 
-        assertTrue(errors.stream().anyMatch(e -> e.contains("duplicate 'tasks' section")));
+        assertTrue(errors.stream().anyMatch(e -> e.contains("Duplicate section 'tasks'")));
         assertFalse(errors.stream().anyMatch(e -> e.contains("Invalid deadline date")),
                 () -> "Contents of the duplicate section should be skipped, but got: " + errors);
     }
@@ -403,7 +403,68 @@ class CompilerTest {
 
         List<String> errors = compiler.fullCompile(plan);
 
-        assertTrue(errors.stream().anyMatch(e -> e.contains("Duplicate task name a")));
+        assertTrue(errors.stream().anyMatch(e -> e.contains("Duplicate task name 'a'")));
+    }
+
+    @Test
+    void duplicateTask_secondCopyIsNotValidated() {
+        String plan = """
+                plan: p
+                period: 2024-01-01 to 2024-01-31
+
+                availability:
+                monday: flexible
+
+                tasks:
+                task: a
+                duration: 1h
+                priority: high
+                effort: high
+
+                task: a
+                duration: 2h
+                deadline: 2024-02-30
+                """;
+
+        List<String> errors = compiler.fullCompile(plan);
+
+        // Only the duplicate is reported; the second copy's bad deadline and missing fields are not.
+        assertEquals(List.of("Line 13: Duplicate task name 'a'"), errors);
+    }
+
+    @Test
+    void duplicateTask_cycleThroughFirstCopy_isStillDetected() {
+        // The second "a" used to overwrite the first one's dependencies, hiding the a -> b -> a cycle.
+        String plan = """
+                plan: p
+                period: 2024-01-01 to 2024-01-31
+
+                availability:
+                monday: flexible
+
+                tasks:
+                task: a
+                duration: 1h
+                priority: high
+                effort: high
+                dependencies: b
+
+                task: b
+                duration: 1h
+                priority: high
+                effort: high
+                dependencies: a
+
+                task: a
+                duration: 1h
+                priority: high
+                effort: high
+                """;
+
+        List<String> errors = compiler.fullCompile(plan);
+
+        assertTrue(errors.stream().anyMatch(e -> e.contains("Duplicate task name 'a'")), () -> "Got: " + errors);
+        assertTrue(errors.stream().anyMatch(e -> e.contains("Circular dependency detected")), () -> "Got: " + errors);
     }
 
     @Test
@@ -702,8 +763,8 @@ class CompilerTest {
 
         List<String> errors = compiler.fullCompile(plan);
 
-        assertTrue(errors.stream().anyMatch(e -> e.contains("duplicate 'events' section")), () -> "Got: " + errors);
-        assertFalse(errors.stream().anyMatch(e -> e.contains("duplicate 'tasks' section")), () -> "Got: " + errors);
+        assertTrue(errors.stream().anyMatch(e -> e.contains("Duplicate section 'events'")), () -> "Got: " + errors);
+        assertFalse(errors.stream().anyMatch(e -> e.contains("Duplicate section 'tasks'")), () -> "Got: " + errors);
     }
 
     @Test

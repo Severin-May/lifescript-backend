@@ -39,17 +39,11 @@ public class SemanticValidator extends LifeScriptParserBaseVisitor<Void> {
 
         visit(ctx.period());
 
-        Set<String> seenSections = new HashSet<>();
         boolean hasTasks = false;
         boolean hasAvailability = false;
 
-        for (LifeScriptParser.PlanSectionContext section : ctx.planSection()) {
-            String kind = sectionKind(section);
-            if (!seenSections.add(kind)) {
-                int sectionLine = section.getStart().getLine();
-                errors.add(String.format("Line %d: Plan has duplicate '%s' section", sectionLine, kind));
-                continue;
-            }
+        for (LifeScriptParser.PlanSectionContext section :
+                checkDuplicateKeys(ctx.planSection(), this::sectionKind, "section")) {
             if (section.tasks() != null) hasTasks = true;
             if (section.availability() != null) hasAvailability = true;
             visit(section);
@@ -82,13 +76,14 @@ public class SemanticValidator extends LifeScriptParserBaseVisitor<Void> {
         String taskName = ctx.IDENTIFIER().getText();
 
         // Every property starts with its keyword (duration, priority, ...), so the first token is its key.
-        checkDuplicateKeys(ctx.taskProperty(), p -> p.getStart().getText(), "task property");
+        List<LifeScriptParser.TaskPropertyContext> properties =
+                checkDuplicateKeys(ctx.taskProperty(), p -> p.getStart().getText(), "task property");
 
         boolean hasDuration = false;
         boolean hasPriority = false;
         boolean hasEffort = false;
 
-        for (LifeScriptParser.TaskPropertyContext prop : ctx.taskProperty()) {
+        for (LifeScriptParser.TaskPropertyContext prop : properties) {
             if (prop.taskDuration() != null) hasDuration = true;
             if (prop.taskPriority() != null) hasPriority = true;
             if (prop.taskEffort() != null) hasEffort = true;
@@ -105,18 +100,32 @@ public class SemanticValidator extends LifeScriptParserBaseVisitor<Void> {
             errors.add(String.format("Line %d: Task %s is missing mandatory property: effort", line, taskName));
         }
 
-        return visitChildren(ctx);
+        visitAll(properties);
+        return null;
     }
 
-    private <T extends ParserRuleContext> void checkDuplicateKeys(
+    // Reports every entry whose key was already seen, and returns only the first occurrence of each key.
+    // Callers validate just the returned entries: a duplicate is reported once and not validated further,
+    // since anything referring to it by name couldn't tell the copies apart.
+    private <T extends ParserRuleContext> List<T> checkDuplicateKeys(
             List<T> entries, Function<T, String> keyOf, String label) {
         Set<String> seen = new HashSet<>();
+        List<T> unique = new ArrayList<>();
         for (T entry : entries) {
             String key = keyOf.apply(entry);
-            if (!seen.add(key)) {
+            if (seen.add(key)) {
+                unique.add(entry);
+            } else {
                 int line = entry.getStart().getLine();
                 errors.add(String.format("Line %d: Duplicate %s '%s'", line, label, key));
             }
+        }
+        return unique;
+    }
+
+    private void visitAll(List<? extends ParserRuleContext> nodes) {
+        for (ParserRuleContext node : nodes) {
+            visit(node);
         }
     }
 
@@ -144,20 +153,20 @@ public class SemanticValidator extends LifeScriptParserBaseVisitor<Void> {
 
     @Override
     public Void visitTasks(LifeScriptParser.TasksContext ctx) {
+        // Only the first task with each name takes part in the checks below (dependencies, cycles).
+        List<LifeScriptParser.TaskContext> tasks =
+                checkDuplicateKeys(ctx.task(), t -> t.IDENTIFIER().getText(), "task name");
         Set<String> repeatingTasks = new HashSet<>();
 
-        for (LifeScriptParser.TaskContext task: ctx.task()) {
+        for (LifeScriptParser.TaskContext task: tasks) {
             String taskName = task.IDENTIFIER().getText();
-            if (!taskNames.add(taskName)) {
-                int line = task.getStart().getLine();
-                errors.add(String.format("Line %d: Duplicate task name %s", line, taskName));
-            }
+            taskNames.add(taskName);
             if (task.taskProperty().stream().anyMatch(p -> p.repeats() != null)) {
                 repeatingTasks.add(taskName);
             }
         }
 
-        for (LifeScriptParser.TaskContext task: ctx.task()) {
+        for (LifeScriptParser.TaskContext task: tasks) {
             String taskName = task.IDENTIFIER().getText();
             List<String> deps = new ArrayList<>();
 
@@ -201,21 +210,22 @@ public class SemanticValidator extends LifeScriptParserBaseVisitor<Void> {
 
     @Override
     public Void visitRoutines(LifeScriptParser.RoutinesContext ctx) {
-        checkDuplicateKeys(ctx.routineEntry(), e -> e.IDENTIFIER().getText(), "routine name");
-        return visitChildren(ctx);
+        visitAll(checkDuplicateKeys(ctx.routineEntry(), e -> e.IDENTIFIER().getText(), "routine name"));
+        return null;
     }
 
     @Override
     public Void visitRoutineActivities(LifeScriptParser.RoutineActivitiesContext ctx) {
-        checkDuplicateKeys(ctx.activityEntry(), e -> e.IDENTIFIER().getText(), "activity name");
-        return visitChildren(ctx);
+        visitAll(checkDuplicateKeys(ctx.activityEntry(), e -> e.IDENTIFIER().getText(), "activity name"));
+        return null;
     }
 
     @Override
     public Void visitRoutineEntry(LifeScriptParser.RoutineEntryContext ctx) {
         String routineName = ctx.IDENTIFIER().getText();
 
-        checkDuplicateKeys(ctx.routineProperty(), p -> p.getStart().getText(), "routine property");
+        List<LifeScriptParser.RoutinePropertyContext> properties =
+                checkDuplicateKeys(ctx.routineProperty(), p -> p.getStart().getText(), "routine property");
 
         boolean hasTime = false;
         boolean hasActivities = false;
@@ -223,7 +233,7 @@ public class SemanticValidator extends LifeScriptParserBaseVisitor<Void> {
         String startText = null;
         Duration total = Duration.ZERO;
 
-        for (LifeScriptParser.RoutinePropertyContext prop : ctx.routineProperty()) {
+        for (LifeScriptParser.RoutinePropertyContext prop : properties) {
             if (prop.routineTime() != null) {
                 hasTime = true;
                 startText = prop.routineTime().TIME_VAL().getText();
@@ -262,31 +272,33 @@ public class SemanticValidator extends LifeScriptParserBaseVisitor<Void> {
             }
         }
 
-        return visitChildren(ctx);
+        visitAll(properties);
+        return null;
     }
 
     // Applies to both task and routine repeats, e.g. "repeats: monday, monday".
     @Override
     public Void visitDayList(LifeScriptParser.DayListContext ctx) {
         checkDuplicateKeys(ctx.dayOfWeek(), d -> d.getText(), "day in repeats");
-        return visitChildren(ctx);
+        return null;
     }
 
     @Override
     public Void visitEvents(LifeScriptParser.EventsContext ctx) {
-        checkDuplicateKeys(ctx.event(), e -> e.IDENTIFIER().getText(), "event name");
-        return visitChildren(ctx);
+        visitAll(checkDuplicateKeys(ctx.event(), e -> e.IDENTIFIER().getText(), "event name"));
+        return null;
     }
 
     @Override
     public Void visitEvent(LifeScriptParser.EventContext ctx) {
         String eventName = ctx.IDENTIFIER().getText();
 
-        checkDuplicateKeys(ctx.eventProperty(), p -> p.getStart().getText(), "event property");
+        List<LifeScriptParser.EventPropertyContext> properties =
+                checkDuplicateKeys(ctx.eventProperty(), p -> p.getStart().getText(), "event property");
 
         boolean hasDate = false;
         boolean hasTime = false;
-        for (LifeScriptParser.EventPropertyContext prop : ctx.eventProperty()) {
+        for (LifeScriptParser.EventPropertyContext prop : properties) {
             if (prop.eventDate() != null) hasDate = true;
             if (prop.eventTime() != null) hasTime = true;
         }
@@ -299,7 +311,8 @@ public class SemanticValidator extends LifeScriptParserBaseVisitor<Void> {
             errors.add(String.format("Line %d: Event %s is missing mandatory property: time", line, eventName));
         }
 
-        return visitChildren(ctx);
+        visitAll(properties);
+        return null;
     }
 
     @Override
@@ -420,28 +433,28 @@ public class SemanticValidator extends LifeScriptParserBaseVisitor<Void> {
 
     @Override
     public Void visitSettings(LifeScriptParser.SettingsContext ctx) {
-        checkDuplicateKeys(ctx.settingsEntry(), e -> e.namedPeriod().getText(), "settings entry");
-        return visitChildren(ctx);
+        visitAll(checkDuplicateKeys(ctx.settingsEntry(), e -> e.namedPeriod().getText(), "settings entry"));
+        return null;
     }
 
     @Override
     public Void visitAvailability(LifeScriptParser.AvailabilityContext ctx) {
-        checkDuplicateKeys(ctx.availabilityEntry(), e -> e.dayOfWeek().getText(), "availability day");
-        return visitChildren(ctx);
+        visitAll(checkDuplicateKeys(ctx.availabilityEntry(), e -> e.dayOfWeek().getText(), "availability day"));
+        return null;
     }
 
     @Override
     public Void visitEnergyProfile(LifeScriptParser.EnergyProfileContext ctx) {
-        checkDuplicateKeys(ctx.energyProfileEntry(),
-                e -> e.DEFAULT() != null ? "default" : e.dayOfWeek().getText(), "energy profile entry");
-        return visitChildren(ctx);
+        visitAll(checkDuplicateKeys(ctx.energyProfileEntry(),
+                e -> e.DEFAULT() != null ? "default" : e.dayOfWeek().getText(), "energy profile entry"));
+        return null;
     }
 
     @Override
     public Void visitEnergyProfileEntry(LifeScriptParser.EnergyProfileEntryContext ctx) {
-        checkDuplicateKeys(ctx.energyEntry(),
-                e -> e.namedPeriod() != null ? e.namedPeriod().getText() : e.timeRange().getText(), "energy entry");
-        return visitChildren(ctx);
+        visitAll(checkDuplicateKeys(ctx.energyEntry(),
+                e -> e.namedPeriod() != null ? e.namedPeriod().getText() : e.timeRange().getText(), "energy entry"));
+        return null;
     }
 
     @Override
