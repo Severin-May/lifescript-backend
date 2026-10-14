@@ -280,7 +280,7 @@ class PlanModelBuilderTest {
 
         Event dentist = events.get(0);
         assertEquals(LocalDate.of(2026, 10, 7), dentist.getDate());
-        assertEquals(range("10:00", "11:00"), dentist.getTimeRange());
+        assertEquals(range("14:00", "15:00"), dentist.getTimeRange());
         assertEquals("bring insurance card", dentist.getNote());
 
         Event offsite = events.get(1);

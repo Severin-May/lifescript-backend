@@ -57,6 +57,10 @@ public class Compiler {
         modelBuilder.visit(tree);
         Plan plan = modelBuilder.getPlan();
 
+        errors.addAll(new PlanModelValidator().validate(plan));
+
+        if (!errors.isEmpty()) return errors;
+
 //        try {
 //            Scheduler scheduler = new Scheduler(plan);
 //            Schedule schedule = scheduler.schedule();

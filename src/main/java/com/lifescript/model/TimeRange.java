@@ -46,10 +46,26 @@ public class TimeRange {
         return endsAtMidnight() || time.isBefore(endTime);
     }
 
+    // True if the two ranges share any time. Ranges that only touch (09:00-12:00 and 12:00-14:00) don't overlap.
+    // An end of 00:00 means end of day, so 22:00-00:00 overlaps 23:00-23:30.
+    public boolean overlaps(TimeRange other) {
+        return startsBeforeEndOf(other) && other.startsBeforeEndOf(this);
+    }
+
+    private boolean startsBeforeEndOf(TimeRange other) {
+        return other.endsAtMidnight() || startTime.isBefore(other.endTime);
+    }
+
     // Only meaningful for ordered ranges: 22:00-00:00 is 2h, not -22h.
     public Duration duration() {
         Duration duration = Duration.between(startTime, endTime);
         return endsAtMidnight() ? duration.plusDays(1) : duration;
+    }
+
+    // Same format as written in LifeScript, e.g. "06:00-12:00".
+    @Override
+    public String toString() {
+        return startTime + "-" + endTime;
     }
 
     @Override

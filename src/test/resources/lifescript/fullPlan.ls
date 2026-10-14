@@ -66,7 +66,7 @@ tasks:
 events:
   event: dentist
     date: 2026-10-07
-    time: 10:00-11:00
+    time: 14:00-15:00
     note: "bring insurance card"
 
   event: team_offsite

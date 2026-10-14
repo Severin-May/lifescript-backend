@@ -2,11 +2,12 @@ package com.lifescript.model;
 
 import java.time.DayOfWeek;
 import java.time.Duration;
+import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.List;
 
-public class Routine {
+public class Routine implements FixedCommitment {
     private String name;
     private LocalTime startTime;
     // Days the routine repeats on. Mandatory in LifeScript, so never empty after validation
@@ -14,6 +15,7 @@ public class Routine {
     private List<DayOfWeek> repeatDays = new ArrayList<>();
     private List<Activity> activities = new ArrayList<>();
 
+    @Override
     public String getName() {
         return name;
     }
@@ -51,8 +53,14 @@ public class Routine {
         return activities.stream().map(Activity::getDuration).reduce(Duration.ZERO, Duration::plus);
     }
 
+    @Override
+    public boolean occursOn(LocalDate date) {
+        return repeatDays.contains(date.getDayOfWeek());
+    }
+
     // From the start time until the activities are done. A routine ending exactly at
     // midnight gets an end of 00:00, which TimeRange treats as end of day.
+    @Override
     public TimeRange getTimeRange() {
         TimeRange range = new TimeRange();
         range.setStartTime(startTime);

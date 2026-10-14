@@ -68,6 +68,30 @@ class TimeRangeTest {
     }
 
     @Test
+    void overlaps_partialAndContained() {
+        assertTrue(range("09:00", "12:00").overlaps(range("11:00", "13:00")));
+        assertTrue(range("11:00", "13:00").overlaps(range("09:00", "12:00")));   // symmetric
+        assertTrue(range("09:00", "17:00").overlaps(range("10:00", "11:00")));   // contained
+        assertTrue(range("09:00", "12:00").overlaps(range("09:00", "12:00")));   // identical
+    }
+
+    @Test
+    void overlaps_touchingOrApart_isFalse() {
+        assertFalse(range("09:00", "12:00").overlaps(range("12:00", "14:00")));
+        assertFalse(range("12:00", "14:00").overlaps(range("09:00", "12:00")));
+        assertFalse(range("09:00", "10:00").overlaps(range("11:00", "12:00")));
+    }
+
+    @Test
+    void overlaps_endingAtMidnight() {
+        assertTrue(range("22:00", "00:00").overlaps(range("23:00", "23:30")));
+        assertTrue(range("23:00", "23:30").overlaps(range("22:00", "00:00")));
+        assertTrue(range("20:00", "00:00").overlaps(range("22:00", "00:00")));
+        assertFalse(range("20:00", "22:00").overlaps(range("22:00", "00:00")));   // touching at 22:00
+        assertFalse(range("00:00", "08:00").overlaps(range("22:00", "00:00")));   // start of day vs end of day
+    }
+
+    @Test
     void midnightToMidnight_isNotOrdered() {
         assertFalse(range("00:00", "00:00").isOrdered());
     }
