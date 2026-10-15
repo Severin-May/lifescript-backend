@@ -60,9 +60,8 @@ public class Compiler {
     }
 
     private List<String> runPipeline(String content) {
-        CharStream input = CharStreams.fromString(content);
         List<String> errors = new ArrayList<>();
-        LifeScriptParser.PlanContext tree = parseWithSyntaxChecks(input, errors);
+        LifeScriptParser.PlanContext tree = parseWithSyntaxChecks(content, errors);
 
         if (!errors.isEmpty()) return errors;
 
@@ -91,13 +90,15 @@ public class Compiler {
     }
 
     public List<String> syntaxValidate(String content) {
-        CharStream input = CharStreams.fromString(content);
         List<String> errors = new ArrayList<>();
-        parseWithSyntaxChecks(input, errors);
+        parseWithSyntaxChecks(content, errors);
         return errors;
     }
 
-    private LifeScriptParser.PlanContext parseWithSyntaxChecks(CharStream input, List<String> errors) {
+    private LifeScriptParser.PlanContext parseWithSyntaxChecks(String content, List<String> errors) {
+        // Every line must end with a newline, but the last line of a file often doesn't
+        // (e.g. text from a browser text box). An extra blank line is harmless.
+        CharStream input = CharStreams.fromString(content.endsWith("\n") ? content : content + "\n");
         LifeScriptLexer lexer = new LifeScriptLexer(input);
         CommonTokenStream tokens = new CommonTokenStream(lexer);
         LifeScriptParser parser = new LifeScriptParser(tokens);
