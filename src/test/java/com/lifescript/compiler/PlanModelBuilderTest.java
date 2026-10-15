@@ -52,10 +52,7 @@ class PlanModelBuilderTest {
     }
 
     private static TimeRange range(String start, String end) {
-        TimeRange range = new TimeRange();
-        range.setStartTime(LocalTime.parse(start));
-        range.setEndTime(LocalTime.parse(end));
-        return range;
+        return new TimeRange(LocalTime.parse(start), LocalTime.parse(end));
     }
 
     private static String planWithAvailability(String extraSections, String availability) {

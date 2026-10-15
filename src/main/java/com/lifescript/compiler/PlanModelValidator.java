@@ -42,9 +42,9 @@ public class PlanModelValidator {
             TimeRange earlier = timeSettings.get(earlierName);
             TimeRange later = timeSettings.get(laterName);
 
-            if (earlier.endsAtMidnight() || earlier.getEndTime().isAfter(later.getStartTime())) {
+            if (earlier.endsAtMidnight() || earlier.endTime().isAfter(later.startTime())) {
                 errors.add(String.format("Settings: %s (%s) must end before %s starts (%s)",
-                        earlierName, earlier, laterName, later.getStartTime()));
+                        earlierName, earlier, laterName, later.startTime()));
             }
         }
     }

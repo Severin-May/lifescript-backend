@@ -57,10 +57,7 @@ public final class Literals {
     // "09:00-12:00"
     public static TimeRange parseTimeRange(String text) {
         int dash = text.indexOf('-');
-        TimeRange range = new TimeRange();
-        range.setStartTime(parseTime(text.substring(0, dash)));
-        range.setEndTime(parseTime(text.substring(dash + 1)));
-        return range;
+        return new TimeRange(parseTime(text.substring(0, dash)), parseTime(text.substring(dash + 1)));
     }
 
     // "monday"

@@ -62,9 +62,6 @@ public class Routine implements FixedCommitment {
     // midnight gets an end of 00:00, which TimeRange treats as end of day.
     @Override
     public TimeRange getTimeRange() {
-        TimeRange range = new TimeRange();
-        range.setStartTime(startTime);
-        range.setEndTime(startTime.plus(getDuration()));
-        return range;
+        return new TimeRange(startTime, startTime.plus(getDuration()));
     }
 }

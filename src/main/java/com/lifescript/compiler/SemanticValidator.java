@@ -368,6 +368,10 @@ public class SemanticValidator extends LifeScriptParserBaseVisitor<Void> {
             errors.add(String.format("Line %d: Duration '%s' is too long (at most 24h)", line, text));
             return;
         }
+        if (duration.isZero()) {
+            errors.add(String.format("Line %d: Duration '%s' must be greater than zero", line, text));
+            return;
+        }
 
         // Minutes after hours (the 75 in "1h75m") are most likely a typo, so they must stay under an hour.
         // Minutes on their own ("90m") are fine. The total is at most 24h here, so the number always parses.
@@ -405,12 +409,17 @@ public class SemanticValidator extends LifeScriptParserBaseVisitor<Void> {
         int line = ctx.getStart().getLine();
 
         if (ctx.DATE_VAL() != null) {
+            String text = ctx.DATE_VAL().getText();
             try {
-                Literals.parseDate(ctx.DATE_VAL().getText());
+                LocalDate deadline = Literals.parseDate(text);
+                // A deadline after the period ends is allowed: it still orders tasks by urgency.
+                if (periodStart != null && deadline.isBefore(periodStart)) {
+                    errors.add(String.format("Line %d: Deadline '%s' is before the period starts (%s)",
+                            line, text, periodStart));
+                }
             }
             catch (DateTimeParseException e) {
-                String invalidDate = ctx.DATE_VAL().getText();
-                errors.add(String.format("Line %d: Invalid deadline date '%s'", line, invalidDate));
+                errors.add(String.format("Line %d: Invalid deadline date '%s'", line, text));
             }
         }
         return visitChildren(ctx);
@@ -437,9 +446,7 @@ public class SemanticValidator extends LifeScriptParserBaseVisitor<Void> {
             return visitChildren(ctx);
         }
 
-        TimeRange range = new TimeRange();
-        range.setStartTime(start);
-        range.setEndTime(end);
+        TimeRange range = new TimeRange(start, end);
 
         if (!range.isOrdered()) {
             // End earlier than start usually means the range was meant to cross midnight.

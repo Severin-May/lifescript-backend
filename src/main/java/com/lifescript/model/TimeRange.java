@@ -2,27 +2,10 @@ package com.lifescript.model;
 
 import java.time.Duration;
 import java.time.LocalTime;
-import java.util.Objects;
 
-public class TimeRange {
-    private LocalTime startTime;
-    private LocalTime endTime;
-
-    public LocalTime getStartTime() {
-        return startTime;
-    }
-
-    public void setStartTime(LocalTime startTime) {
-        this.startTime = startTime;
-    }
-
-    public LocalTime getEndTime() {
-        return endTime;
-    }
-
-    public void setEndTime(LocalTime endTime) {
-        this.endTime = endTime;
-    }
+// Immutable, so one instance can safely be shared (e.g. the "morning" range from settings is used
+// by availability, energy and events) and used as a map key. equals/hashCode compare start and end.
+public record TimeRange(LocalTime startTime, LocalTime endTime) {
 
     // "00:00" as an end time means midnight at the end of the day, e.g. 22:00-00:00.
     public boolean endsAtMidnight() {
@@ -66,18 +49,5 @@ public class TimeRange {
     @Override
     public String toString() {
         return startTime + "-" + endTime;
-    }
-
-    @Override
-    public boolean equals(Object o) {
-        if (this == o) return true;
-        if (!(o instanceof TimeRange)) return false;
-        TimeRange other = (TimeRange) o;
-        return Objects.equals(startTime, other.startTime) && Objects.equals(endTime, other.endTime);
-    }
-
-    @Override
-    public int hashCode() {
-        return Objects.hash(startTime, endTime);
     }
 }

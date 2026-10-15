@@ -24,9 +24,9 @@ import java.util.Map;
 public class PlanModelBuilder extends LifeScriptParserBaseVisitor<Void> {
 
     private static final Map<String, TimeRange> DEFAULT_TIME_SETTINGS = Map.of(
-            "morning", timeRange(LocalTime.of(6, 0), LocalTime.of(12, 0)),
-            "afternoon", timeRange(LocalTime.of(12, 0), LocalTime.of(18, 0)),
-            "evening", timeRange(LocalTime.of(18, 0), LocalTime.of(22, 0))
+            "morning", new TimeRange(LocalTime.of(6, 0), LocalTime.of(12, 0)),
+            "afternoon", new TimeRange(LocalTime.of(12, 0), LocalTime.of(18, 0)),
+            "evening", new TimeRange(LocalTime.of(18, 0), LocalTime.of(22, 0))
     );
 
     private final Plan plan = new Plan();
@@ -156,8 +156,8 @@ public class PlanModelBuilder extends LifeScriptParserBaseVisitor<Void> {
 
         if (ctx.FLEXIBLE() != null) {
             // flexible = from the start of morning to the end of evening, as configured in settings
-            ranges.add(timeRange(timeSettings.get("morning").getStartTime(),
-                    timeSettings.get("evening").getEndTime()));
+            ranges.add(new TimeRange(timeSettings.get("morning").startTime(),
+                    timeSettings.get("evening").endTime()));
         } else if (ctx.namedPeriodList() != null) {
             for (LifeScriptParser.NamedPeriodContext period : ctx.namedPeriodList().namedPeriod()) {
                 ranges.add(timeSettings.get(period.getText()));
@@ -168,7 +168,7 @@ public class PlanModelBuilder extends LifeScriptParserBaseVisitor<Void> {
             }
         }
 
-        ranges.sort(Comparator.comparing(TimeRange::getStartTime));
+        ranges.sort(Comparator.comparing(TimeRange::startTime));
         return ranges;
     }
 
@@ -276,12 +276,5 @@ public class PlanModelBuilder extends LifeScriptParserBaseVisitor<Void> {
         }
 
         return timeSettings;
-    }
-
-    private static TimeRange timeRange(LocalTime startTime, LocalTime endTime) {
-        TimeRange range = new TimeRange();
-        range.setStartTime(startTime);
-        range.setEndTime(endTime);
-        return range;
     }
 }

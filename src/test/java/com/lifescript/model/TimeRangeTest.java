@@ -12,10 +12,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class TimeRangeTest {
 
     private static TimeRange range(String start, String end) {
-        TimeRange range = new TimeRange();
-        range.setStartTime(LocalTime.parse(start));
-        range.setEndTime(LocalTime.parse(end));
-        return range;
+        return new TimeRange(LocalTime.parse(start), LocalTime.parse(end));
     }
 
     @Test

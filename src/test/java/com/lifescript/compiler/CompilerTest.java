@@ -509,6 +509,42 @@ class CompilerTest {
     }
 
     @Test
+    void zeroDuration_isReported_forTasksAndActivities() {
+        String plan = """
+                plan: p
+                period: 2024-01-01 to 2024-01-31
+
+                availability:
+                monday: flexible
+
+                routines:
+                routine: r1
+                time: 07:00
+                repeats: daily
+                activities:
+                stretch: 0h
+                jog: 20m
+
+                tasks:
+                task: a
+                duration: 0m
+                priority: high
+                effort: high
+
+                task: b
+                duration: 0h30m
+                priority: high
+                effort: high
+                """;
+
+        List<String> errors = compiler.fullCompile(plan);
+
+        assertEquals(List.of(
+                "Line 12: Duration '0h' must be greater than zero",
+                "Line 17: Duration '0m' must be greater than zero"), errors);
+    }
+
+    @Test
     void activityDuration_tooLarge_isReported_withoutPastMidnightError() {
         // The past-midnight check is skipped: the oversized activity is the real problem.
         String plan = """
@@ -536,6 +572,57 @@ class CompilerTest {
         List<String> errors = compiler.fullCompile(plan);
 
         assertEquals(List.of("Line 13: Duration '9999999999999999h' is too long (at most 24h)"), errors);
+    }
+
+    @Test
+    void deadlineBeforePeriodStart_isReported() {
+        String plan = """
+                plan: p
+                period: 2024-01-10 to 2024-01-31
+
+                availability:
+                monday: flexible
+
+                tasks:
+                task: a
+                duration: 1h
+                priority: high
+                effort: high
+                deadline: 2024-01-09
+                """;
+
+        List<String> errors = compiler.fullCompile(plan);
+
+        assertEquals(List.of("Line 12: Deadline '2024-01-09' is before the period starts (2024-01-10)"), errors);
+    }
+
+    @Test
+    void deadlineOnPeriodStart_orAfterPeriodEnd_isFine() {
+        // A deadline after the period is still used to order tasks by urgency.
+        String plan = """
+                plan: p
+                period: 2024-01-10 to 2024-01-31
+
+                availability:
+                monday: flexible
+
+                tasks:
+                task: a
+                duration: 1h
+                priority: high
+                effort: high
+                deadline: 2024-01-10
+
+                task: b
+                duration: 1h
+                priority: high
+                effort: high
+                deadline: 2024-02-15
+                """;
+
+        List<String> errors = compiler.fullCompile(plan);
+
+        assertTrue(errors.isEmpty(), () -> "Expected no errors but got: " + errors);
     }
 
     @Test
