@@ -31,6 +31,18 @@ class CompilerTest {
     }
 
     @Test
+    void missingContent_isReportedAsEmptyPlan() {
+        // A request without "content" arrives as null; this used to crash with a NullPointerException.
+        assertEquals(List.of("Plan is empty"), compiler.fullCompile(null));
+    }
+
+    @Test
+    void blankContent_isReportedAsEmptyPlan() {
+        assertEquals(List.of("Plan is empty"), compiler.fullCompile(""));
+        assertEquals(List.of("Plan is empty"), compiler.fullCompile("  \n\n  "));
+    }
+
+    @Test
     void task_missingMandatoryFields_reportsErrors() {
         String plan = """
                 plan: p

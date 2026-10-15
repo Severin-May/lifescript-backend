@@ -4,6 +4,8 @@ import com.lifescript.grammar.LifeScriptLexer;
 import com.lifescript.grammar.LifeScriptParser;
 import com.lifescript.model.Plan;
 import org.antlr.v4.runtime.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.io.IOException;
@@ -11,6 +13,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class Compiler {
+
+    private static final Logger log = LoggerFactory.getLogger(Compiler.class);
 
     public void compileFromFile(String filePath) {
         File file = new File(filePath);
@@ -41,6 +45,21 @@ public class Compiler {
     }
 
     public List<String> fullCompile(String content) {
+        if (content == null || content.isBlank()) {
+            return List.of("Plan is empty");
+        }
+
+        // Safety net: a crash anywhere in the pipeline is a bug in the compiler, not in the user's plan.
+        // Report it as an error instead of failing the whole request, and log the details for debugging.
+        try {
+            return runPipeline(content);
+        } catch (RuntimeException e) {
+            log.error("Compiler crashed on input:\n{}", content, e);
+            return List.of("Internal error while compiling the plan (this is a bug in LifeScript, not in your plan)");
+        }
+    }
+
+    private List<String> runPipeline(String content) {
         CharStream input = CharStreams.fromString(content);
         List<String> errors = new ArrayList<>();
         LifeScriptParser.PlanContext tree = parseWithSyntaxChecks(input, errors);
