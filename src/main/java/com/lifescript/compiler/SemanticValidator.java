@@ -25,6 +25,8 @@ public class SemanticValidator extends LifeScriptParserBaseVisitor<Void> {
     private static final String GRAY = "GRAY";
     private static final String BLACK = "BLACK";
 
+    private static final Duration MAX_DURATION = Duration.ofHours(24);
+
     List<String> getErrors() {
         return this.errors;
     }
@@ -233,6 +235,7 @@ public class SemanticValidator extends LifeScriptParserBaseVisitor<Void> {
         boolean hasRepeats = false;
         String startText = null;
         Duration total = Duration.ZERO;
+        boolean activityDurationsValid = true;
 
         for (LifeScriptParser.RoutinePropertyContext prop : properties) {
             if (prop.routineTime() != null) {
@@ -242,7 +245,12 @@ public class SemanticValidator extends LifeScriptParserBaseVisitor<Void> {
             if (prop.routineActivities() != null) {
                 hasActivities = true;
                 for (LifeScriptParser.ActivityEntryContext activity : prop.routineActivities().activityEntry()) {
-                    total = total.plus(Literals.parseDuration(activity.DURATION_VAL().getText()));
+                    Duration duration = parseDurationWithinLimit(activity.DURATION_VAL().getText());
+                    if (duration == null) {
+                        activityDurationsValid = false;
+                    } else {
+                        total = total.plus(duration);
+                    }
                 }
             }
             if (prop.repeats() != null) hasRepeats = true;
@@ -261,8 +269,8 @@ public class SemanticValidator extends LifeScriptParserBaseVisitor<Void> {
         }
 
         // The routine lasts as long as its activities and, like a time range, can't go past midnight.
-        // An invalid start time is already reported by visitRoutineTime.
-        if (startText != null && hasActivities) {
+        // An invalid start time or activity duration is already reported by visitRoutineTime / visitActivityEntry.
+        if (startText != null && hasActivities && activityDurationsValid) {
             try {
                 LocalTime start = Literals.parseTime(startText);
                 if (start.toSecondOfDay() + total.toSeconds() > Duration.ofDays(1).toSeconds()) {
@@ -340,6 +348,48 @@ public class SemanticValidator extends LifeScriptParserBaseVisitor<Void> {
     public Void visitRoutineTime(LifeScriptParser.RoutineTimeContext ctx) {
         checkTime(ctx.TIME_VAL().getText(), ctx.getStart().getLine());
         return visitChildren(ctx);
+    }
+
+    @Override
+    public Void visitTaskDuration(LifeScriptParser.TaskDurationContext ctx) {
+        checkDuration(ctx.DURATION_VAL().getText(), ctx.getStart().getLine());
+        return visitChildren(ctx);
+    }
+
+    @Override
+    public Void visitActivityEntry(LifeScriptParser.ActivityEntryContext ctx) {
+        checkDuration(ctx.DURATION_VAL().getText(), ctx.getStart().getLine());
+        return visitChildren(ctx);
+    }
+
+    private void checkDuration(String text, int line) {
+        Duration duration = parseDurationWithinLimit(text);
+        if (duration == null) {
+            errors.add(String.format("Line %d: Duration '%s' is too long (at most 24h)", line, text));
+            return;
+        }
+
+        // Minutes after hours (the 75 in "1h75m") are most likely a typo, so they must stay under an hour.
+        // Minutes on their own ("90m") are fine. The total is at most 24h here, so the number always parses.
+        int hIndex = text.indexOf('h');
+        if (hIndex >= 0 && hIndex < text.length() - 1) {
+            long minutes = Long.parseLong(text.substring(hIndex + 1, text.length() - 1));
+            if (minutes > 59) {
+                errors.add(String.format("Line %d: Minutes in '%s' must be at most 59 (write %s)",
+                        line, text, formatDuration(duration)));
+            }
+        }
+    }
+
+    // A single task or activity can't last more than a day. Returns null for anything longer,
+    // including values too large to read at all (e.g. 99999999999999999999m).
+    private static Duration parseDurationWithinLimit(String text) {
+        try {
+            Duration duration = Literals.parseDuration(text);
+            return duration.compareTo(MAX_DURATION) <= 0 ? duration : null;
+        } catch (IllegalArgumentException e) {
+            return null;
+        }
     }
 
     // 95 minutes -> "1h35m", 2 hours -> "2h", 45 minutes -> "45m" (same style as DURATION_VAL)

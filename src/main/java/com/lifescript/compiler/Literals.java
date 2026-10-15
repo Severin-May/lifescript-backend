@@ -16,25 +16,32 @@ public final class Literals {
     private Literals() {
     }
 
-    // "1h30m", "2h", "45m"
+    // "1h30m", "2h", "45m"; throws IllegalArgumentException for values too large to represent
+    // (e.g. 99999999999999999999m)
     public static Duration parseDuration(String text) {
-        int hIndex = text.indexOf('h');
+        try {
+            int hIndex = text.indexOf('h');
 
-        if (hIndex < 0) {
-            long minutes = Long.parseLong(text.substring(0, text.length() - 1));
-            return Duration.ofMinutes(minutes);
+            if (hIndex < 0) {
+                long minutes = Long.parseLong(text.substring(0, text.length() - 1));
+                return Duration.ofMinutes(minutes);
+            }
+
+            long hours = Long.parseLong(text.substring(0, hIndex));
+            Duration duration = Duration.ofHours(hours);
+
+            String rest = text.substring(hIndex + 1);
+            if (!rest.isEmpty()) {
+                long minutes = Long.parseLong(rest.substring(0, rest.length() - 1));
+                duration = duration.plusMinutes(minutes);
+            }
+
+            return duration;
+        } catch (ArithmeticException e) {
+            // NumberFormatException (too many digits) is already an IllegalArgumentException;
+            // this covers numbers that fit in a long but overflow Duration.
+            throw new IllegalArgumentException("Duration too large: " + text, e);
         }
-
-        long hours = Long.parseLong(text.substring(0, hIndex));
-        Duration duration = Duration.ofHours(hours);
-
-        String rest = text.substring(hIndex + 1);
-        if (!rest.isEmpty()) {
-            long minutes = Long.parseLong(rest.substring(0, rest.length() - 1));
-            duration = duration.plusMinutes(minutes);
-        }
-
-        return duration;
     }
 
     // "2026-10-05"; throws DateTimeParseException for dates that don't exist (e.g. 2024-02-30)
