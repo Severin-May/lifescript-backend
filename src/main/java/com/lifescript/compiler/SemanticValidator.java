@@ -129,26 +129,27 @@ public class SemanticValidator extends LifeScriptParserBaseVisitor<Void> {
         }
     }
 
-    private boolean detectTaskCycle(String task, Map<String, String> colors, List<String> path) {
+    // GRAY = on the current path, BLACK = fully checked. The search always finishes a task
+    // (even after finding a cycle), so a GRAY task is always on `path` and reaching it again is a cycle.
+    private void detectTaskCycle(String task, Map<String, String> colors, List<String> path) {
         if (GRAY.equals(colors.get(task))) {
             int cycleStart = path.indexOf(task);
             List<String> cycle = path.subList(cycleStart, path.size());
             errors.add(String.format("Circular dependency detected: %s → %s",
                     String.join(" → ", cycle), task));
-            return true;
+            return;
         }
-        if (BLACK.equals(colors.get(task))) return false;
+        if (BLACK.equals(colors.get(task))) return;
 
         colors.put(task, GRAY);
         path.add(task);
 
         for (String dep : dependencyGraph.getOrDefault(task, List.of())) {
-            if (detectTaskCycle(dep, colors, path)) return true;
+            detectTaskCycle(dep, colors, path);
         }
 
         path.remove(path.size() - 1);
         colors.put(task, BLACK);
-        return false;
     }
 
     @Override

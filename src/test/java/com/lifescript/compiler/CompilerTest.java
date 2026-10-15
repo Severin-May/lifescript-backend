@@ -359,6 +359,43 @@ class CompilerTest {
     }
 
     @Test
+    void circularDependency_reachedAgainFromAnotherTask_isReportedOnce() {
+        // c depends on a, which is in the a -> b -> a cycle. Checking c after the cycle
+        // was found used to crash (IndexOutOfBoundsException) instead of moving on.
+        String plan = """
+                plan: p
+                period: 2024-01-01 to 2024-01-31
+
+                availability:
+                monday: flexible
+
+                tasks:
+                task: a
+                duration: 1h
+                priority: high
+                effort: high
+                dependencies: b
+
+                task: b
+                duration: 1h
+                priority: high
+                effort: high
+                dependencies: a
+
+                task: c
+                duration: 1h
+                priority: high
+                effort: high
+                dependencies: a
+                """;
+
+        List<String> errors = compiler.fullCompile(plan);
+
+        assertEquals(1, errors.stream().filter(e -> e.contains("Circular dependency detected")).count(),
+                () -> "Got: " + errors);
+    }
+
+    @Test
     void nonExistingDependency_isReported() {
         String plan = """
                 plan: p
