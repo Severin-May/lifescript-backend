@@ -106,8 +106,44 @@ class PlanModelValidatorTest {
                 """);
 
         assertEquals(List.of(
-                "Energy profile (default): 06:00-12:00 overlaps 09:00-10:00",
-                "Energy profile (friday): 20:00-00:00 overlaps 23:00-23:30"), errors);
+                "Energy profile (default): 06:00-12:00 is high but 09:00-10:00 is low, "
+                        + "so the energy level from 09:00 to 10:00 is unclear",
+                "Energy profile (friday): 20:00-00:00 is low but 23:00-23:30 is moderate, "
+                        + "so the energy level from 23:00 to 23:30 is unclear"), errors);
+    }
+
+    @Test
+    void energy_overlapWithSameLevel_isReportedAsRedundant() {
+        List<String> errors = compile("""
+                availability:
+                monday: flexible
+
+                energy profile:
+                default:
+                morning: high
+                09:00-10:00: high
+                """);
+
+        assertEquals(List.of(
+                "Energy profile (default): 06:00-12:00 and 09:00-10:00 overlap (both high); remove one of them"), errors);
+    }
+
+    @Test
+    void energy_namedPeriodAndSameTimeRange_isReportedAsOverlap() {
+        // morning is 06:00-12:00 by default, so both lines cover the same time. The second line
+        // used to silently replace the first instead of being reported.
+        List<String> errors = compile("""
+                availability:
+                monday: flexible
+
+                energy profile:
+                default:
+                morning: high
+                06:00-12:00: low
+                """);
+
+        assertEquals(List.of("Energy profile (default): 06:00-12:00 is high but 06:00-12:00 is low, "
+                + "so the energy level from 06:00 to 12:00 is unclear"), errors);
     }
 
     @Test

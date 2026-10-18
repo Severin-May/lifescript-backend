@@ -3,7 +3,7 @@ package com.lifescript.compiler;
 import com.lifescript.grammar.LifeScriptParser;
 import com.lifescript.grammar.LifeScriptParserBaseVisitor;
 import com.lifescript.model.Activity;
-import com.lifescript.model.EnergyLevel;
+import com.lifescript.model.EnergyEntry;
 import com.lifescript.model.Event;
 import com.lifescript.model.Plan;
 import com.lifescript.model.Routine;
@@ -17,7 +17,6 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.EnumMap;
 import java.util.HashMap;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -173,38 +172,39 @@ public class PlanModelBuilder extends LifeScriptParserBaseVisitor<Void> {
     }
 
     // The "default:" block of the energy profile (empty if there is none).
-    private Map<TimeRange, EnergyLevel> buildDefaultEnergyProfile(LifeScriptParser.EnergyProfileContext ctx,
-                                                                  Map<String, TimeRange> timeSettings) {
+    private List<EnergyEntry> buildDefaultEnergyProfile(LifeScriptParser.EnergyProfileContext ctx,
+                                                        Map<String, TimeRange> timeSettings) {
         for (LifeScriptParser.EnergyProfileEntryContext entry : ctx.energyProfileEntry()) {
             if (entry.DEFAULT() != null) {
-                return buildEnergyLevels(entry, timeSettings);
+                return buildEnergyEntries(entry, timeSettings);
             }
         }
-        return new LinkedHashMap<>();
+        return new ArrayList<>();
     }
 
     // The per-day blocks of the energy profile. They are merged with the default by Plan.energyAt.
-    private Map<DayOfWeek, Map<TimeRange, EnergyLevel>> buildEnergyProfileOverrides(
+    private Map<DayOfWeek, List<EnergyEntry>> buildEnergyProfileOverrides(
             LifeScriptParser.EnergyProfileContext ctx, Map<String, TimeRange> timeSettings) {
-        Map<DayOfWeek, Map<TimeRange, EnergyLevel>> overrides = new EnumMap<>(DayOfWeek.class);
+        Map<DayOfWeek, List<EnergyEntry>> overrides = new EnumMap<>(DayOfWeek.class);
         for (LifeScriptParser.EnergyProfileEntryContext entry : ctx.energyProfileEntry()) {
             if (entry.dayOfWeek() != null) {
-                overrides.put(Literals.parseDay(entry.dayOfWeek().getText()), buildEnergyLevels(entry, timeSettings));
+                overrides.put(Literals.parseDay(entry.dayOfWeek().getText()), buildEnergyEntries(entry, timeSettings));
             }
         }
         return overrides;
     }
 
-    private Map<TimeRange, EnergyLevel> buildEnergyLevels(LifeScriptParser.EnergyProfileEntryContext ctx,
-                                                          Map<String, TimeRange> timeSettings) {
-        Map<TimeRange, EnergyLevel> levels = new LinkedHashMap<>();
+    // One EnergyEntry per line, in file order.
+    private List<EnergyEntry> buildEnergyEntries(LifeScriptParser.EnergyProfileEntryContext ctx,
+                                                 Map<String, TimeRange> timeSettings) {
+        List<EnergyEntry> entries = new ArrayList<>();
         for (LifeScriptParser.EnergyEntryContext entry : ctx.energyEntry()) {
             TimeRange range = entry.namedPeriod() != null
                     ? timeSettings.get(entry.namedPeriod().getText())
                     : Literals.parseTimeRange(entry.timeRange().getText());
-            levels.put(range, Literals.parseEnergyLevel(entry.energyLevel().getText()));
+            entries.add(new EnergyEntry(range, Literals.parseEnergyLevel(entry.energyLevel().getText())));
         }
-        return levels;
+        return entries;
     }
 
     private List<Task> buildTasks(LifeScriptParser.TasksContext ctx) {

@@ -15,8 +15,10 @@ public class Plan {
     private LocalDate endDate;
     private Map<String, TimeRange> timeSettings = new HashMap<>();
     private Map<DayOfWeek, List<TimeRange>> availability = new EnumMap<>(DayOfWeek.class);
-    private Map<TimeRange, EnergyLevel> defaultEnergyProfile = new HashMap<>();
-    private Map<DayOfWeek, Map<TimeRange, EnergyLevel>> energyProfileOverrides = new EnumMap<>(DayOfWeek.class);
+    // Lists, not maps keyed by range: every line of the file is kept, so two lines covering the
+    // same time stay visible to PlanModelValidator instead of one silently replacing the other.
+    private List<EnergyEntry> defaultEnergyProfile = new ArrayList<>();
+    private Map<DayOfWeek, List<EnergyEntry>> energyProfileOverrides = new EnumMap<>(DayOfWeek.class);
     private List<Task> tasks = new ArrayList<>();
     private List<Routine> routines = new ArrayList<>();
     private List<Event> events = new ArrayList<>();
@@ -61,26 +63,26 @@ public class Plan {
         this.availability = availability;
     }
 
-    public Map<TimeRange, EnergyLevel> getDefaultEnergyProfile() {
+    public List<EnergyEntry> getDefaultEnergyProfile() {
         return defaultEnergyProfile;
     }
 
-    public void setDefaultEnergyProfile(Map<TimeRange, EnergyLevel> defaultEnergyProfile) {
+    public void setDefaultEnergyProfile(List<EnergyEntry> defaultEnergyProfile) {
         this.defaultEnergyProfile = defaultEnergyProfile;
     }
 
-    public Map<DayOfWeek, Map<TimeRange, EnergyLevel>> getEnergyProfileOverrides() {
+    public Map<DayOfWeek, List<EnergyEntry>> getEnergyProfileOverrides() {
         return energyProfileOverrides;
     }
 
-    public void setEnergyProfileOverrides(Map<DayOfWeek, Map<TimeRange, EnergyLevel>> energyProfileOverrides) {
+    public void setEnergyProfileOverrides(Map<DayOfWeek, List<EnergyEntry>> energyProfileOverrides) {
         this.energyProfileOverrides = energyProfileOverrides;
     }
 
     // Energy at a given moment: the day's own block wins, then the default block,
     // then MODERATE when no entry covers the time (or there is no energy profile).
     public EnergyLevel energyAt(DayOfWeek day, LocalTime time) {
-        EnergyLevel level = levelAt(energyProfileOverrides.getOrDefault(day, Map.of()), time);
+        EnergyLevel level = levelAt(energyProfileOverrides.getOrDefault(day, List.of()), time);
         if (level != null) {
             return level;
         }
@@ -88,10 +90,10 @@ public class Plan {
         return level != null ? level : EnergyLevel.MODERATE;
     }
 
-    private static EnergyLevel levelAt(Map<TimeRange, EnergyLevel> levels, LocalTime time) {
-        for (Map.Entry<TimeRange, EnergyLevel> entry : levels.entrySet()) {
-            if (entry.getKey().contains(time)) {
-                return entry.getValue();
+    private static EnergyLevel levelAt(List<EnergyEntry> entries, LocalTime time) {
+        for (EnergyEntry entry : entries) {
+            if (entry.range().contains(time)) {
+                return entry.level();
             }
         }
         return null;

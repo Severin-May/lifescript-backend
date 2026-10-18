@@ -3,6 +3,7 @@ package com.lifescript.compiler;
 import com.lifescript.grammar.LifeScriptLexer;
 import com.lifescript.grammar.LifeScriptParser;
 import com.lifescript.model.Activity;
+import com.lifescript.model.EnergyEntry;
 import com.lifescript.model.EnergyLevel;
 import com.lifescript.model.Event;
 import com.lifescript.model.Plan;
@@ -132,15 +133,15 @@ class PlanModelBuilderTest {
     // --- energy profile ---
 
     @Test
-    void energyProfile_fullPlan_builtMaps() throws IOException {
+    void energyProfile_fullPlan_builtInFileOrder() throws IOException {
         Plan plan = build(load("fullPlan.ls"));
         // fullPlan.ls: morning 08:00-12:00, afternoon 13:00-17:00, evening default 18:00-22:00.
 
-        assertEquals(Map.of(
-                range("08:00", "12:00"), EnergyLevel.HIGH,
-                range("13:00", "17:00"), EnergyLevel.MODERATE,
-                range("18:00", "22:00"), EnergyLevel.LOW), plan.getDefaultEnergyProfile());
-        assertEquals(Map.of(FRIDAY, Map.of(range("13:00", "17:00"), EnergyLevel.LOW)),
+        assertEquals(List.of(
+                new EnergyEntry(range("08:00", "12:00"), EnergyLevel.HIGH),
+                new EnergyEntry(range("13:00", "17:00"), EnergyLevel.MODERATE),
+                new EnergyEntry(range("18:00", "22:00"), EnergyLevel.LOW)), plan.getDefaultEnergyProfile());
+        assertEquals(Map.of(FRIDAY, List.of(new EnergyEntry(range("13:00", "17:00"), EnergyLevel.LOW))),
                 plan.getEnergyProfileOverrides());
     }
 

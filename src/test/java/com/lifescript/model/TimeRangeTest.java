@@ -89,6 +89,22 @@ class TimeRangeTest {
     }
 
     @Test
+    void intersection_partialContainedAndIdentical() {
+        assertEquals(range("11:00", "12:00"), range("09:00", "12:00").intersection(range("11:00", "13:00")));
+        assertEquals(range("11:00", "12:00"), range("11:00", "13:00").intersection(range("09:00", "12:00")));
+        assertEquals(range("10:00", "11:00"), range("09:00", "17:00").intersection(range("10:00", "11:00")));
+        assertEquals(range("09:00", "12:00"), range("09:00", "12:00").intersection(range("09:00", "12:00")));
+    }
+
+    @Test
+    void intersection_endingAtMidnight() {
+        // 00:00 as an end is end of day, so it is the later end, not the earlier one.
+        assertEquals(range("23:00", "23:30"), range("22:00", "00:00").intersection(range("23:00", "23:30")));
+        assertEquals(range("23:00", "23:30"), range("23:00", "23:30").intersection(range("22:00", "00:00")));
+        assertEquals(range("22:00", "00:00"), range("20:00", "00:00").intersection(range("22:00", "00:00")));
+    }
+
+    @Test
     void midnightToMidnight_isNotOrdered() {
         assertFalse(range("00:00", "00:00").isOrdered());
     }

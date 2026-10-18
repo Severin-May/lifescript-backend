@@ -39,6 +39,21 @@ public record TimeRange(LocalTime startTime, LocalTime endTime) {
         return other.endsAtMidnight() || startTime.isBefore(other.endTime);
     }
 
+    // The part both ranges cover: 09:00-12:00 and 11:00-13:00 share 11:00-12:00.
+    // Only meaningful when the ranges overlap. An end of 00:00 (end of day) is the latest possible end.
+    public TimeRange intersection(TimeRange other) {
+        LocalTime start = startTime.isAfter(other.startTime) ? startTime : other.startTime;
+        LocalTime end;
+        if (endsAtMidnight()) {
+            end = other.endTime;
+        } else if (other.endsAtMidnight()) {
+            end = endTime;
+        } else {
+            end = endTime.isBefore(other.endTime) ? endTime : other.endTime;
+        }
+        return new TimeRange(start, end);
+    }
+
     // Only meaningful for ordered ranges: 22:00-00:00 is 2h, not -22h.
     public Duration duration() {
         Duration duration = Duration.between(startTime, endTime);

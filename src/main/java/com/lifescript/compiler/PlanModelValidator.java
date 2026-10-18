@@ -1,5 +1,6 @@
 package com.lifescript.compiler;
 
+import com.lifescript.model.EnergyEntry;
 import com.lifescript.model.EnergyLevel;
 import com.lifescript.model.Event;
 import com.lifescript.model.Plan;
@@ -67,21 +68,39 @@ public class PlanModelValidator {
     // the default block is fine: that is how a day block replaces part of the default.
     private void checkEnergyOverlaps(Plan plan) {
         checkEnergyBlock("default", plan.getDefaultEnergyProfile());
-        for (Map.Entry<DayOfWeek, Map<TimeRange, EnergyLevel>> day : plan.getEnergyProfileOverrides().entrySet()) {
+        for (Map.Entry<DayOfWeek, List<EnergyEntry>> day : plan.getEnergyProfileOverrides().entrySet()) {
             checkEnergyBlock(dayName(day.getKey()), day.getValue());
         }
     }
 
-    private void checkEnergyBlock(String blockName, Map<TimeRange, EnergyLevel> block) {
-        List<TimeRange> ranges = new ArrayList<>(block.keySet());
-        for (int i = 0; i < ranges.size(); i++) {
-            for (int j = i + 1; j < ranges.size(); j++) {
-                if (ranges.get(i).overlaps(ranges.get(j))) {
-                    errors.add(String.format("Energy profile (%s): %s overlaps %s",
-                            blockName, ranges.get(i), ranges.get(j)));
+    // Any overlap is an error. With different levels the energy in the shared time is unclear;
+    // with the same level one entry is redundant. Also catches two lines that resolve to the same
+    // range (e.g. "morning" and "06:00-12:00").
+    private void checkEnergyBlock(String blockName, List<EnergyEntry> block) {
+        for (int i = 0; i < block.size(); i++) {
+            for (int j = i + 1; j < block.size(); j++) {
+                EnergyEntry a = block.get(i);
+                EnergyEntry b = block.get(j);
+                if (!a.range().overlaps(b.range())) {
+                    continue;
+                }
+
+                if (a.level() != b.level()) {
+                    TimeRange shared = a.range().intersection(b.range());
+                    errors.add(String.format("Energy profile (%s): %s is %s but %s is %s, "
+                                    + "so the energy level from %s to %s is unclear",
+                            blockName, a.range(), levelName(a.level()), b.range(), levelName(b.level()),
+                            shared.startTime(), shared.endTime()));
+                } else {
+                    errors.add(String.format("Energy profile (%s): %s and %s overlap (both %s); remove one of them",
+                            blockName, a.range(), b.range(), levelName(a.level())));
                 }
             }
         }
+    }
+
+    private static String levelName(EnergyLevel level) {
+        return level.name().toLowerCase();
     }
 
     // Reported once per pair, listing every weekday in the period on which both happen and clash.
