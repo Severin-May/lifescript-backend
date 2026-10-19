@@ -2,6 +2,7 @@ package com.lifescript.compiler;
 
 import com.lifescript.grammar.LifeScriptParser;
 import com.lifescript.grammar.LifeScriptParserBaseVisitor;
+import com.lifescript.model.PlanPeriod;
 import com.lifescript.model.TimeRange;
 import org.antlr.v4.runtime.ParserRuleContext;
 import org.antlr.v4.runtime.tree.TerminalNode;
@@ -15,8 +16,8 @@ import java.util.*;
 import java.util.function.Function;
 
 public class SemanticValidator extends LifeScriptParserBaseVisitor<Void> {
-    private LocalDate periodStart;
-    private LocalDate periodEnd;
+    // Set by visitPeriod when both dates are valid; stays null otherwise, and checks that need it are skipped.
+    private PlanPeriod period;
     private final List<String> errors = new ArrayList<>();
     private final Set<String> taskNames = new HashSet<>();
     private final Map<String, List<String>> dependencyGraph = new HashMap<>();
@@ -337,9 +338,9 @@ public class SemanticValidator extends LifeScriptParserBaseVisitor<Void> {
             return visitChildren(ctx);
         }
 
-        if (periodStart != null && periodEnd != null && (date.isBefore(periodStart) || date.isAfter(periodEnd))) {
+        if (period != null && !period.contains(date)) {
             errors.add(String.format("Line %d: Event date '%s' must be within the period range '%s'-'%s'",
-                    line, text, periodStart, periodEnd));
+                    line, text, period.start(), period.end()));
         }
         return visitChildren(ctx);
     }
@@ -413,9 +414,9 @@ public class SemanticValidator extends LifeScriptParserBaseVisitor<Void> {
             try {
                 LocalDate deadline = Literals.parseDate(text);
                 // A deadline after the period ends is allowed: it still orders tasks by urgency.
-                if (periodStart != null && deadline.isBefore(periodStart)) {
+                if (period != null && deadline.isBefore(period.start())) {
                     errors.add(String.format("Line %d: Deadline '%s' is before the period starts (%s)",
-                            line, text, periodStart));
+                            line, text, period.start()));
                 }
             }
             catch (DateTimeParseException e) {
@@ -464,8 +465,9 @@ public class SemanticValidator extends LifeScriptParserBaseVisitor<Void> {
     public Void visitPeriod(LifeScriptParser.PeriodContext ctx) {
         int line = ctx.getStart().getLine();
 
+        LocalDate start;
         try {
-            periodStart = Literals.parseDate(ctx.DATE_VAL(0).getText());
+            start = Literals.parseDate(ctx.DATE_VAL(0).getText());
         } catch (DateTimeParseException e) {
             String invalidDate = ctx.DATE_VAL(0).getText();
             errors.add(String.format("Line %d: Invalid date '%s'",
@@ -473,8 +475,9 @@ public class SemanticValidator extends LifeScriptParserBaseVisitor<Void> {
             return visitChildren(ctx);
         }
 
+        LocalDate end;
         try {
-            periodEnd = Literals.parseDate(ctx.DATE_VAL(1).getText());
+            end = Literals.parseDate(ctx.DATE_VAL(1).getText());
         } catch (DateTimeParseException e) {
             String invalidDate = ctx.DATE_VAL(1).getText();
             errors.add(String.format("Line %d: Invalid date '%s'",
@@ -482,9 +485,10 @@ public class SemanticValidator extends LifeScriptParserBaseVisitor<Void> {
             return visitChildren(ctx);
         }
 
-        if (periodStart != null && periodEnd != null && !periodStart.isBefore(periodEnd)) {
+        period = new PlanPeriod(start, end);
+        if (!start.isBefore(end)) {
             errors.add(String.format("Line %d: Start date '%s' must be before end date '%s'",
-                    line, periodStart.toString(), periodEnd.toString()));
+                    line, start, end));
         }
         return visitChildren(ctx);
     }
@@ -522,22 +526,9 @@ public class SemanticValidator extends LifeScriptParserBaseVisitor<Void> {
         String dayOfWeek = ctx.dayOfWeek().getText();
         DayOfWeek day = Literals.parseDay(dayOfWeek);
 
-        if (periodStart != null && periodEnd != null) {
-            boolean found = false;
-
-            LocalDate current = periodStart;
-            while (!current.isAfter(periodEnd)) {
-                if (current.getDayOfWeek() == day) {
-                    found = true;
-                    break;
-                }
-                current = current.plusDays(1);
-            }
-
-            if (!found) {
-                errors.add(String.format("Line %d: Availability day of week '%s' must be within the period range '%s'-'%s'",
-                        line, dayOfWeek, periodStart.toString(), periodEnd.toString()));
-            }
+        if (period != null && !period.weekdays().contains(day)) {
+            errors.add(String.format("Line %d: Availability day of week '%s' must be within the period range '%s'-'%s'",
+                    line, dayOfWeek, period.start(), period.end()));
         }
 
         return visitChildren(ctx);

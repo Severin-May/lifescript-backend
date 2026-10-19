@@ -8,9 +8,7 @@ import com.lifescript.model.Routine;
 import com.lifescript.model.TimeRange;
 
 import java.time.DayOfWeek;
-import java.time.LocalDate;
 import java.util.ArrayList;
-import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -105,7 +103,7 @@ public class PlanModelValidator {
 
     // Reported once per pair, listing every weekday in the period on which both happen and clash.
     private void checkRoutineOverlaps(Plan plan) {
-        Set<DayOfWeek> daysInPeriod = daysInPeriod(plan);
+        Set<DayOfWeek> daysInPeriod = plan.getPeriod().weekdays();
         List<Routine> routines = plan.getRoutines();
 
         for (int i = 0; i < routines.size(); i++) {
@@ -155,16 +153,6 @@ public class PlanModelValidator {
                 }
             }
         }
-    }
-
-    // Weekdays that actually occur between the plan's start and end dates (all 7 for a week or longer).
-    private static Set<DayOfWeek> daysInPeriod(Plan plan) {
-        Set<DayOfWeek> days = EnumSet.noneOf(DayOfWeek.class);
-        for (LocalDate date = plan.getStartDate(); !date.isAfter(plan.getEndDate()) && days.size() < 7;
-             date = date.plusDays(1)) {
-            days.add(date.getDayOfWeek());
-        }
-        return days;
     }
 
     private static String dayName(DayOfWeek day) {

@@ -1,7 +1,6 @@
 package com.lifescript.model;
 
 import java.time.DayOfWeek;
-import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.EnumMap;
@@ -11,8 +10,7 @@ import java.util.Map;
 
 public class Plan {
     private String name;
-    private LocalDate startDate;
-    private LocalDate endDate;
+    private PlanPeriod period;
     private Map<String, TimeRange> timeSettings = new HashMap<>();
     private Map<DayOfWeek, List<TimeRange>> availability = new EnumMap<>(DayOfWeek.class);
     // Lists, not maps keyed by range: every line of the file is kept, so two lines covering the
@@ -31,20 +29,12 @@ public class Plan {
         this.name = name;
     }
 
-    public LocalDate getStartDate() {
-        return startDate;
+    public PlanPeriod getPeriod() {
+        return period;
     }
 
-    public void setStartDate(LocalDate startDate) {
-        this.startDate = startDate;
-    }
-
-    public LocalDate getEndDate() {
-        return endDate;
-    }
-
-    public void setEndDate(LocalDate endDate) {
-        this.endDate = endDate;
+    public void setPeriod(PlanPeriod period) {
+        this.period = period;
     }
 
     public Map<String, TimeRange> getTimeSettings() {

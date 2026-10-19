@@ -7,6 +7,7 @@ import com.lifescript.model.EnergyEntry;
 import com.lifescript.model.EnergyLevel;
 import com.lifescript.model.Event;
 import com.lifescript.model.Plan;
+import com.lifescript.model.PlanPeriod;
 import com.lifescript.model.Priority;
 import com.lifescript.model.Routine;
 import com.lifescript.model.Task;
@@ -70,6 +71,16 @@ class PlanModelBuilderTest {
                 priority: high
                 effort: high
                 """.formatted(extraSections, availability);
+    }
+
+    // --- plan header ---
+
+    @Test
+    void nameAndPeriod_fullPlan() throws IOException {
+        Plan plan = build(load("fullPlan.ls"));
+
+        assertEquals("my_week", plan.getName());
+        assertEquals(new PlanPeriod(LocalDate.parse("2026-10-05"), LocalDate.parse("2026-10-11")), plan.getPeriod());
     }
 
     // --- availability ---

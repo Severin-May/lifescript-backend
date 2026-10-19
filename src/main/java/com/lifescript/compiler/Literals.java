@@ -9,7 +9,8 @@ import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalTime;
 
-// Single definition of how LifeScript literal text becomes Java values.
+// Single definition of how LifeScript literals (durations, dates, times, strings) and value
+// keywords (days, energy levels, priorities) become Java values.
 // Shared by SemanticValidator and PlanModelBuilder so they can't drift apart.
 public final class Literals {
 
@@ -58,6 +59,11 @@ public final class Literals {
     public static TimeRange parseTimeRange(String text) {
         int dash = text.indexOf('-');
         return new TimeRange(parseTime(text.substring(0, dash)), parseTime(text.substring(dash + 1)));
+    }
+
+    // "\"bring insurance card\"" -> "bring insurance card" (the lexer guarantees the surrounding quotes)
+    public static String parseString(String text) {
+        return text.substring(1, text.length() - 1);
     }
 
     // "monday"

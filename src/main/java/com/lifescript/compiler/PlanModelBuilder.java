@@ -6,6 +6,7 @@ import com.lifescript.model.Activity;
 import com.lifescript.model.EnergyEntry;
 import com.lifescript.model.Event;
 import com.lifescript.model.Plan;
+import com.lifescript.model.PlanPeriod;
 import com.lifescript.model.Routine;
 import com.lifescript.model.Task;
 import com.lifescript.model.TimeRange;
@@ -40,8 +41,8 @@ public class PlanModelBuilder extends LifeScriptParserBaseVisitor<Void> {
     @Override
     public Void visitPlan(LifeScriptParser.PlanContext ctx) {
         plan.setName(ctx.IDENTIFIER().getText());
-        plan.setStartDate(Literals.parseDate(ctx.period().DATE_VAL(0).getText()));
-        plan.setEndDate(Literals.parseDate(ctx.period().DATE_VAL(1).getText()));
+        plan.setPeriod(new PlanPeriod(Literals.parseDate(ctx.period().DATE_VAL(0).getText()),
+                Literals.parseDate(ctx.period().DATE_VAL(1).getText())));
 
         // Resolve named periods (morning/afternoon/evening) before building any
         // section that references them, regardless of where "settings" appears
@@ -124,8 +125,7 @@ public class PlanModelBuilder extends LifeScriptParserBaseVisitor<Void> {
                         ? timeSettings.get(time.namedPeriod().getText())
                         : Literals.parseTimeRange(time.timeRange().getText()));
             } else if (prop.eventNote() != null) {
-                String quoted = prop.eventNote().STRING().getText();
-                event.setNote(quoted.substring(1, quoted.length() - 1));
+                event.setNote(Literals.parseString(prop.eventNote().STRING().getText()));
             }
         }
 
@@ -237,8 +237,7 @@ public class PlanModelBuilder extends LifeScriptParserBaseVisitor<Void> {
                 }
                 task.setDependencies(dependencies);
             } else if (prop.taskNote() != null) {
-                String quoted = prop.taskNote().STRING().getText();
-                task.setNote(quoted.substring(1, quoted.length() - 1));
+                task.setNote(Literals.parseString(prop.taskNote().STRING().getText()));
             }
         }
 
