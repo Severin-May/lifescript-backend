@@ -13,6 +13,7 @@ import com.lifescript.model.TimeRange;
 import org.antlr.v4.runtime.tree.TerminalNode;
 
 import java.time.DayOfWeek;
+import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -227,7 +228,9 @@ public class PlanModelBuilder extends LifeScriptParserBaseVisitor<Void> {
             } else if (prop.taskEffort() != null) {
                 task.setEffort(Literals.parseEnergyLevel(prop.taskEffort().energyLevel().getText()));
             } else if (prop.taskDeadline() != null) {
-                task.setDeadline(Literals.parseDate(prop.taskDeadline().DATE_VAL().getText()));
+                LifeScriptParser.TaskDeadlineContext deadline = prop.taskDeadline();
+                task.setDeadline(LocalDateTime.of(Literals.parseDate(deadline.DATE_VAL().getText()),
+                        Literals.parseTime(deadline.TIME_VAL().getText())));
             } else if (prop.repeats() != null) {
                 task.setRepeatDays(buildRepeatDays(prop.repeats().repeatPattern()));
             } else if (prop.taskDependencies() != null) {

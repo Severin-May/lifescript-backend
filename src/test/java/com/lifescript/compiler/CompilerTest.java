@@ -305,7 +305,7 @@ class CompilerTest {
 
                 tasks:
                 task: b
-                deadline: 2024-13-40
+                deadline: 2024-13-40 17:00
                 """;
 
         List<String> errors = compiler.fullCompile(plan);
@@ -588,12 +588,65 @@ class CompilerTest {
                 duration: 1h
                 priority: high
                 effort: high
-                deadline: 2024-01-09
+                deadline: 2024-01-09 17:00
                 """;
 
         List<String> errors = compiler.fullCompile(plan);
 
-        assertEquals(List.of("Line 12: Deadline '2024-01-09' is before the period starts (2024-01-10)"), errors);
+        assertEquals(List.of("Line 12: Deadline '2024-01-09 17:00' is before the period starts (2024-01-10)"), errors);
+    }
+
+    @Test
+    void deadlineWithoutTime_isReported() {
+        String plan = """
+                plan: p
+                period: 2024-01-01 to 2024-01-31
+
+                availability:
+                monday: flexible
+
+                tasks:
+                task: a
+                duration: 1h
+                priority: high
+                effort: high
+                deadline: 2024-01-20
+                """;
+
+        List<String> errors = compiler.fullCompile(plan);
+
+        assertEquals(List.of("Line 12: Deadline needs a time, e.g. 'deadline: 2024-01-20 17:00'"), errors);
+    }
+
+    @Test
+    void deadlineInvalidTime_isReported_togetherWithInvalidDate() {
+        String plan = """
+                plan: p
+                period: 2024-01-01 to 2024-01-31
+
+                availability:
+                monday: flexible
+
+                tasks:
+                task: a
+                duration: 1h
+                priority: high
+                effort: high
+                deadline: 2024-01-20 25:00
+
+                task: b
+                duration: 1h
+                priority: high
+                effort: high
+                deadline: 2024-02-30 24:30
+                """;
+
+        List<String> errors = compiler.fullCompile(plan);
+
+        assertEquals(List.of(
+                "Line 12: Invalid time '25:00'",
+                "Line 18: Invalid time '24:30'",
+                "Line 18: Invalid deadline date '2024-02-30'"), errors);
     }
 
     @Test
@@ -611,13 +664,13 @@ class CompilerTest {
                 duration: 1h
                 priority: high
                 effort: high
-                deadline: 2024-01-10
+                deadline: 2024-01-10 17:00
 
                 task: b
                 duration: 1h
                 priority: high
                 effort: high
-                deadline: 2024-02-15
+                deadline: 2024-02-15 17:00
                 """;
 
         List<String> errors = compiler.fullCompile(plan);
@@ -690,7 +743,7 @@ class CompilerTest {
 
                 task: a
                 duration: 2h
-                deadline: 2024-02-30
+                deadline: 2024-02-30 17:00
                 """;
 
         List<String> errors = compiler.fullCompile(plan);
@@ -769,7 +822,7 @@ class CompilerTest {
                 duration: 1h
                 priority: high
                 effort: high
-                deadline: 2024-02-30
+                deadline: 2024-02-30 17:00
                 """;
 
         List<String> errors = compiler.fullCompile(plan);
@@ -842,7 +895,7 @@ class CompilerTest {
                 priority: low
                 effort: low
                 repeats: weekdays
-                deadline: 2024-01-10
+                deadline: 2024-01-10 17:00
                 """;
 
         List<String> errors = compiler.fullCompile(plan);

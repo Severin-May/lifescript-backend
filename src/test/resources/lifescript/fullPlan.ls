@@ -47,13 +47,13 @@ tasks:
     duration: 2h
     priority: high
     effort: high
-    deadline: 2026-10-07
+    deadline: 2026-10-07 17:00
 
   task: write_report
     duration: 1h30m
     priority: critical
     effort: high
-    deadline: 2026-10-09
+    deadline: 2026-10-09 17:00
     dependencies: research
     note: "final draft for review"
 

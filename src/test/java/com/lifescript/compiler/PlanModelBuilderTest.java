@@ -22,6 +22,7 @@ import java.nio.charset.StandardCharsets;
 import java.time.DayOfWeek;
 import java.time.Duration;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.List;
 import java.util.Map;
@@ -319,7 +320,7 @@ class PlanModelBuilderTest {
         assertEquals(Duration.ofMinutes(90), writeReport.getDuration());
         assertEquals(Priority.CRITICAL, writeReport.getPriority());
         assertEquals(EnergyLevel.HIGH, writeReport.getEffort());
-        assertEquals(LocalDate.of(2026, 10, 9), writeReport.getDeadline());
+        assertEquals(LocalDateTime.of(2026, 10, 9, 17, 0), writeReport.getDeadline());
         assertEquals(List.of("research"), writeReport.getDependencies());
         assertEquals("final draft for review", writeReport.getNote());
         assertEquals(List.of(), writeReport.getRepeatDays());

@@ -155,8 +155,10 @@ taskEffort
     : EFFORT COLON energyLevel eol
     ;
 
+// Date and time the task must be done by, e.g. "deadline: 2026-10-07 17:00".
+// The time is mandatory, but optional here so SemanticValidator can give a clear error when it's missing.
 taskDeadline
-    : DEADLINE COLON DATE_VAL eol
+    : DEADLINE COLON DATE_VAL TIME_VAL? eol
     ;
 
 taskDependencies

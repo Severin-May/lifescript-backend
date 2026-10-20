@@ -408,20 +408,28 @@ public class SemanticValidator extends LifeScriptParserBaseVisitor<Void> {
     @Override
     public Void visitTaskDeadline(LifeScriptParser.TaskDeadlineContext ctx) {
         int line = ctx.getStart().getLine();
+        String dateText = ctx.DATE_VAL().getText();
 
-        if (ctx.DATE_VAL() != null) {
-            String text = ctx.DATE_VAL().getText();
-            try {
-                LocalDate deadline = Literals.parseDate(text);
-                // A deadline after the period ends is allowed: it still orders tasks by urgency.
-                if (period != null && deadline.isBefore(period.start())) {
-                    errors.add(String.format("Line %d: Deadline '%s' is before the period starts (%s)",
-                            line, text, period.start()));
-                }
+        // The grammar allows a missing time only so this can explain it better than a syntax error would.
+        if (ctx.TIME_VAL() == null) {
+            errors.add(String.format("Line %d: Deadline needs a time, e.g. 'deadline: %s 17:00'", line, dateText));
+            return visitChildren(ctx);
+        }
+        String timeText = ctx.TIME_VAL().getText();
+
+        // The time is checked on its own, so an invalid date and an invalid time are both reported.
+        checkTime(timeText, line);
+
+        try {
+            LocalDate deadline = Literals.parseDate(dateText);
+            // A deadline after the period ends is allowed: it still orders tasks by urgency.
+            if (period != null && deadline.isBefore(period.start())) {
+                errors.add(String.format("Line %d: Deadline '%s %s' is before the period starts (%s)",
+                        line, dateText, timeText, period.start()));
             }
-            catch (DateTimeParseException e) {
-                errors.add(String.format("Line %d: Invalid deadline date '%s'", line, text));
-            }
+        }
+        catch (DateTimeParseException e) {
+            errors.add(String.format("Line %d: Invalid deadline date '%s'", line, dateText));
         }
         return visitChildren(ctx);
     }

@@ -2,7 +2,7 @@ package com.lifescript.model;
 
 import java.time.DayOfWeek;
 import java.time.Duration;
-import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -12,7 +12,8 @@ public class Task {
     private Duration duration;
     private Priority priority;
     private EnergyLevel effort;
-    private LocalDate deadline;
+    // Date and time the task must be done by; null = no deadline.
+    private LocalDateTime deadline;
     // Days the task repeats on. Empty = the task happens once.
     private List<DayOfWeek> repeatDays = new ArrayList<>();
     private List<String> dependencies = new ArrayList<>();
@@ -51,11 +52,11 @@ public class Task {
         this.effort = effort;
     }
 
-    public LocalDate getDeadline() {
+    public LocalDateTime getDeadline() {
         return deadline;
     }
 
-    public void setDeadline(LocalDate deadline) {
+    public void setDeadline(LocalDateTime deadline) {
         this.deadline = deadline;
     }
 
