@@ -2,10 +2,14 @@ package com.lifescript.model;
 
 import java.time.Duration;
 import java.time.LocalTime;
+import java.util.ArrayList;
+import java.util.List;
 
 // Immutable, so one instance can safely be shared (e.g. the "morning" range from settings is used
 // by availability, energy and events) and used as a map key. equals/hashCode compare start and end.
 public record TimeRange(LocalTime startTime, LocalTime endTime) {
+
+    private static final int SECONDS_PER_DAY = 24 * 60 * 60;
 
     // "00:00" as an end time means midnight at the end of the day, e.g. 22:00-00:00.
     public boolean endsAtMidnight() {
@@ -52,6 +56,42 @@ public record TimeRange(LocalTime startTime, LocalTime endTime) {
             end = endTime.isBefore(other.endTime) ? endTime : other.endTime;
         }
         return new TimeRange(start, end);
+    }
+
+    // This range with `other` cut out: 0, 1 or 2 pieces, in time order.
+    // 08:00-22:00 minus 10:00-10:30 = 08:00-10:00 and 10:30-22:00. Touching ranges don't cut anything.
+    public List<TimeRange> minus(TimeRange other) {
+        if (!overlaps(other)) {
+            return List.of(this);
+        }
+        List<TimeRange> pieces = new ArrayList<>(2);
+        if (startTime.isBefore(other.startTime)) {
+            pieces.add(new TimeRange(startTime, other.startTime));
+        }
+        if (other.endSecondOfDay() < endSecondOfDay()) {
+            pieces.add(new TimeRange(other.endTime, endTime));
+        }
+        return pieces;
+    }
+
+    // This range widened by `padding` on both sides, but not past the start or end of the day.
+    // 10:00-11:00 padded by 10m = 09:50-11:10; 23:30-23:55 padded by 10m = 23:20-00:00 (end of day).
+    public TimeRange paddedBy(Duration padding) {
+        int pad = (int) padding.toSeconds();
+        int start = Math.max(0, startTime.toSecondOfDay() - pad);
+        int end = Math.min(SECONDS_PER_DAY, endSecondOfDay() + pad);
+        return ofSeconds(start, end);
+    }
+
+    // A range from seconds since midnight, e.g. (32400, 37800) = 09:00-10:30. An end of 86400 (24:00)
+    // becomes 00:00, which means end of day. The counterpart of startTime().toSecondOfDay() and endSecondOfDay().
+    public static TimeRange ofSeconds(int startSecond, int endSecond) {
+        return new TimeRange(LocalTime.ofSecondOfDay(startSecond), LocalTime.ofSecondOfDay(endSecond % SECONDS_PER_DAY));
+    }
+
+    // The end as seconds since the start of the day, with an end of 00:00 counted as 24:00.
+    public int endSecondOfDay() {
+        return endsAtMidnight() ? SECONDS_PER_DAY : endTime.toSecondOfDay();
     }
 
     // Only meaningful for ordered ranges: 22:00-00:00 is 2h, not -22h.

@@ -3,6 +3,7 @@ package com.lifescript.model;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.util.EnumSet;
+import java.util.List;
 import java.util.Set;
 
 // The plan's date range, from "period: 2026-10-05 to 2026-10-11". Both dates are included.
@@ -11,6 +12,11 @@ public record PlanPeriod(LocalDate start, LocalDate end) {
 
     public boolean contains(LocalDate date) {
         return !date.isBefore(start) && !date.isAfter(end);
+    }
+
+    // Every date in the period, in order, both ends included.
+    public List<LocalDate> dates() {
+        return start.datesUntil(end.plusDays(1)).toList();
     }
 
     // Weekdays that actually occur in the period (all 7 for a week or longer).

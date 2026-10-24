@@ -5,6 +5,7 @@ import org.junit.jupiter.api.Test;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.util.EnumSet;
+import java.util.List;
 
 import static java.time.DayOfWeek.*;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -39,6 +40,12 @@ class PlanPeriodTest {
     void weekdays_weekOrLonger_allSevenDays() {
         assertEquals(EnumSet.allOf(DayOfWeek.class), period("2026-10-05", "2026-10-11").weekdays());
         assertEquals(EnumSet.allOf(DayOfWeek.class), period("2026-01-01", "2026-12-31").weekdays());
+    }
+
+    @Test
+    void dates_everyDateInOrder_bothEndsIncluded() {
+        assertEquals(List.of(LocalDate.parse("2026-10-30"), LocalDate.parse("2026-10-31"), LocalDate.parse("2026-11-01")),
+                period("2026-10-30", "2026-11-01").dates());
     }
 
     @Test

@@ -1,7 +1,5 @@
 package com.lifescript.compiler;
 
-import com.lifescript.grammar.LifeScriptLexer;
-import com.lifescript.grammar.LifeScriptParser;
 import com.lifescript.model.Activity;
 import com.lifescript.model.EnergyEntry;
 import com.lifescript.model.EnergyLevel;
@@ -12,13 +10,9 @@ import com.lifescript.model.Priority;
 import com.lifescript.model.Routine;
 import com.lifescript.model.Task;
 import com.lifescript.model.TimeRange;
-import org.antlr.v4.runtime.CharStreams;
-import org.antlr.v4.runtime.CommonTokenStream;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
-import java.io.InputStream;
-import java.nio.charset.StandardCharsets;
 import java.time.DayOfWeek;
 import java.time.Duration;
 import java.time.LocalDate;
@@ -27,32 +21,14 @@ import java.time.LocalTime;
 import java.util.List;
 import java.util.Map;
 
+import static com.lifescript.TestPlans.build;
+import static com.lifescript.TestPlans.load;
 import static java.time.DayOfWeek.*;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class PlanModelBuilderTest {
-
-    // Loads a LifeScript file from src/test/resources/lifescript/.
-    private String load(String name) throws IOException {
-        try (InputStream in = getClass().getResourceAsStream("/lifescript/" + name)) {
-            if (in == null) throw new IOException("Test resource not found: " + name);
-            return new String(in.readAllBytes(), StandardCharsets.UTF_8);
-        }
-    }
-
-    // Builds a Plan, first asserting the source is valid (the builder assumes valid input).
-    private Plan build(String source) {
-        List<String> errors = new Compiler().fullCompile(source);
-        assertTrue(errors.isEmpty(), () -> "Source should be valid but got: " + errors);
-
-        LifeScriptParser parser = new LifeScriptParser(
-                new CommonTokenStream(new LifeScriptLexer(CharStreams.fromString(source))));
-        PlanModelBuilder builder = new PlanModelBuilder();
-        builder.visit(parser.plan());
-        return builder.getPlan();
-    }
 
     private static TimeRange range(String start, String end) {
         return new TimeRange(LocalTime.parse(start), LocalTime.parse(end));

@@ -4,6 +4,7 @@ import org.junit.jupiter.api.Test;
 
 import java.time.Duration;
 import java.time.LocalTime;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -102,6 +103,54 @@ class TimeRangeTest {
         assertEquals(range("23:00", "23:30"), range("22:00", "00:00").intersection(range("23:00", "23:30")));
         assertEquals(range("23:00", "23:30"), range("23:00", "23:30").intersection(range("22:00", "00:00")));
         assertEquals(range("22:00", "00:00"), range("20:00", "00:00").intersection(range("22:00", "00:00")));
+    }
+
+    @Test
+    void minus_noOverlapOrTouching_leavesRangeUnchanged() {
+        assertEquals(List.of(range("09:00", "12:00")), range("09:00", "12:00").minus(range("13:00", "14:00")));
+        assertEquals(List.of(range("09:00", "12:00")), range("09:00", "12:00").minus(range("12:00", "14:00")));
+    }
+
+    @Test
+    void minus_cutsStartMiddleOrEnd() {
+        // middle: two pieces
+        assertEquals(List.of(range("08:00", "10:00"), range("10:30", "22:00")),
+                range("08:00", "22:00").minus(range("10:00", "10:30")));
+        // start
+        assertEquals(List.of(range("10:00", "12:00")), range("09:00", "12:00").minus(range("08:00", "10:00")));
+        // end
+        assertEquals(List.of(range("09:00", "11:00")), range("09:00", "12:00").minus(range("11:00", "13:00")));
+    }
+
+    @Test
+    void minus_coveredCompletely_leavesNothing() {
+        assertEquals(List.of(), range("09:00", "12:00").minus(range("09:00", "12:00")));
+        assertEquals(List.of(), range("09:00", "12:00").minus(range("08:00", "13:00")));
+    }
+
+    @Test
+    void minus_endingAtMidnight() {
+        // 00:00 as an end is end of day, so cutting 23:00-23:30 out of 22:00-00:00 leaves a piece up to midnight.
+        assertEquals(List.of(range("22:00", "23:00"), range("23:30", "00:00")),
+                range("22:00", "00:00").minus(range("23:00", "23:30")));
+        assertEquals(List.of(range("20:00", "22:00")), range("20:00", "00:00").minus(range("22:00", "00:00")));
+        assertEquals(List.of(), range("22:00", "23:00").minus(range("21:00", "00:00")));
+    }
+
+    @Test
+    void ofSeconds_fromSecondsSinceMidnight_24hBecomesEndOfDay() {
+        assertEquals(range("09:00", "10:30"), TimeRange.ofSeconds(9 * 3600, 10 * 3600 + 1800));
+        assertEquals(range("22:00", "00:00"), TimeRange.ofSeconds(22 * 3600, 24 * 3600));
+    }
+
+    @Test
+    void paddedBy_widensBothSides_withinTheDay() {
+        assertEquals(range("09:50", "11:10"), range("10:00", "11:00").paddedBy(Duration.ofMinutes(10)));
+        // clipped at the start and end of the day; an end of 00:00 stays end of day
+        assertEquals(range("00:00", "00:40"), range("00:05", "00:30").paddedBy(Duration.ofMinutes(10)));
+        assertEquals(range("23:20", "00:00"), range("23:30", "23:55").paddedBy(Duration.ofMinutes(10)));
+        assertEquals(range("21:50", "00:00"), range("22:00", "00:00").paddedBy(Duration.ofMinutes(10)));
+        assertEquals(range("10:00", "11:00"), range("10:00", "11:00").paddedBy(Duration.ZERO));
     }
 
     @Test
