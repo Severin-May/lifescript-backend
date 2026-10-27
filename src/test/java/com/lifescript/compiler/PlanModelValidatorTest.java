@@ -11,7 +11,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 // the errors checked here come from PlanModelValidator.
 class PlanModelValidatorTest {
 
-    private final Compiler compiler = new Compiler();
+    private final LifeScriptCompiler compiler = new LifeScriptCompiler();
 
     // 2026-10-05 is a Monday, so the default period covers one full week.
     private List<String> compile(String period, String sections) {

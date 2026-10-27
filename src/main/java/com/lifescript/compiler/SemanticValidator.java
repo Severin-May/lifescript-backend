@@ -22,7 +22,6 @@ public class SemanticValidator extends LifeScriptParserBaseVisitor<Void> {
     private final Set<String> taskNames = new HashSet<>();
     private final Map<String, List<String>> dependencyGraph = new HashMap<>();
 
-    private static final String WHITE = "WHITE";
     private static final String GRAY = "GRAY";
     private static final String BLACK = "BLACK";
 
@@ -30,10 +29,6 @@ public class SemanticValidator extends LifeScriptParserBaseVisitor<Void> {
 
     List<String> getErrors() {
         return this.errors;
-    }
-
-    boolean hasErrors() {
-        return !this.errors.isEmpty();
     }
 
     @Override
@@ -132,7 +127,7 @@ public class SemanticValidator extends LifeScriptParserBaseVisitor<Void> {
         }
     }
 
-    // GRAY = on the current path, BLACK = fully checked. The search always finishes a task
+    // GRAY = on the current path, BLACK = fully checked, not in `colors` = not visited yet. The search always finishes a task
     // (even after finding a cycle), so a GRAY task is always on `path` and reaching it again is a cycle.
     private void detectTaskCycle(String task, Map<String, String> colors, List<String> path) {
         if (GRAY.equals(colors.get(task))) {

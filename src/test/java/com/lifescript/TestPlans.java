@@ -1,6 +1,6 @@
 package com.lifescript;
 
-import com.lifescript.compiler.Compiler;
+import com.lifescript.compiler.LifeScriptCompiler;
 import com.lifescript.compiler.PlanModelBuilder;
 import com.lifescript.grammar.LifeScriptLexer;
 import com.lifescript.grammar.LifeScriptParser;
@@ -31,7 +31,7 @@ public final class TestPlans {
 
     // Builds a Plan, first asserting the source is valid (the builder assumes valid input).
     public static Plan build(String source) {
-        List<String> errors = new Compiler().fullCompile(source);
+        List<String> errors = new LifeScriptCompiler().fullCompile(source);
         assertTrue(errors.isEmpty(), () -> "Source should be valid but got: " + errors);
 
         LifeScriptParser parser = new LifeScriptParser(

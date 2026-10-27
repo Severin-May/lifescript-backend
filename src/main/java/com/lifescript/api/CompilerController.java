@@ -1,20 +1,17 @@
 package com.lifescript.api;
-import com.lifescript.compiler.Compiler;
 
+import com.lifescript.compiler.LifeScriptCompiler;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.bind.annotation.RequestMapping;
-
-import com.lifescript.api.CompileRequest;
-import com.lifescript.api.CompileResponse;
+import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 
 @RestController
 @RequestMapping("/api")
 public class CompilerController {
-    private final Compiler compiler = new Compiler();
+    private final LifeScriptCompiler compiler = new LifeScriptCompiler();
 
     @PostMapping("/validate")
     public CompileResponse validate(@RequestBody CompileRequest request) {

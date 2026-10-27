@@ -11,9 +11,9 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-class CompilerTest {
+class LifeScriptCompilerTest {
 
-    private final Compiler compiler = new Compiler();
+    private final LifeScriptCompiler compiler = new LifeScriptCompiler();
 
     // Loads a LifeScript file from src/test/resources/lifescript/.
     private String load(String name) throws IOException {

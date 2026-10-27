@@ -2,7 +2,6 @@ package com.lifescript.scheduler.greedy;
 
 import com.lifescript.model.Plan;
 import com.lifescript.scheduler.SchedulerSettings;
-import com.lifescript.scheduler.TaskOccurrence;
 import com.lifescript.scheduler.TaskOccurrences;
 import org.junit.jupiter.api.Test;
 

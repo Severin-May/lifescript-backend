@@ -7,42 +7,12 @@ import org.antlr.v4.runtime.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.File;
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
-public class Compiler {
+public class LifeScriptCompiler {
 
-    private static final Logger log = LoggerFactory.getLogger(Compiler.class);
-
-    public void compileFromFile(String filePath) {
-        File file = new File(filePath);
-        if (!file.exists()) {
-            System.err.println("File not found: " + filePath);
-            return;
-        }
-
-        try {
-            CharStream input = CharStreams.fromFileName(filePath);
-            LifeScriptLexer lexer = new LifeScriptLexer(input);
-            CommonTokenStream tokens = new CommonTokenStream(lexer);
-            LifeScriptParser parser = new LifeScriptParser(tokens);
-            LifeScriptParser.PlanContext tree = parser.plan();
-
-            SemanticValidator validator = new SemanticValidator();
-            validator.visit(tree);
-
-            if (validator.hasErrors()) {
-                validator.getErrors().forEach(System.err::println);
-            } else {
-                System.out.println("Validation successful!");
-            }
-        } catch (IOException e) {
-            System.err.println("Error reading file: " + e.getMessage());
-            return;
-        }
-    }
+    private static final Logger log = LoggerFactory.getLogger(LifeScriptCompiler.class);
 
     public List<String> fullCompile(String content) {
         if (content == null || content.isBlank()) {
@@ -76,16 +46,6 @@ public class Compiler {
         Plan plan = modelBuilder.getPlan();
 
         errors.addAll(new PlanModelValidator().validate(plan));
-
-        if (!errors.isEmpty()) return errors;
-
-//        try {
-//            Scheduler scheduler = new Scheduler(plan);
-//            Schedule schedule = scheduler.schedule();
-//        } catch (Exception e) {
-//            errors.add("Scheduling error: " + e.getMessage());
-//        }
-
         return errors;
     }
 
