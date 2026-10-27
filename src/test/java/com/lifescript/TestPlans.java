@@ -31,7 +31,7 @@ public final class TestPlans {
 
     // e.g. "Line 9: Duration '0m' must be greater than zero"
     public static List<String> errors(String source) {
-        return format(new LifeScriptCompiler().compile(source));
+        return format(new LifeScriptCompiler().compile(source).diagnostics());
     }
 
     public static List<String> syntaxErrors(String source) {

@@ -5,6 +5,8 @@ import com.lifescript.diagnostics.Stage;
 import com.lifescript.grammar.LifeScriptLexer;
 import com.lifescript.grammar.LifeScriptParser;
 import com.lifescript.model.Plan;
+import com.lifescript.scheduler.Scheduler;
+import com.lifescript.scheduler.greedy.GreedyScheduler;
 import org.antlr.v4.runtime.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -16,8 +18,18 @@ public class LifeScriptCompiler {
 
     private static final Logger log = LoggerFactory.getLogger(LifeScriptCompiler.class);
 
-    public List<Diagnostic> compile(String content) {
-        return safely(content, this::runPipeline);
+    private final Scheduler scheduler;
+
+    public LifeScriptCompiler() {
+        this(new GreedyScheduler());
+    }
+
+    public LifeScriptCompiler(Scheduler scheduler) {
+        this.scheduler = scheduler;
+    }
+
+    public CompileResult compile(String content) {
+        return safely(content, this::runPipeline, CompileResult::failed);
     }
 
     public List<Diagnostic> syntaxValidate(String content) {
@@ -25,33 +37,33 @@ public class LifeScriptCompiler {
             DiagnosticCollector collector = new DiagnosticCollector();
             parseWithSyntaxChecks(text, collector);
             return collector.list();
-        });
+        }, diagnostics -> diagnostics);
     }
 
     // A crash is a compiler bug, not the user's: report it instead of failing the request.
-    private List<Diagnostic> safely(String content, Function<String, List<Diagnostic>> check) {
+    private <T> T safely(String content, Function<String, T> check, Function<List<Diagnostic>, T> failed) {
         if (content == null || content.isBlank()) {
-            return List.of(Diagnostic.withoutPosition(Stage.SYNTAX, "Plan is empty"));
+            return failed.apply(List.of(Diagnostic.withoutPosition(Stage.SYNTAX, "Plan is empty")));
         }
         try {
             return check.apply(content);
         } catch (RuntimeException e) {
             log.error("Compiler crashed on input:\n{}", content, e);
-            return List.of(Diagnostic.withoutPosition(Stage.INTERNAL,
-                    "Internal error while compiling the plan (this is a bug in LifeScript, not in your plan)"));
+            return failed.apply(List.of(Diagnostic.withoutPosition(Stage.INTERNAL,
+                    "Internal error while compiling the plan (this is a bug in LifeScript, not in your plan)")));
         }
     }
 
-    private List<Diagnostic> runPipeline(String content) {
+    private CompileResult runPipeline(String content) {
         DiagnosticCollector collector = new DiagnosticCollector();
         LifeScriptParser.PlanContext tree = parseWithSyntaxChecks(content, collector);
         if (!collector.isEmpty()) {
-            return collector.list();
+            return CompileResult.failed(collector.list());
         }
 
         new SemanticValidator(collector).visit(tree);
         if (!collector.isEmpty()) {
-            return collector.list();
+            return CompileResult.failed(collector.list());
         }
 
         PlanModelBuilder modelBuilder = new PlanModelBuilder();
@@ -59,7 +71,11 @@ public class LifeScriptCompiler {
         Plan plan = modelBuilder.getPlan();
 
         new PlanModelValidator(collector).validate(plan);
-        return collector.list();
+        if (!collector.isEmpty()) {
+            return CompileResult.failed(collector.list());
+        }
+
+        return new CompileResult(List.of(), scheduler.schedule(plan));
     }
 
     private LifeScriptParser.PlanContext parseWithSyntaxChecks(String content, DiagnosticCollector collector) {

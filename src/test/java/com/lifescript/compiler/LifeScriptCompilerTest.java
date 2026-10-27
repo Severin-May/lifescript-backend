@@ -14,6 +14,7 @@ import static com.lifescript.TestPlans.errors;
 import static com.lifescript.TestPlans.syntaxErrors;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class LifeScriptCompilerTest {
@@ -50,7 +51,7 @@ class LifeScriptCompilerTest {
                 effort: high
                 """;
 
-        Diagnostic first = compiler.compile(plan).get(0);
+        Diagnostic first = compiler.compile(plan).diagnostics().get(0);
 
         // line 8, columns 7-9 ("low"); the end column is exclusive
         assertEquals(Stage.SYNTAX, first.stage());
@@ -83,7 +84,7 @@ class LifeScriptCompilerTest {
                 dependencies: a
                 """;
 
-        List<Diagnostic> diagnostics = compiler.compile(plan);
+        List<Diagnostic> diagnostics = compiler.compile(plan).diagnostics();
 
         // "duration: 0m" on line 9 (12 characters, so end column 13)
         assertEquals(new Diagnostic(Stage.VALIDATION, Severity.ERROR, "Duration '0m' must be greater than zero",
@@ -92,6 +93,32 @@ class LifeScriptCompilerTest {
         assertEquals(new Diagnostic(Stage.VALIDATION, Severity.ERROR, "Circular dependency detected: a → b → a",
                 18, 1, 18, 16), diagnostics.get(1));
         assertEquals(2, diagnostics.size(), () -> "Got: " + diagnostics);
+    }
+
+    @Test
+    void validPlan_isScheduled() throws IOException {
+        CompileResult result = compiler.compile(load("fullPlan.ls"));
+
+        assertEquals(List.of(), result.diagnostics());
+        assertEquals(7, result.schedule().days().size());
+    }
+
+    @Test
+    void invalidPlan_hasNoSchedule() {
+        CompileResult result = compiler.compile("plan: p\n");
+
+        assertFalse(result.diagnostics().isEmpty());
+        assertNull(result.schedule());
+    }
+
+    @Test
+    void schedulerCrash_isReportedAsInternalError() throws IOException {
+        LifeScriptCompiler crashing = new LifeScriptCompiler(plan -> { throw new IllegalStateException("boom"); });
+
+        CompileResult result = crashing.compile(load("fullPlan.ls"));
+
+        assertEquals(Stage.INTERNAL, result.diagnostics().get(0).stage());
+        assertNull(result.schedule());
     }
 
     @Test

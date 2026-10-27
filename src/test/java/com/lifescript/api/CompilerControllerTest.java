@@ -5,6 +5,7 @@ import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
+import static org.hamcrest.Matchers.nullValue;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -38,6 +39,32 @@ class CompilerControllerTest {
                 .andExpect(jsonPath("$.valid").value(true))
                 .andExpect(jsonPath("$.diagnostics").isEmpty())
                 .andExpect(jsonPath("$.errors").doesNotExist());
+    }
+
+    @Test
+    void compile_validPlan_hasTheSchedule() throws Exception {
+        // 2024-01-01 is a Monday; flexible starts at the default morning start, 06:00
+        mvc.perform(post("/api/compile").contentType(MediaType.APPLICATION_JSON).content(body(VALID_PLAN)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.schedule.days.length()").value(31))
+                .andExpect(jsonPath("$.schedule.days['2024-01-01'].length()").value(1))
+                .andExpect(jsonPath("$.schedule.days['2024-01-01'][0].type").value("TASK"))
+                .andExpect(jsonPath("$.schedule.days['2024-01-01'][0].name").value("a"))
+                .andExpect(jsonPath("$.schedule.days['2024-01-01'][0].start").value("06:00"))
+                .andExpect(jsonPath("$.schedule.days['2024-01-01'][0].end").value("07:00"))
+                .andExpect(jsonPath("$.schedule.days['2024-01-02']").isEmpty())
+                .andExpect(jsonPath("$.schedule.unscheduled").isEmpty())
+                .andExpect(jsonPath("$.schedule.notes").isEmpty());
+    }
+
+    @Test
+    void compile_unscheduledTask_hasNameDateAndReason() throws Exception {
+        String plan = VALID_PLAN.replace("duration: 1h", "duration: 1h\nrepeats: tuesday");
+
+        mvc.perform(post("/api/compile").contentType(MediaType.APPLICATION_JSON).content(body(plan)))
+                .andExpect(jsonPath("$.schedule.unscheduled[0].name").value("a"))
+                .andExpect(jsonPath("$.schedule.unscheduled[0].date").value("2024-01-02"))
+                .andExpect(jsonPath("$.schedule.unscheduled[0].reason").value("no free slot long enough on 2024-01-02"));
     }
 
     @Test
@@ -78,6 +105,7 @@ class CompilerControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.valid").value(false))
                 .andExpect(jsonPath("$.diagnostics[0].message").value("Plan is empty"))
+                .andExpect(jsonPath("$.schedule").value(nullValue()))
                 .andExpect(jsonPath("$.diagnostics[0].startLineNumber").value(0));
     }
 }
