@@ -2,7 +2,6 @@ package com.lifescript.compiler;
 
 import com.lifescript.diagnostics.SourceLocation;
 import com.lifescript.grammar.LifeScriptParser;
-import com.lifescript.grammar.LifeScriptParserBaseVisitor;
 import com.lifescript.model.Activity;
 import com.lifescript.model.EnergyEntry;
 import com.lifescript.model.Event;
@@ -23,7 +22,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-public class PlanModelBuilder extends LifeScriptParserBaseVisitor<Void> {
+public class PlanModelBuilder {
 
     private static final Map<String, TimeRange> DEFAULT_TIME_SETTINGS = Map.of(
             "morning", new TimeRange(LocalTime.of(6, 0), LocalTime.of(12, 0)),
@@ -31,14 +30,8 @@ public class PlanModelBuilder extends LifeScriptParserBaseVisitor<Void> {
             "evening", new TimeRange(LocalTime.of(18, 0), LocalTime.of(22, 0))
     );
 
-    private final Plan plan = new Plan();
-
-    public Plan getPlan() {
-        return plan;
-    }
-
-    @Override
-    public Void visitPlan(LifeScriptParser.PlanContext ctx) {
+    public Plan build(LifeScriptParser.PlanContext ctx) {
+        Plan plan = new Plan();
         plan.setName(ctx.IDENTIFIER().getText());
         plan.setPeriod(new PlanPeriod(Literals.parseDate(ctx.period().DATE_VAL(0).getText()),
                 Literals.parseDate(ctx.period().DATE_VAL(1).getText())));
@@ -65,7 +58,7 @@ public class PlanModelBuilder extends LifeScriptParserBaseVisitor<Void> {
             }
         }
 
-        return null;
+        return plan;
     }
 
     private List<Routine> buildRoutines(LifeScriptParser.RoutinesContext ctx) {
@@ -123,9 +116,7 @@ public class PlanModelBuilder extends LifeScriptParserBaseVisitor<Void> {
                 event.setDate(Literals.parseDate(prop.eventDate().DATE_VAL().getText()));
             } else if (prop.eventTime() != null) {
                 LifeScriptParser.EventTimeContext time = prop.eventTime();
-                event.setTimeRange(time.namedPeriod() != null
-                        ? timeSettings.get(time.namedPeriod().getText())
-                        : Literals.parseTimeRange(time.timeRange().getText()));
+                event.setTimeRange(resolveTimeRange(time.namedPeriod(), time.timeRange(), timeSettings));
             } else if (prop.eventNote() != null) {
                 event.setNote(Literals.parseString(prop.eventNote().STRING().getText()));
             }
@@ -197,9 +188,7 @@ public class PlanModelBuilder extends LifeScriptParserBaseVisitor<Void> {
                                                  Map<String, TimeRange> timeSettings) {
         List<EnergyEntry> entries = new ArrayList<>();
         for (LifeScriptParser.EnergyEntryContext entry : ctx.energyEntry()) {
-            TimeRange range = entry.namedPeriod() != null
-                    ? timeSettings.get(entry.namedPeriod().getText())
-                    : Literals.parseTimeRange(entry.timeRange().getText());
+            TimeRange range = resolveTimeRange(entry.namedPeriod(), entry.timeRange(), timeSettings);
             entries.add(new EnergyEntry(range, Literals.parseEnergyLevel(entry.energyLevel().getText()),
                     DiagnosticCollector.locationOf(entry)));
         }
@@ -262,6 +251,14 @@ public class PlanModelBuilder extends LifeScriptParserBaseVisitor<Void> {
             days.add(Literals.parseDay(day.getText()));
         }
         return days;
+    }
+
+    private static TimeRange resolveTimeRange(LifeScriptParser.NamedPeriodContext namedPeriod,
+                                              LifeScriptParser.TimeRangeContext timeRange,
+                                              Map<String, TimeRange> timeSettings) {
+        return namedPeriod != null
+                ? timeSettings.get(namedPeriod.getText())
+                : Literals.parseTimeRange(timeRange.getText());
     }
 
     private Map<String, TimeRange> resolveTimeSettings(LifeScriptParser.PlanContext ctx) {

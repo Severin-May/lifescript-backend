@@ -10,7 +10,6 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.function.Function;
 
 public final class TaskOccurrences {
 
@@ -25,13 +24,12 @@ public final class TaskOccurrences {
             }
         }
 
-        Limits preferred = new Limits(dependents, task -> minus(task.getDeadline(), settings.deadlineBuffer()));
-        Limits hard = new Limits(dependents, Task::getDeadline);
-
         List<TaskOccurrence> occurrences = new ArrayList<>();
         for (Task task : plan.getTasks()) {
             if (task.getRepeatDays().isEmpty()) {
-                occurrences.add(new TaskOccurrence(task, null, preferred.latestEnd(task), hard.latestEnd(task)));
+                occurrences.add(new TaskOccurrence(task, null,
+                        latestEnd(task, settings.deadlineBuffer(), dependents),
+                        latestEnd(task, Duration.ZERO, dependents)));
                 continue;
             }
             for (LocalDate date : plan.getPeriod().dates()) {
@@ -45,28 +43,13 @@ public final class TaskOccurrences {
     }
 
     // A dependency must end before its dependent starts: the dependent's limit minus its duration.
-    private static final class Limits {
-        private final Map<String, List<Task>> dependents;
-        private final Function<Task, LocalDateTime> ownLimit;
-        private final Map<String, LocalDateTime> cache = new HashMap<>();
-
-        Limits(Map<String, List<Task>> dependents, Function<Task, LocalDateTime> ownLimit) {
-            this.dependents = dependents;
-            this.ownLimit = ownLimit;
+    // Terminates because SemanticValidator rejects dependency cycles.
+    private static LocalDateTime latestEnd(Task task, Duration buffer, Map<String, List<Task>> dependents) {
+        LocalDateTime limit = minus(task.getDeadline(), buffer);
+        for (Task dependent : dependents.getOrDefault(task.getName(), List.of())) {
+            limit = earlier(limit, minus(latestEnd(dependent, buffer, dependents), dependent.getDuration()));
         }
-
-        // Terminates because SemanticValidator rejects dependency cycles.
-        LocalDateTime latestEnd(Task task) {
-            if (cache.containsKey(task.getName())) {
-                return cache.get(task.getName());
-            }
-            LocalDateTime limit = ownLimit.apply(task);
-            for (Task dependent : dependents.getOrDefault(task.getName(), List.of())) {
-                limit = earlier(limit, minus(latestEnd(dependent), dependent.getDuration()));
-            }
-            cache.put(task.getName(), limit);
-            return limit;
-        }
+        return limit;
     }
 
     private static LocalDateTime minus(LocalDateTime time, Duration duration) {

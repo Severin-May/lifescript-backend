@@ -168,9 +168,14 @@ public class SemanticValidator extends LifeScriptParserBaseVisitor<Void> {
             for (LifeScriptParser.TaskPropertyContext prop : task.taskProperty()) {
                 if (prop.taskDependencies() != null) {
                     dependencyLines.put(taskName, prop);
+                    Set<String> seenDeps = new HashSet<>();
                     for (TerminalNode dep : prop.taskDependencies().IDENTIFIER()) {
+                        if (!seenDeps.add(dep.getText())) {
+                            diagnostics.error(prop, String.format("Duplicate dependency '%s'", dep.getText()));
+                            continue;
+                        }
                         if (!taskNames.contains(dep.getText())) {
-                            diagnostics.error(prop, String.format("Task %s has non-existing dependency task %s ", task.IDENTIFIER().getText(), dep.getText()));
+                            diagnostics.error(prop, String.format("Task %s has non-existing dependency task %s", taskName, dep.getText()));
                         }
                         if (repeatingTasks.contains(dep.getText())) {
                             diagnostics.error(prop, String.format("Task %s cannot depend on repeating task %s", taskName, dep.getText()));

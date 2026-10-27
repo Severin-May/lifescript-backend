@@ -49,8 +49,6 @@ public final class TestPlans {
 
         LifeScriptParser parser = new LifeScriptParser(
                 new CommonTokenStream(new LifeScriptLexer(CharStreams.fromString(source))));
-        PlanModelBuilder builder = new PlanModelBuilder();
-        builder.visit(parser.plan());
-        return builder.getPlan();
+        return new PlanModelBuilder().build(parser.plan());
     }
 }

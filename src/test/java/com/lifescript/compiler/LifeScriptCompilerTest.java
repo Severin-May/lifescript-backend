@@ -785,7 +785,32 @@ class LifeScriptCompilerTest {
 
         List<String> errors = errors(plan);
 
-        assertTrue(errors.stream().anyMatch(e -> e.contains("Task a has non-existing dependency task ghost")));
+        assertEquals(List.of("Line 12: Task a has non-existing dependency task ghost"), errors);
+    }
+
+    @Test
+    void duplicateDependency_isReportedOnce() {
+        String plan = """
+                plan: p
+                period: 2024-01-01 to 2024-01-31
+
+                availability:
+                monday: flexible
+
+                tasks:
+                task: a
+                duration: 1h
+                priority: high
+                effort: high
+
+                task: b
+                duration: 1h
+                priority: high
+                effort: high
+                dependencies: a, a
+                """;
+
+        assertEquals(List.of("Line 17: Duplicate dependency 'a'"), errors(plan));
     }
 
     @Test

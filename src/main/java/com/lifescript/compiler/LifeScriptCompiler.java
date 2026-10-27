@@ -12,7 +12,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.List;
-import java.util.function.Function;
 
 public class LifeScriptCompiler {
 
@@ -29,29 +28,42 @@ public class LifeScriptCompiler {
     }
 
     public CompileResult compile(String content) {
-        return safely(content, this::runPipeline, CompileResult::failed);
+        if (isBlank(content)) {
+            return CompileResult.failed(List.of(emptyPlan()));
+        }
+        try {
+            return runPipeline(content);
+        } catch (RuntimeException e) {
+            return CompileResult.failed(List.of(internalError(content, e)));
+        }
     }
 
     public List<Diagnostic> syntaxValidate(String content) {
-        return safely(content, text -> {
+        if (isBlank(content)) {
+            return List.of(emptyPlan());
+        }
+        try {
             DiagnosticCollector collector = new DiagnosticCollector();
-            parseWithSyntaxChecks(text, collector);
+            parseWithSyntaxChecks(content, collector);
             return collector.list();
-        }, diagnostics -> diagnostics);
+        } catch (RuntimeException e) {
+            return List.of(internalError(content, e));
+        }
+    }
+
+    private static boolean isBlank(String content) {
+        return content == null || content.isBlank();
+    }
+
+    private static Diagnostic emptyPlan() {
+        return Diagnostic.withoutPosition(Stage.SYNTAX, "Plan is empty");
     }
 
     // A crash is a compiler bug, not the user's: report it instead of failing the request.
-    private <T> T safely(String content, Function<String, T> check, Function<List<Diagnostic>, T> failed) {
-        if (content == null || content.isBlank()) {
-            return failed.apply(List.of(Diagnostic.withoutPosition(Stage.SYNTAX, "Plan is empty")));
-        }
-        try {
-            return check.apply(content);
-        } catch (RuntimeException e) {
-            log.error("Compiler crashed on input:\n{}", content, e);
-            return failed.apply(List.of(Diagnostic.withoutPosition(Stage.INTERNAL,
-                    "Internal error while compiling the plan (this is a bug in LifeScript, not in your plan)")));
-        }
+    private static Diagnostic internalError(String content, RuntimeException e) {
+        log.error("Compiler crashed on input:\n{}", content, e);
+        return Diagnostic.withoutPosition(Stage.INTERNAL,
+                "Internal error while compiling the plan (this is a bug in LifeScript, not in your plan)");
     }
 
     private CompileResult runPipeline(String content) {
@@ -66,9 +78,7 @@ public class LifeScriptCompiler {
             return CompileResult.failed(collector.list());
         }
 
-        PlanModelBuilder modelBuilder = new PlanModelBuilder();
-        modelBuilder.visit(tree);
-        Plan plan = modelBuilder.getPlan();
+        Plan plan = new PlanModelBuilder().build(tree);
 
         new PlanModelValidator(collector).validate(plan);
         if (!collector.isEmpty()) {
