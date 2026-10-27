@@ -1,6 +1,7 @@
 package com.lifescript.compiler;
 
 import com.lifescript.diagnostics.Diagnostic;
+import com.lifescript.diagnostics.Severity;
 import com.lifescript.diagnostics.Stage;
 import org.junit.jupiter.api.Test;
 
@@ -56,6 +57,40 @@ class LifeScriptCompilerTest {
                 List.of(first.startLineNumber(), first.startColumn(), first.endLineNumber(), first.endColumn()));
         assertTrue(first.message().startsWith("Syntax error - "), first::message);
         assertTrue(compiler.fullCompile(plan).get(0).startsWith("Line 8: Syntax error - "));
+    }
+
+    @Test
+    void validationErrors_markFromEntryStartToEndOfLine_cycleAtTheClosingTasksDependencies() {
+        String plan = """
+                plan: p
+                period: 2024-01-01 to 2024-01-31
+
+                availability:
+                monday: flexible
+
+                tasks:
+                task: a
+                duration: 0m
+                priority: high
+                effort: high
+                dependencies: b
+
+                task: b
+                duration: 1h
+                priority: high
+                effort: high
+                dependencies: a
+                """;
+
+        List<Diagnostic> diagnostics = compiler.compile(plan);
+
+        // "duration: 0m" on line 9 (12 characters, so end column 13)
+        assertEquals(new Diagnostic(Stage.VALIDATION, Severity.ERROR, "Duration '0m' must be greater than zero",
+                9, 1, 9, 13), diagnostics.get(0));
+        // a → b → a is closed by b, so it is reported at b's "dependencies: a" on line 18 (15 characters)
+        assertEquals(new Diagnostic(Stage.VALIDATION, Severity.ERROR, "Circular dependency detected: a → b → a",
+                18, 1, 18, 16), diagnostics.get(1));
+        assertEquals(2, diagnostics.size(), () -> "Got: " + diagnostics);
     }
 
     @Test

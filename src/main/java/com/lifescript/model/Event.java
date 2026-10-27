@@ -1,11 +1,15 @@
 package com.lifescript.model;
 
+import com.lifescript.diagnostics.SourceLocation;
+
 import java.time.LocalDate;
 
 // A one-off commitment at a fixed date and time. Like a routine, it always happens
 // and ignores availability; unlike a routine, it does not repeat.
 public class Event implements FixedCommitment {
     private String name;
+    // Where the "event:" line was written.
+    private SourceLocation location;
     private LocalDate date;
     private TimeRange timeRange;
     private String note;
@@ -47,5 +51,14 @@ public class Event implements FixedCommitment {
 
     public void setNote(String note) {
         this.note = note;
+    }
+
+    @Override
+    public SourceLocation getLocation() {
+        return location;
+    }
+
+    public void setLocation(SourceLocation location) {
+        this.location = location;
     }
 }

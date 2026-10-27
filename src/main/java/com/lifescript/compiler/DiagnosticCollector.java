@@ -2,6 +2,7 @@ package com.lifescript.compiler;
 
 import com.lifescript.diagnostics.Diagnostic;
 import com.lifescript.diagnostics.Severity;
+import com.lifescript.diagnostics.SourceLocation;
 import com.lifescript.diagnostics.Stage;
 import org.antlr.v4.runtime.CharStream;
 import org.antlr.v4.runtime.ParserRuleContext;
@@ -34,15 +35,24 @@ public class DiagnosticCollector {
     }
 
     public void error(Token start, String message) {
-        int line = start.getLine();
-        int startColumn = start.getCharPositionInLine() + 1;
-        diagnostics.add(new Diagnostic(Stage.VALIDATION, Severity.ERROR, message,
-                line, startColumn, line, startColumn + lengthToEndOfLine(start)));
+        error(locationOf(start), message);
     }
 
-    // For validation problems not tied to a place (see Diagnostic.withoutPosition).
-    public void errorWithoutPosition(String message) {
-        diagnostics.add(Diagnostic.withoutPosition(Stage.VALIDATION, message));
+    // For checks on the built Plan, which keeps the location of each thing it was built from.
+    public void error(SourceLocation location, String message) {
+        diagnostics.add(new Diagnostic(Stage.VALIDATION, Severity.ERROR, message,
+                location.line(), location.startColumn(), location.line(), location.endColumn()));
+    }
+
+    // From where the entry starts to the end of its line. Also used by PlanModelBuilder, so positions
+    // recorded in the Plan are worked out exactly like the validators' own.
+    public static SourceLocation locationOf(ParserRuleContext entry) {
+        return locationOf(entry.getStart());
+    }
+
+    public static SourceLocation locationOf(Token start) {
+        int startColumn = start.getCharPositionInLine() + 1;
+        return new SourceLocation(start.getLine(), startColumn, startColumn + lengthToEndOfLine(start));
     }
 
     public List<Diagnostic> list() {

@@ -8,7 +8,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 // Runs the full pipeline, so each input must pass SemanticValidator first;
-// the errors checked here come from PlanModelValidator.
+// the errors checked here come from PlanModelValidator. A clash is reported at the line written later.
 class PlanModelValidatorTest {
 
     private final LifeScriptCompiler compiler = new LifeScriptCompiler();
@@ -52,8 +52,8 @@ class PlanModelValidatorTest {
                 """);
 
         assertEquals(List.of(
-                "Settings: morning (06:00-13:00) must end before afternoon starts (12:00)",
-                "Settings: afternoon (12:00-18:00) must end before evening starts (16:00)"), errors);
+                "Line 5: Settings: morning (06:00-13:00) must end before afternoon starts (12:00)",
+                "Line 6: Settings: afternoon (12:00-18:00) must end before evening starts (16:00)"), errors);
     }
 
     @Test
@@ -83,9 +83,9 @@ class PlanModelValidatorTest {
 
         // ranges are sorted by start time; tuesday's ranges only touch, so only monday is reported
         assertEquals(List.of(
-                "Availability on monday: 08:00-17:00 overlaps 09:00-12:00",
-                "Availability on monday: 08:00-17:00 overlaps 10:00-13:00",
-                "Availability on monday: 09:00-12:00 overlaps 10:00-13:00"), errors);
+                "Line 5: Availability on monday: 08:00-17:00 overlaps 09:00-12:00",
+                "Line 5: Availability on monday: 08:00-17:00 overlaps 10:00-13:00",
+                "Line 5: Availability on monday: 09:00-12:00 overlaps 10:00-13:00"), errors);
     }
 
     // --- energy profile ---
@@ -106,9 +106,9 @@ class PlanModelValidatorTest {
                 """);
 
         assertEquals(List.of(
-                "Energy profile (default): 06:00-12:00 is high but 09:00-10:00 is low, "
+                "Line 10: Energy profile (default): 06:00-12:00 is high but 09:00-10:00 is low, "
                         + "so the energy level from 09:00 to 10:00 is unclear",
-                "Energy profile (friday): 20:00-00:00 is low but 23:00-23:30 is moderate, "
+                "Line 13: Energy profile (friday): 20:00-00:00 is low but 23:00-23:30 is moderate, "
                         + "so the energy level from 23:00 to 23:30 is unclear"), errors);
     }
 
@@ -125,7 +125,7 @@ class PlanModelValidatorTest {
                 """);
 
         assertEquals(List.of(
-                "Energy profile (default): 06:00-12:00 and 09:00-10:00 overlap (both high); remove one of them"), errors);
+                "Line 10: Energy profile (default): 06:00-12:00 and 09:00-10:00 overlap (both high); remove one of them"), errors);
     }
 
     @Test
@@ -142,7 +142,7 @@ class PlanModelValidatorTest {
                 06:00-12:00: low
                 """);
 
-        assertEquals(List.of("Energy profile (default): 06:00-12:00 is high but 06:00-12:00 is low, "
+        assertEquals(List.of("Line 10: Energy profile (default): 06:00-12:00 is high but 06:00-12:00 is low, "
                 + "so the energy level from 06:00 to 12:00 is unclear"), errors);
     }
 
@@ -191,8 +191,8 @@ class PlanModelValidatorTest {
 
         // gym overlaps both others on its two days; reading only touches morning_routine (07:35)
         assertEquals(List.of(
-                "Routine morning_routine (07:00-07:35) overlaps routine gym (07:15-08:00) on monday, wednesday",
-                "Routine gym (07:15-08:00) overlaps routine reading (07:35-08:05) on monday, wednesday"), errors);
+                "Line 15: Routine morning_routine (07:00-07:35) overlaps routine gym (07:15-08:00) on monday, wednesday",
+                "Line 21: Routine gym (07:15-08:00) overlaps routine reading (07:35-08:05) on monday, wednesday"), errors);
     }
 
     @Test
@@ -247,7 +247,7 @@ class PlanModelValidatorTest {
 
         // lunch is on a Thursday, when team_sync doesn't happen
         assertEquals(List.of(
-                "Event dentist (10:00-11:00) on 2026-10-07 overlaps routine team_sync (10:00-10:30)"), errors);
+                "Line 15: Event dentist (10:00-11:00) on 2026-10-07 overlaps routine team_sync (10:00-10:30)"), errors);
     }
 
     @Test
@@ -271,7 +271,7 @@ class PlanModelValidatorTest {
                 """);
 
         assertEquals(List.of(
-                "Event dentist (10:00-11:00) overlaps event call (10:30-11:30) on 2026-10-07"), errors);
+                "Line 12: Event dentist (10:00-11:00) overlaps event call (10:30-11:30) on 2026-10-07"), errors);
     }
 
     @Test

@@ -1,5 +1,7 @@
 package com.lifescript.model;
 
+import com.lifescript.diagnostics.SourceLocation;
+
 import java.time.DayOfWeek;
 import java.time.Duration;
 import java.time.LocalDate;
@@ -9,6 +11,8 @@ import java.util.List;
 
 public class Routine implements FixedCommitment {
     private String name;
+    // Where the "routine:" line was written.
+    private SourceLocation location;
     private LocalTime startTime;
     // Days the routine repeats on. Mandatory in LifeScript, so never empty after validation
     // (unlike Task, where empty means once).
@@ -63,5 +67,14 @@ public class Routine implements FixedCommitment {
     @Override
     public TimeRange getTimeRange() {
         return new TimeRange(startTime, startTime.plus(getDuration()));
+    }
+
+    @Override
+    public SourceLocation getLocation() {
+        return location;
+    }
+
+    public void setLocation(SourceLocation location) {
+        this.location = location;
     }
 }

@@ -51,23 +51,17 @@ public class LifeScriptCompiler {
             return collector.list();
         }
 
-        SemanticValidator validator = new SemanticValidator();
-        validator.visit(tree);
-        if (!validator.getErrors().isEmpty()) {
-            return withoutPositions(validator.getErrors());
+        new SemanticValidator(collector).visit(tree);
+        if (!collector.isEmpty()) {
+            return collector.list();
         }
 
         PlanModelBuilder modelBuilder = new PlanModelBuilder();
         modelBuilder.visit(tree);
         Plan plan = modelBuilder.getPlan();
 
-        return withoutPositions(new PlanModelValidator().validate(plan));
-    }
-
-    // Temporary, until the validators create diagnostics themselves: their messages already contain
-    // "Line N:" where they have a line, so as position-less diagnostics they format exactly as before.
-    private static List<Diagnostic> withoutPositions(List<String> errors) {
-        return errors.stream().map(error -> Diagnostic.withoutPosition(Stage.VALIDATION, error)).toList();
+        new PlanModelValidator(collector).validate(plan);
+        return collector.list();
     }
 
     private static List<String> format(List<Diagnostic> diagnostics) {

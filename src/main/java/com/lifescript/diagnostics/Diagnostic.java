@@ -8,7 +8,6 @@ public record Diagnostic(Stage stage, Severity severity, String message,
 
     // For problems that aren't tied to a place in the file, e.g. "Plan is empty" or an internal error:
     // all position fields are 0, and the frontend shows them in the output panel only (no editor marker).
-    // Model-stage checks use this too until they know source positions.
     public static Diagnostic withoutPosition(Stage stage, String message) {
         return new Diagnostic(stage, Severity.ERROR, message, 0, 0, 0, 0);
     }

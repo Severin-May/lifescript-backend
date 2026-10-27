@@ -1,5 +1,6 @@
 package com.lifescript.compiler;
 
+import com.lifescript.diagnostics.SourceLocation;
 import com.lifescript.model.Activity;
 import com.lifescript.model.EnergyEntry;
 import com.lifescript.model.EnergyLevel;
@@ -125,11 +126,14 @@ class PlanModelBuilderTest {
         Plan plan = build(load("fullPlan.ls"));
         // fullPlan.ls: morning 08:00-12:00, afternoon 13:00-17:00, evening default 18:00-22:00.
 
+        // Each entry also records where its line was written: fullPlan.ls lines 19-21 and 23, indented 4 spaces.
         assertEquals(List.of(
-                new EnergyEntry(range("08:00", "12:00"), EnergyLevel.HIGH),
-                new EnergyEntry(range("13:00", "17:00"), EnergyLevel.MODERATE),
-                new EnergyEntry(range("18:00", "22:00"), EnergyLevel.LOW)), plan.getDefaultEnergyProfile());
-        assertEquals(Map.of(FRIDAY, List.of(new EnergyEntry(range("13:00", "17:00"), EnergyLevel.LOW))),
+                new EnergyEntry(range("08:00", "12:00"), EnergyLevel.HIGH, new SourceLocation(19, 5, 18)),       // morning: high
+                new EnergyEntry(range("13:00", "17:00"), EnergyLevel.MODERATE, new SourceLocation(20, 5, 24)),   // afternoon: moderate
+                new EnergyEntry(range("18:00", "22:00"), EnergyLevel.LOW, new SourceLocation(21, 5, 17))),       // evening: low
+                plan.getDefaultEnergyProfile());
+        assertEquals(Map.of(FRIDAY, List.of(
+                        new EnergyEntry(range("13:00", "17:00"), EnergyLevel.LOW, new SourceLocation(23, 5, 19)))), // afternoon: low
                 plan.getEnergyProfileOverrides());
     }
 
