@@ -20,7 +20,6 @@ import com.lifescript.scheduler.UnscheduledTask;
 import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -35,9 +34,6 @@ import java.util.TreeMap;
 // preferred end (with the deadline buffer); if it can't, by its hard end (the deadline), with a note.
 // Every task keeps the break time free on both sides of it.
 public class GreedyScheduler implements Scheduler {
-
-    private static final int SECONDS_PER_DAY = 24 * 60 * 60;
-    private static final int STEP_SECONDS = 15 * 60;
 
     private final SchedulerSettings settings;
 
@@ -127,16 +123,17 @@ public class GreedyScheduler implements Scheduler {
 
     // The best valid slot, or null if there is none. Candidates are checked in time order, so on an
     // equally good fit the first one found (the earliest) is kept.
-    private static Placement bestPlacement(Plan plan, Map<LocalDate, List<TimeRange>> free, TaskOccurrence occurrence,
-                                           LocalDateTime earliestStart, LocalDateTime latestEnd) {
+    private Placement bestPlacement(Plan plan, Map<LocalDate, List<TimeRange>> free, TaskOccurrence occurrence,
+                                    LocalDateTime earliestStart, LocalDateTime latestEnd) {
         int duration = (int) occurrence.task().getDuration().toSeconds();
+        int step = (int) settings.startStep().toSeconds();
         List<LocalDate> dates = occurrence.date() != null ? List.of(occurrence.date()) : List.copyOf(free.keySet());
 
         Placement best = null;
         EnergyFit bestFit = null;
         for (LocalDate date : dates) {
             for (TimeRange range : free.get(date)) {
-                for (int start : candidateStarts(range, duration)) {
+                for (int start : candidateStarts(range, duration, step)) {
                     int end = start + duration;
                     TimeRange time = TimeRange.ofSeconds(start, end);
                     if (earliestStart != null && date.atTime(time.startTime()).isBefore(earliestStart)) {
@@ -156,16 +153,16 @@ public class GreedyScheduler implements Scheduler {
         return best;
     }
 
-    // Where a task may start within a free range: the range's exact start, then every clock quarter-hour
-    // after it (07:35, 07:45, 08:00, ...), as long as the whole task still fits in the range.
-    private static List<Integer> candidateStarts(TimeRange range, int duration) {
+    // Where a task may start within a free range: the range's exact start, then every `step` on the clock
+    // after it (with 15m: 07:35, 07:45, 08:00, ...), as long as the whole task still fits in the range.
+    private static List<Integer> candidateStarts(TimeRange range, int duration, int step) {
         int rangeStart = range.startTime().toSecondOfDay();
         int lastStart = range.endSecondOfDay() - duration;
         List<Integer> starts = new ArrayList<>();
         if (rangeStart <= lastStart) {
             starts.add(rangeStart);
         }
-        for (int start = (rangeStart / STEP_SECONDS + 1) * STEP_SECONDS; start <= lastStart; start += STEP_SECONDS) {
+        for (int start = (rangeStart / step + 1) * step; start <= lastStart; start += step) {
             starts.add(start);
         }
         return starts;
