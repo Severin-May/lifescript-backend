@@ -6,32 +6,19 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.util.List;
-
 @RestController
 @RequestMapping("/api")
 public class CompilerController {
     private final LifeScriptCompiler compiler = new LifeScriptCompiler();
 
+    // Syntax only; the frontend calls this while the user types.
     @PostMapping("/validate")
     public CompileResponse validate(@RequestBody CompileRequest request) {
-        List<String> errors = compiler.syntaxValidate(request.getContent());
-
-        CompileResponse response = new CompileResponse();
-        response.setErrors(errors);
-        response.setValid(errors.isEmpty());
-
-        return response;
+        return CompileResponse.of(compiler.syntaxValidate(request.getContent()));
     }
 
     @PostMapping("/compile")
     public CompileResponse compile(@RequestBody CompileRequest request) {
-        List<String> errors = compiler.fullCompile(request.getContent());
-
-        CompileResponse response = new CompileResponse();
-        response.setErrors(errors);
-        response.setValid(errors.isEmpty());
-
-        return response;
+        return CompileResponse.of(compiler.compile(request.getContent()));
     }
 }

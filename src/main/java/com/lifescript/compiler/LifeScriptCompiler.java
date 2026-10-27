@@ -10,6 +10,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.List;
+import java.util.function.Function;
 
 public class LifeScriptCompiler {
 
@@ -17,31 +18,32 @@ public class LifeScriptCompiler {
 
     // All problems in the plan, in the order found; empty means the plan is valid.
     public List<Diagnostic> compile(String content) {
+        return safely(content, this::runPipeline);
+    }
+
+    // Syntax problems only, for checking while the user types.
+    public List<Diagnostic> syntaxValidate(String content) {
+        return safely(content, text -> {
+            DiagnosticCollector collector = new DiagnosticCollector();
+            parseWithSyntaxChecks(text, collector);
+            return collector.list();
+        });
+    }
+
+    // Shared by compile and syntaxValidate: an empty plan is reported directly, and a crash anywhere is
+    // a bug in the compiler, not in the user's plan, so it becomes an error instead of failing the whole
+    // request (with the details logged for debugging).
+    private List<Diagnostic> safely(String content, Function<String, List<Diagnostic>> check) {
         if (content == null || content.isBlank()) {
             return List.of(Diagnostic.withoutPosition(Stage.SYNTAX, "Plan is empty"));
         }
-
-        // Safety net: a crash anywhere in the pipeline is a bug in the compiler, not in the user's plan.
-        // Report it as an error instead of failing the whole request, and log the details for debugging.
         try {
-            return runPipeline(content);
+            return check.apply(content);
         } catch (RuntimeException e) {
             log.error("Compiler crashed on input:\n{}", content, e);
             return List.of(Diagnostic.withoutPosition(Stage.INTERNAL,
                     "Internal error while compiling the plan (this is a bug in LifeScript, not in your plan)"));
         }
-    }
-
-    // The same problems in the classic compiler form, e.g. "Line 9: Duration '0m' must be greater than zero".
-    public List<String> fullCompile(String content) {
-        return format(compile(content));
-    }
-
-    // Syntax only, for checking while the user types.
-    public List<String> syntaxValidate(String content) {
-        DiagnosticCollector collector = new DiagnosticCollector();
-        parseWithSyntaxChecks(content, collector);
-        return format(collector.list());
     }
 
     private List<Diagnostic> runPipeline(String content) {
@@ -62,10 +64,6 @@ public class LifeScriptCompiler {
 
         new PlanModelValidator(collector).validate(plan);
         return collector.list();
-    }
-
-    private static List<String> format(List<Diagnostic> diagnostics) {
-        return diagnostics.stream().map(Diagnostic::format).toList();
     }
 
     private LifeScriptParser.PlanContext parseWithSyntaxChecks(String content, DiagnosticCollector collector) {

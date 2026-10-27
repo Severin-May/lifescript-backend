@@ -4,14 +4,13 @@ import org.junit.jupiter.api.Test;
 
 import java.util.List;
 
+import static com.lifescript.TestPlans.errors;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 // Runs the full pipeline, so each input must pass SemanticValidator first;
 // the errors checked here come from PlanModelValidator. A clash is reported at the line written later.
 class PlanModelValidatorTest {
-
-    private final LifeScriptCompiler compiler = new LifeScriptCompiler();
 
     // 2026-10-05 is a Monday, so the default period covers one full week.
     private List<String> compile(String period, String sections) {
@@ -27,7 +26,7 @@ class PlanModelValidatorTest {
                 priority: high
                 effort: high
                 """.formatted(period, sections);
-        return compiler.fullCompile(plan);
+        return errors(plan);
     }
 
     private List<String> compile(String sections) {
@@ -277,7 +276,7 @@ class PlanModelValidatorTest {
     @Test
     void fullPlan_hasNoModelErrors() throws Exception {
         try (var in = getClass().getResourceAsStream("/lifescript/fullPlan.ls")) {
-            assertNoErrors(compiler.fullCompile(new String(in.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8)));
+            assertNoErrors(errors(new String(in.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8)));
         }
     }
 }

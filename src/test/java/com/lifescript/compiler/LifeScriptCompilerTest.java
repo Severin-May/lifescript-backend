@@ -10,6 +10,8 @@ import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 
+import static com.lifescript.TestPlans.errors;
+import static com.lifescript.TestPlans.syntaxErrors;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -28,7 +30,7 @@ class LifeScriptCompilerTest {
 
     @Test
     void validPlan_hasNoErrors() throws IOException {
-        List<String> errors = compiler.fullCompile(load("fullPlan.ls"));
+        List<String> errors = errors(load("fullPlan.ls"));
 
         assertTrue(errors.isEmpty(), () -> "Expected no errors but got: " + errors);
     }
@@ -56,7 +58,7 @@ class LifeScriptCompilerTest {
         assertEquals(List.of(8, 7, 8, 10),
                 List.of(first.startLineNumber(), first.startColumn(), first.endLineNumber(), first.endColumn()));
         assertTrue(first.message().startsWith("Syntax error - "), first::message);
-        assertTrue(compiler.fullCompile(plan).get(0).startsWith("Line 8: Syntax error - "));
+        assertTrue(errors(plan).get(0).startsWith("Line 8: Syntax error - "));
     }
 
     @Test
@@ -96,13 +98,13 @@ class LifeScriptCompilerTest {
     @Test
     void missingContent_isReportedAsEmptyPlan() {
         // A request without "content" arrives as null; this used to crash with a NullPointerException.
-        assertEquals(List.of("Plan is empty"), compiler.fullCompile(null));
+        assertEquals(List.of("Plan is empty"), errors(null));
     }
 
     @Test
     void blankContent_isReportedAsEmptyPlan() {
-        assertEquals(List.of("Plan is empty"), compiler.fullCompile(""));
-        assertEquals(List.of("Plan is empty"), compiler.fullCompile("  \n\n  "));
+        assertEquals(List.of("Plan is empty"), errors(""));
+        assertEquals(List.of("Plan is empty"), errors("  \n\n  "));
     }
 
     @Test
@@ -122,7 +124,7 @@ class LifeScriptCompilerTest {
                 priority: high
                 effort: high""";
 
-        List<String> errors = compiler.fullCompile(plan);
+        List<String> errors = errors(plan);
 
         assertTrue(errors.isEmpty(), () -> "Expected no errors but got: " + errors);
     }
@@ -138,7 +140,7 @@ class LifeScriptCompilerTest {
                 note: "just a note"
                 """;
 
-        List<String> errors = compiler.fullCompile(plan);
+        List<String> errors = errors(plan);
 
         assertTrue(errors.stream().anyMatch(e -> e.contains("missing mandatory property: duration")));
         assertTrue(errors.stream().anyMatch(e -> e.contains("missing mandatory property: priority")));
@@ -162,7 +164,7 @@ class LifeScriptCompilerTest {
                 effort: high
                 """;
 
-        List<String> errors = compiler.fullCompile(plan);
+        List<String> errors = errors(plan);
 
         assertTrue(errors.stream().anyMatch(e -> e.contains("missing mandatory property: time")));
         assertTrue(errors.stream().anyMatch(e -> e.contains("missing mandatory property: activities")));
@@ -190,7 +192,7 @@ class LifeScriptCompilerTest {
                 effort: high
                 """;
 
-        List<String> errors = compiler.fullCompile(plan);
+        List<String> errors = errors(plan);
 
         assertTrue(errors.stream().anyMatch(e -> e.contains("Routine r is missing mandatory property: repeats")));
     }
@@ -225,7 +227,7 @@ class LifeScriptCompilerTest {
                 effort: high
                 """;
 
-        List<String> errors = compiler.fullCompile(plan);
+        List<String> errors = errors(plan);
 
         assertTrue(errors.stream().anyMatch(e ->
                 e.contains("Routine late starting at 23:30 lasts 1h5m and would run past midnight")), () -> "Got: " + errors);
@@ -255,7 +257,7 @@ class LifeScriptCompilerTest {
                 effort: high
                 """;
 
-        List<String> errors = compiler.fullCompile(plan);
+        List<String> errors = errors(plan);
 
         assertTrue(errors.stream().anyMatch(e -> e.contains("Invalid time '25:00'")), () -> "Got: " + errors);
         assertFalse(errors.stream().anyMatch(e -> e.contains("past midnight")));
@@ -285,7 +287,7 @@ class LifeScriptCompilerTest {
                 effort: high
                 """;
 
-        List<String> errors = compiler.syntaxValidate(plan);
+        List<String> errors = syntaxErrors(plan);
 
         assertTrue(errors.stream().anyMatch(e -> e.contains("Syntax error")), () -> "Got: " + errors);
     }
@@ -314,7 +316,7 @@ class LifeScriptCompilerTest {
                 repeats: friday, friday
                 """;
 
-        List<String> errors = compiler.fullCompile(plan);
+        List<String> errors = errors(plan);
 
         assertEquals(2, errors.stream().filter(e -> e.contains("Duplicate day in repeats 'monday'")
                 || e.contains("Duplicate day in repeats 'friday'")).count(), () -> "Got: " + errors);
@@ -331,7 +333,7 @@ class LifeScriptCompilerTest {
                 morning: 08:00-12:00
                 """;
 
-        List<String> errors = compiler.fullCompile(plan);
+        List<String> errors = errors(plan);
 
         assertTrue(errors.stream().anyMatch(e -> e.contains("missing mandatory property: tasks")));
     }
@@ -349,7 +351,7 @@ class LifeScriptCompilerTest {
                 effort: high
                 """;
 
-        List<String> errors = compiler.fullCompile(plan);
+        List<String> errors = errors(plan);
 
         assertTrue(errors.stream().anyMatch(e -> e.contains("missing mandatory property: availability")));
     }
@@ -371,7 +373,7 @@ class LifeScriptCompilerTest {
                 deadline: 2024-13-40 17:00
                 """;
 
-        List<String> errors = compiler.fullCompile(plan);
+        List<String> errors = errors(plan);
 
         assertTrue(errors.stream().anyMatch(e -> e.contains("Duplicate section 'tasks'")));
         assertFalse(errors.stream().anyMatch(e -> e.contains("Invalid deadline date")),
@@ -419,7 +421,7 @@ class LifeScriptCompilerTest {
                 effort: high
                 """;
 
-        List<String> errors = compiler.fullCompile(plan);
+        List<String> errors = errors(plan);
 
         assertTrue(errors.stream().anyMatch(e -> e.contains("Duplicate settings entry 'morning'")));
         assertTrue(errors.stream().anyMatch(e -> e.contains("Duplicate availability day 'monday'")));
@@ -450,7 +452,7 @@ class LifeScriptCompilerTest {
                 dependencies: a
                 """;
 
-        List<String> errors = compiler.fullCompile(plan);
+        List<String> errors = errors(plan);
 
         assertTrue(errors.stream().anyMatch(e -> e.contains("Circular dependency detected")));
     }
@@ -486,7 +488,7 @@ class LifeScriptCompilerTest {
                 dependencies: a
                 """;
 
-        List<String> errors = compiler.fullCompile(plan);
+        List<String> errors = errors(plan);
 
         assertEquals(1, errors.stream().filter(e -> e.contains("Circular dependency detected")).count(),
                 () -> "Got: " + errors);
@@ -509,7 +511,7 @@ class LifeScriptCompilerTest {
                 effort: high
                 """;
 
-        List<String> errors = compiler.fullCompile(plan);
+        List<String> errors = errors(plan);
 
         assertEquals(List.of("Line 9: Duration '99999999999999999999m' is too long (at most 24h)"), errors);
     }
@@ -535,7 +537,7 @@ class LifeScriptCompilerTest {
                 effort: high
                 """;
 
-        List<String> errors = compiler.fullCompile(plan);
+        List<String> errors = errors(plan);
 
         assertEquals(List.of("Line 9: Duration '24h1m' is too long (at most 24h)"), errors);
     }
@@ -566,7 +568,7 @@ class LifeScriptCompilerTest {
                 effort: high
                 """;
 
-        List<String> errors = compiler.fullCompile(plan);
+        List<String> errors = errors(plan);
 
         assertEquals(List.of("Line 9: Minutes in '1h75m' must be at most 59 (write 2h15m)"), errors);
     }
@@ -600,7 +602,7 @@ class LifeScriptCompilerTest {
                 effort: high
                 """;
 
-        List<String> errors = compiler.fullCompile(plan);
+        List<String> errors = errors(plan);
 
         assertEquals(List.of(
                 "Line 12: Duration '0h' must be greater than zero",
@@ -632,7 +634,7 @@ class LifeScriptCompilerTest {
                 effort: high
                 """;
 
-        List<String> errors = compiler.fullCompile(plan);
+        List<String> errors = errors(plan);
 
         assertEquals(List.of("Line 13: Duration '9999999999999999h' is too long (at most 24h)"), errors);
     }
@@ -654,7 +656,7 @@ class LifeScriptCompilerTest {
                 deadline: 2024-01-09 17:00
                 """;
 
-        List<String> errors = compiler.fullCompile(plan);
+        List<String> errors = errors(plan);
 
         assertEquals(List.of("Line 12: Deadline '2024-01-09 17:00' is before the period starts (2024-01-10)"), errors);
     }
@@ -676,7 +678,7 @@ class LifeScriptCompilerTest {
                 deadline: 2024-01-20
                 """;
 
-        List<String> errors = compiler.fullCompile(plan);
+        List<String> errors = errors(plan);
 
         assertEquals(List.of("Line 12: Deadline needs a time, e.g. 'deadline: 2024-01-20 17:00'"), errors);
     }
@@ -704,7 +706,7 @@ class LifeScriptCompilerTest {
                 deadline: 2024-02-30 24:30
                 """;
 
-        List<String> errors = compiler.fullCompile(plan);
+        List<String> errors = errors(plan);
 
         assertEquals(List.of(
                 "Line 12: Invalid time '25:00'",
@@ -736,7 +738,7 @@ class LifeScriptCompilerTest {
                 deadline: 2024-02-15 17:00
                 """;
 
-        List<String> errors = compiler.fullCompile(plan);
+        List<String> errors = errors(plan);
 
         assertTrue(errors.isEmpty(), () -> "Expected no errors but got: " + errors);
     }
@@ -758,7 +760,7 @@ class LifeScriptCompilerTest {
                 dependencies: ghost
                 """;
 
-        List<String> errors = compiler.fullCompile(plan);
+        List<String> errors = errors(plan);
 
         assertTrue(errors.stream().anyMatch(e -> e.contains("Task a has non-existing dependency task ghost")));
     }
@@ -784,7 +786,7 @@ class LifeScriptCompilerTest {
                 effort: low
                 """;
 
-        List<String> errors = compiler.fullCompile(plan);
+        List<String> errors = errors(plan);
 
         assertTrue(errors.stream().anyMatch(e -> e.contains("Duplicate task name 'a'")));
     }
@@ -809,7 +811,7 @@ class LifeScriptCompilerTest {
                 deadline: 2024-02-30 17:00
                 """;
 
-        List<String> errors = compiler.fullCompile(plan);
+        List<String> errors = errors(plan);
 
         // Only the duplicate is reported; the second copy's bad deadline and missing fields are not.
         assertEquals(List.of("Line 13: Duplicate task name 'a'"), errors);
@@ -844,7 +846,7 @@ class LifeScriptCompilerTest {
                 effort: high
                 """;
 
-        List<String> errors = compiler.fullCompile(plan);
+        List<String> errors = errors(plan);
 
         assertTrue(errors.stream().anyMatch(e -> e.contains("Duplicate task name 'a'")), () -> "Got: " + errors);
         assertTrue(errors.stream().anyMatch(e -> e.contains("Circular dependency detected")), () -> "Got: " + errors);
@@ -868,7 +870,7 @@ class LifeScriptCompilerTest {
                 effort: high
                 """;
 
-        List<String> errors = compiler.fullCompile(plan);
+        List<String> errors = errors(plan);
 
         assertTrue(errors.stream().anyMatch(e -> e.contains("Availability day of week 'friday' must be within the period range")));
         assertFalse(errors.stream().anyMatch(e -> e.contains("'monday' must be within the period range")));
@@ -888,7 +890,7 @@ class LifeScriptCompilerTest {
                 deadline: 2024-02-30 17:00
                 """;
 
-        List<String> errors = compiler.fullCompile(plan);
+        List<String> errors = errors(plan);
 
         assertTrue(errors.stream().anyMatch(e -> e.contains("Invalid date '2024-13-40'")));
         assertTrue(errors.stream().anyMatch(e -> e.contains("Invalid deadline date '2024-02-30'")));
@@ -912,7 +914,7 @@ class LifeScriptCompilerTest {
                 effort: high
                 """;
 
-        List<String> errors = compiler.fullCompile(plan);
+        List<String> errors = errors(plan);
 
         assertTrue(errors.stream().anyMatch(e -> e.contains("Invalid time '25:00'")));
         assertTrue(errors.stream().anyMatch(e -> e.contains("Invalid time '09:61'")));
@@ -938,7 +940,7 @@ class LifeScriptCompilerTest {
                 effort: high
                 """;
 
-        List<String> errors = compiler.fullCompile(plan);
+        List<String> errors = errors(plan);
 
         assertTrue(errors.isEmpty(), () -> "Expected no errors but got: " + errors);
     }
@@ -961,7 +963,7 @@ class LifeScriptCompilerTest {
                 deadline: 2024-01-10 17:00
                 """;
 
-        List<String> errors = compiler.fullCompile(plan);
+        List<String> errors = errors(plan);
 
         assertTrue(errors.stream().anyMatch(e -> e.contains("Repeating task inbox cannot have a deadline")));
     }
@@ -989,7 +991,7 @@ class LifeScriptCompilerTest {
                 dependencies: research
                 """;
 
-        List<String> errors = compiler.fullCompile(plan);
+        List<String> errors = errors(plan);
 
         assertTrue(errors.stream().anyMatch(e -> e.contains("Repeating task inbox cannot have dependencies")));
     }
@@ -1017,7 +1019,7 @@ class LifeScriptCompilerTest {
                 repeats: weekdays
                 """;
 
-        List<String> errors = compiler.fullCompile(plan);
+        List<String> errors = errors(plan);
 
         assertTrue(errors.stream().anyMatch(e -> e.contains("Task report cannot depend on repeating task inbox")));
     }
@@ -1042,7 +1044,7 @@ class LifeScriptCompilerTest {
                 note: "no date or time"
                 """;
 
-        List<String> errors = compiler.fullCompile(plan);
+        List<String> errors = errors(plan);
 
         assertTrue(errors.stream().anyMatch(e -> e.contains("Event dentist is missing mandatory property: date")));
         assertTrue(errors.stream().anyMatch(e -> e.contains("Event dentist is missing mandatory property: time")));
@@ -1077,7 +1079,7 @@ class LifeScriptCompilerTest {
                 time: 11:00-10:00
                 """;
 
-        List<String> errors = compiler.fullCompile(plan);
+        List<String> errors = errors(plan);
 
         assertTrue(errors.stream().anyMatch(e ->
                 e.contains("Event date '2024-02-15' must be within the period range '2024-01-01'-'2024-01-31'")), () -> "Got: " + errors);
@@ -1111,7 +1113,7 @@ class LifeScriptCompilerTest {
                 time: afternoon
                 """;
 
-        List<String> errors = compiler.fullCompile(plan);
+        List<String> errors = errors(plan);
 
         assertTrue(errors.stream().anyMatch(e -> e.contains("Duplicate event name 'dentist'")), () -> "Got: " + errors);
         assertTrue(errors.stream().anyMatch(e -> e.contains("Duplicate event property 'date'")), () -> "Got: " + errors);
@@ -1144,7 +1146,7 @@ class LifeScriptCompilerTest {
                 time: 10:00-11:00
                 """;
 
-        List<String> errors = compiler.fullCompile(plan);
+        List<String> errors = errors(plan);
 
         assertTrue(errors.stream().anyMatch(e -> e.contains("Duplicate section 'events'")), () -> "Got: " + errors);
         assertFalse(errors.stream().anyMatch(e -> e.contains("Duplicate section 'tasks'")), () -> "Got: " + errors);
@@ -1168,7 +1170,7 @@ class LifeScriptCompilerTest {
                 start: 10:00
                 """;
 
-        List<String> errors = compiler.syntaxValidate(plan);
+        List<String> errors = syntaxErrors(plan);
 
         assertTrue(errors.stream().anyMatch(e -> e.contains("Syntax error")), () -> "Got: " + errors);
     }
@@ -1189,7 +1191,7 @@ class LifeScriptCompilerTest {
                 effort: high
                 """;
 
-        List<String> errors = compiler.fullCompile(plan);
+        List<String> errors = errors(plan);
 
         assertTrue(errors.stream().anyMatch(e ->
                 e.contains("Start time '00:00' must be before end time '00:00'")));
@@ -1212,7 +1214,7 @@ class LifeScriptCompilerTest {
                 effort: high
                 """;
 
-        List<String> errors = compiler.fullCompile(plan);
+        List<String> errors = errors(plan);
 
         assertTrue(errors.stream().anyMatch(e ->
                 e.contains("Start time '23:00' must be before end time '02:00' (to go past midnight, end at 00:00 and continue on the next day)")));
@@ -1234,7 +1236,7 @@ class LifeScriptCompilerTest {
                 effort: high
                 """;
 
-        List<String> errors = compiler.fullCompile(plan);
+        List<String> errors = errors(plan);
 
         assertTrue(errors.stream().anyMatch(e ->
                 e.contains("Start time '12:00' must be before end time '08:00'")));
@@ -1253,12 +1255,12 @@ class LifeScriptCompilerTest {
                 effort: high
                 """;
 
-        List<String> syntaxErrors = compiler.syntaxValidate(plan);
+        List<String> syntaxErrors = syntaxErrors(plan);
         assertFalse(syntaxErrors.isEmpty());
         assertTrue(syntaxErrors.stream().anyMatch(e -> e.contains("Syntax error")));
 
-        List<String> fullCompileErrors = compiler.fullCompile(plan);
-        assertEquals(syntaxErrors, fullCompileErrors,
-                "fullCompile should short-circuit on syntax errors without running semantic checks");
+        List<String> compileErrors = errors(plan);
+        assertEquals(syntaxErrors, compileErrors,
+                "compile should stop at syntax errors without running semantic checks");
     }
 }
