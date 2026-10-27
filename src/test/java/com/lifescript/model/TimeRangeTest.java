@@ -99,7 +99,7 @@ class TimeRangeTest {
 
     @Test
     void intersection_endingAtMidnight() {
-        // 00:00 as an end is end of day, so it is the later end, not the earlier one.
+        // 00:00 as an end is the latest end.
         assertEquals(range("23:00", "23:30"), range("22:00", "00:00").intersection(range("23:00", "23:30")));
         assertEquals(range("23:00", "23:30"), range("23:00", "23:30").intersection(range("22:00", "00:00")));
         assertEquals(range("22:00", "00:00"), range("20:00", "00:00").intersection(range("22:00", "00:00")));
@@ -130,7 +130,7 @@ class TimeRangeTest {
 
     @Test
     void minus_endingAtMidnight() {
-        // 00:00 as an end is end of day, so cutting 23:00-23:30 out of 22:00-00:00 leaves a piece up to midnight.
+        // 00:00 as an end is end of day.
         assertEquals(List.of(range("22:00", "23:00"), range("23:30", "00:00")),
                 range("22:00", "00:00").minus(range("23:00", "23:30")));
         assertEquals(List.of(range("20:00", "22:00")), range("20:00", "00:00").minus(range("22:00", "00:00")));

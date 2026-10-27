@@ -8,13 +8,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
 
-// The result of scheduling: a calendar of entries per date, the tasks that didn't fit,
-// and notes about tasks that did fit but the user should know about.
 public record Schedule(Map<LocalDate, List<ScheduleEntry>> days, List<UnscheduledTask> unscheduled,
                        List<ScheduleNote> notes) {
 
-    // Always stores a sorted, unmodifiable copy: dates in order, and each day's entries by start
-    // time, whatever order the algorithm added them in.
+    // Stored sorted and unmodifiable, whatever order entries were added in.
     public Schedule {
         Map<LocalDate, List<ScheduleEntry>> sorted = new TreeMap<>();
         for (Map.Entry<LocalDate, List<ScheduleEntry>> day : days.entrySet()) {
@@ -27,7 +24,6 @@ public record Schedule(Map<LocalDate, List<ScheduleEntry>> days, List<Unschedule
         notes = List.copyOf(notes);
     }
 
-    // The entries on one date, in time order (empty if the date has none).
     public List<ScheduleEntry> entriesOn(LocalDate date) {
         return days.getOrDefault(date, List.of());
     }

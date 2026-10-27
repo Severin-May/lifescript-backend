@@ -9,12 +9,10 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-// Checks the JSON the frontend receives, through the real controller and JSON conversion.
 class CompilerControllerTest {
 
     private final MockMvc mvc = MockMvcBuilders.standaloneSetup(new CompilerController()).build();
 
-    // The JSON request body for a plan, with its newlines escaped.
     private static String body(String plan) {
         return "{\"content\": \"" + plan.replace("\n", "\\n") + "\"}";
     }
@@ -57,7 +55,7 @@ class CompilerControllerTest {
                 .andExpect(jsonPath("$.diagnostics[0].startColumn").value(1))
                 .andExpect(jsonPath("$.diagnostics[0].endLineNumber").value(9))
                 .andExpect(jsonPath("$.diagnostics[0].endColumn").value(13))
-                // nothing else leaks into the JSON (e.g. helper methods of Diagnostic)
+                // nothing else in the JSON, e.g. hasPosition()
                 .andExpect(jsonPath("$.diagnostics[0].length()").value(7));
     }
 

@@ -14,31 +14,24 @@ import java.util.List;
 import java.util.Map;
 import java.util.TreeSet;
 
-// How well a task's effort fits the energy at a time. Shared by all scheduling algorithms.
-// fit() is the one public entry point; levelDuring() and distance() are its building blocks,
-// package-private so tests can check the rules directly.
 public final class EnergyMatch {
 
     private EnergyMatch() {
     }
 
-    // How good `time` on `day` is for a task with `effort`.
     public static EnergyFit fit(Plan plan, DayOfWeek day, TimeRange time, EnergyLevel effort) {
         Map<EnergyLevel, Integer> seconds = secondsPerLevel(plan, day, time);
         return new EnergyFit(distance(effort, majorityLevel(seconds, effort)), seconds.getOrDefault(effort, 0));
     }
 
-    // The energy a task with `effort` gets during `time` on `day`: the level covering most of that time.
-    // On a tie, the level that is the worse match for the task wins, so a slot never counts as better
-    // than it is: half high, half low counts as low for a high-effort task, and as high for a low-effort
-    // one (which then leaves that high-energy time to demanding tasks). If still tied, the lower level.
+    // The level covering most of the time. On a tie, the worse match for this task wins (then the
+    // lower level), so a slot never looks better than it is.
     static EnergyLevel levelDuring(Plan plan, DayOfWeek day, TimeRange time, EnergyLevel effort) {
         return majorityLevel(secondsPerLevel(plan, day, time), effort);
     }
 
-    // How many seconds of `time` are at each energy level.
     private static Map<EnergyLevel, Integer> secondsPerLevel(Plan plan, DayOfWeek day, TimeRange time) {
-        // Split the time where any energy entry starts or ends; each piece then has one level.
+        // Split where any energy entry starts or ends, so each piece has one level.
         int start = time.startTime().toSecondOfDay();
         int end = time.endSecondOfDay();
         TreeSet<Integer> cuts = new TreeSet<>(List.of(start, end));
@@ -73,9 +66,7 @@ public final class EnergyMatch {
         }
     }
 
-    // How far apart a task's effort and the energy are: 0 = same level, 1 = one step, 2 = high vs low.
-    // Works both ways, so a low-effort task in high-energy time is a poor match too: it uses up time
-    // a demanding task could have had.
+    // Symmetric: a low-effort task in high energy is a poor match too.
     static int distance(EnergyLevel effort, EnergyLevel energy) {
         return Math.abs(effort.ordinal() - energy.ordinal());
     }

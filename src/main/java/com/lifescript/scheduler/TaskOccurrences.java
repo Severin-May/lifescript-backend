@@ -12,16 +12,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
 
-// Turns the plan's tasks into the occurrences to place, with their time limits.
-// These are rules every algorithm shares; only the order of placing them is algorithm-specific.
 public final class TaskOccurrences {
 
     private TaskOccurrences() {
     }
 
-    // In file order; a repeating task's copies in date order. One-off tasks get their limits from their
-    // own deadline and from the tasks that depend on them; a repeating task's copy must end by the end
-    // of its date (repeating tasks have no deadline and no dependencies, see SemanticValidator).
     public static List<TaskOccurrence> of(Plan plan, SchedulerSettings settings) {
         Map<String, List<Task>> dependents = new HashMap<>();
         for (Task task : plan.getTasks()) {
@@ -49,9 +44,7 @@ public final class TaskOccurrences {
         return occurrences;
     }
 
-    // Latest end of each task: its own limit, or earlier if a task depending on it needs it done first.
-    // A dependency must end before its dependent starts, so its limit is the dependent's limit minus
-    // the dependent's duration. Example: write_report (1h30m) must end by 15:00, so research must end by 13:30.
+    // A dependency must end before its dependent starts: the dependent's limit minus its duration.
     private static final class Limits {
         private final Map<String, List<Task>> dependents;
         private final Function<Task, LocalDateTime> ownLimit;
@@ -62,7 +55,7 @@ public final class TaskOccurrences {
             this.ownLimit = ownLimit;
         }
 
-        // null = no limit. Recursion ends because SemanticValidator rejects dependency cycles.
+        // Terminates because SemanticValidator rejects dependency cycles.
         LocalDateTime latestEnd(Task task) {
             if (cache.containsKey(task.getName())) {
                 return cache.get(task.getName());
@@ -80,7 +73,6 @@ public final class TaskOccurrences {
         return time == null ? null : time.minus(duration);
     }
 
-    // The earlier of two limits, where null means "no limit".
     private static LocalDateTime earlier(LocalDateTime a, LocalDateTime b) {
         if (a == null) return b;
         if (b == null) return a;

@@ -37,7 +37,6 @@ class TaskOccurrencesTest {
         assertEquals(LocalDate.parse("2026-10-05"), occurrences.get(2).date());
         assertEquals(LocalDate.parse("2026-10-09"), occurrences.get(6).date());
 
-        // A repeating task's copy must end by the end of its own day.
         assertEquals(at("2026-10-06T00:00"), occurrences.get(2).preferredEnd());
         assertEquals(at("2026-10-06T00:00"), occurrences.get(2).hardEnd());
     }
@@ -52,7 +51,7 @@ class TaskOccurrencesTest {
         assertEquals(at("2026-10-09T15:00"), writeReport.preferredEnd());
         assertEquals(at("2026-10-09T17:00"), writeReport.hardEnd());
 
-        // research: own deadline 2026-10-07 17:00 is earlier than what write_report passes down (09th), so it wins.
+        // research's own deadline (7th) is earlier than what write_report passes down (9th).
         TaskOccurrence research = find(occurrences, "research");
         assertEquals(at("2026-10-07T15:00"), research.preferredEnd());
         assertEquals(at("2026-10-07T17:00"), research.hardEnd());
@@ -104,7 +103,6 @@ class TaskOccurrencesTest {
         assertEquals(at("2026-10-09T16:30"), find(occurrences, "b").hardEnd());
         assertEquals(at("2026-10-09T14:30"), find(occurrences, "a").hardEnd());
 
-        // No deadline and nothing depends on it: no limit.
         assertNull(find(occurrences, "unrelated").preferredEnd());
         assertNull(find(occurrences, "unrelated").hardEnd());
     }

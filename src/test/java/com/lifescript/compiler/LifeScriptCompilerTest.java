@@ -20,7 +20,6 @@ class LifeScriptCompilerTest {
 
     private final LifeScriptCompiler compiler = new LifeScriptCompiler();
 
-    // Loads a LifeScript file from src/test/resources/lifescript/.
     private String load(String name) throws IOException {
         try (InputStream in = getClass().getResourceAsStream("/lifescript/" + name)) {
             if (in == null) throw new IOException("Test resource not found: " + name);
@@ -53,7 +52,7 @@ class LifeScriptCompilerTest {
 
         Diagnostic first = compiler.compile(plan).get(0);
 
-        // "low" is a keyword, so it can't be a task name: line 8, columns 7-9 (end column 10 is exclusive)
+        // line 8, columns 7-9 ("low"); the end column is exclusive
         assertEquals(Stage.SYNTAX, first.stage());
         assertEquals(List.of(8, 7, 8, 10),
                 List.of(first.startLineNumber(), first.startColumn(), first.endLineNumber(), first.endColumn()));
@@ -89,7 +88,7 @@ class LifeScriptCompilerTest {
         // "duration: 0m" on line 9 (12 characters, so end column 13)
         assertEquals(new Diagnostic(Stage.VALIDATION, Severity.ERROR, "Duration '0m' must be greater than zero",
                 9, 1, 9, 13), diagnostics.get(0));
-        // a → b → a is closed by b, so it is reported at b's "dependencies: a" on line 18 (15 characters)
+        // the cycle is closed by b, at its "dependencies: a" on line 18 (15 characters)
         assertEquals(new Diagnostic(Stage.VALIDATION, Severity.ERROR, "Circular dependency detected: a → b → a",
                 18, 1, 18, 16), diagnostics.get(1));
         assertEquals(2, diagnostics.size(), () -> "Got: " + diagnostics);
@@ -97,7 +96,7 @@ class LifeScriptCompilerTest {
 
     @Test
     void missingContent_isReportedAsEmptyPlan() {
-        // A request without "content" arrives as null; this used to crash with a NullPointerException.
+        // A missing "content" arrives as null; this used to crash.
         assertEquals(List.of("Plan is empty"), errors(null));
     }
 
@@ -109,8 +108,7 @@ class LifeScriptCompilerTest {
 
     @Test
     void planWithoutTrailingNewline_isValid() {
-        // Browser text boxes often don't end with a newline; this used to give
-        // "mismatched input '<EOF>' expecting NEWLINE". The closing """ on the last line means no final newline.
+        // The closing """ on the last line means no final newline.
         String plan = """
                 plan: p
                 period: 2024-01-01 to 2024-01-31
@@ -459,8 +457,7 @@ class LifeScriptCompilerTest {
 
     @Test
     void circularDependency_reachedAgainFromAnotherTask_isReportedOnce() {
-        // c depends on a, which is in the a -> b -> a cycle. Checking c after the cycle
-        // was found used to crash (IndexOutOfBoundsException) instead of moving on.
+        // Used to crash: c reaches a after the a -> b -> a cycle was already found.
         String plan = """
                 plan: p
                 period: 2024-01-01 to 2024-01-31
@@ -716,7 +713,6 @@ class LifeScriptCompilerTest {
 
     @Test
     void deadlineOnPeriodStart_orAfterPeriodEnd_isFine() {
-        // A deadline after the period is still used to order tasks by urgency.
         String plan = """
                 plan: p
                 period: 2024-01-10 to 2024-01-31

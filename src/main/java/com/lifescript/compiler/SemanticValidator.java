@@ -15,15 +15,12 @@ import java.time.format.DateTimeParseException;
 import java.util.*;
 import java.util.function.Function;
 
-// Checks the parse tree for problems the grammar can't express (missing, duplicate or malformed values),
-// reporting each one at the entry it is about.
 public class SemanticValidator extends LifeScriptParserBaseVisitor<Void> {
-    // Set by visitPeriod when both dates are valid; stays null otherwise, and checks that need it are skipped.
+    // null if a period date is invalid; checks that need it are skipped.
     private PlanPeriod period;
     private final DiagnosticCollector diagnostics;
     private final Set<String> taskNames = new HashSet<>();
     private final Map<String, List<String>> dependencyGraph = new HashMap<>();
-    // Each task's "dependencies:" line, where a circular dependency through it is reported.
     private final Map<String, ParserRuleContext> dependencyLines = new HashMap<>();
 
     private static final String GRAY = "GRAY";
@@ -68,7 +65,7 @@ public class SemanticValidator extends LifeScriptParserBaseVisitor<Void> {
         if (ctx.routines() != null) return "routines";
         if (ctx.tasks() != null) return "tasks";
         if (ctx.events() != null) return "events";
-        // Fail loudly if a new section is added to the grammar but not here.
+        // Fail loudly if a section is added to the grammar but not here.
         throw new IllegalStateException("sectionKind: unhandled section " + ctx.getText());
     }
 
@@ -76,7 +73,7 @@ public class SemanticValidator extends LifeScriptParserBaseVisitor<Void> {
     public Void visitTask(LifeScriptParser.TaskContext ctx) {
         String taskName = ctx.IDENTIFIER().getText();
 
-        // Every property starts with its keyword (duration, priority, ...), so the first token is its key.
+        // A property's first token is its keyword.
         List<LifeScriptParser.TaskPropertyContext> properties =
                 checkDuplicateKeys(ctx.taskProperty(), p -> p.getStart().getText(), "task property");
 
@@ -104,9 +101,7 @@ public class SemanticValidator extends LifeScriptParserBaseVisitor<Void> {
         return null;
     }
 
-    // Reports every entry whose key was already seen, and returns only the first occurrence of each key.
-    // Callers validate just the returned entries: a duplicate is reported once and not validated further,
-    // since anything referring to it by name couldn't tell the copies apart.
+    // Reports repeated keys and returns only the first of each: a duplicate is not validated further.
     private <T extends ParserRuleContext> List<T> checkDuplicateKeys(
             List<T> entries, Function<T, String> keyOf, String label) {
         Set<String> seen = new HashSet<>();
@@ -128,10 +123,8 @@ public class SemanticValidator extends LifeScriptParserBaseVisitor<Void> {
         }
     }
 
-    // GRAY = on the current path, BLACK = fully checked, not in `colors` = not visited yet. The search always finishes a task
-    // (even after finding a cycle), so a GRAY task is always on `path` and reaching it again is a cycle.
-    // The cycle is reported at the "dependencies:" line of the task that closes it (the last one on the path),
-    // e.g. for a → b → a at b's "dependencies: a".
+    // GRAY = on the current path, BLACK = done. A task is always finished, even after a cycle,
+    // so GRAY means on `path`. The cycle is reported at the closing task's dependencies line.
     private void detectTaskCycle(String task, Map<String, String> colors, List<String> path) {
         if (GRAY.equals(colors.get(task))) {
             int cycleStart = path.indexOf(task);
@@ -156,7 +149,6 @@ public class SemanticValidator extends LifeScriptParserBaseVisitor<Void> {
 
     @Override
     public Void visitTasks(LifeScriptParser.TasksContext ctx) {
-        // Only the first task with each name takes part in the checks below (dependencies, cycles).
         List<LifeScriptParser.TaskContext> tasks =
                 checkDuplicateKeys(ctx.task(), t -> t.IDENTIFIER().getText(), "task name");
         Set<String> repeatingTasks = new HashSet<>();
@@ -180,7 +172,6 @@ public class SemanticValidator extends LifeScriptParserBaseVisitor<Void> {
                         if (!taskNames.contains(dep.getText())) {
                             diagnostics.error(prop, String.format("Task %s has non-existing dependency task %s ", task.IDENTIFIER().getText(), dep.getText()));
                         }
-                        // Dependencies describe a one-off sequence of work, which a repeating task doesn't fit into.
                         if (repeatingTasks.contains(dep.getText())) {
                             diagnostics.error(prop, String.format("Task %s cannot depend on repeating task %s", taskName, dep.getText()));
                         }
@@ -190,7 +181,6 @@ public class SemanticValidator extends LifeScriptParserBaseVisitor<Void> {
                         diagnostics.error(prop, String.format("Repeating task %s cannot have dependencies", taskName));
                     }
                 }
-                // Each occurrence of a repeating task is due on its own day, so a single deadline is ambiguous.
                 if (prop.taskDeadline() != null && repeatingTasks.contains(taskName)) {
                     diagnostics.error(prop, String.format("Repeating task %s cannot have a deadline", taskName));
                 }
@@ -259,13 +249,11 @@ public class SemanticValidator extends LifeScriptParserBaseVisitor<Void> {
         if (!hasActivities) {
             diagnostics.error(ctx, String.format("Routine %s is missing mandatory property: activities", routineName));
         }
-        // Repeating is what distinguishes a routine from a task.
         if (!hasRepeats) {
             diagnostics.error(ctx, String.format("Routine %s is missing mandatory property: repeats", routineName));
         }
 
-        // The routine lasts as long as its activities and, like a time range, can't go past midnight.
-        // An invalid start time or activity duration is already reported by visitRoutineTime / visitActivityEntry.
+        // Invalid start times and durations are reported by their own visitors.
         if (startText != null && hasActivities && activityDurationsValid) {
             try {
                 LocalTime start = Literals.parseTime(startText);
@@ -281,7 +269,6 @@ public class SemanticValidator extends LifeScriptParserBaseVisitor<Void> {
         return null;
     }
 
-    // Applies to both task and routine repeats, e.g. "repeats: monday, monday".
     @Override
     public Void visitDayList(LifeScriptParser.DayListContext ctx) {
         checkDuplicateKeys(ctx.dayOfWeek(), d -> d.getText(), "day in repeats");
@@ -356,7 +343,6 @@ public class SemanticValidator extends LifeScriptParserBaseVisitor<Void> {
         return visitChildren(ctx);
     }
 
-    // `entry` is the line the problem is reported at.
     private void checkDuration(String text, ParserRuleContext entry) {
         Duration duration = parseDurationWithinLimit(text);
         if (duration == null) {
@@ -368,8 +354,7 @@ public class SemanticValidator extends LifeScriptParserBaseVisitor<Void> {
             return;
         }
 
-        // Minutes after hours (the 75 in "1h75m") are most likely a typo, so they must stay under an hour.
-        // Minutes on their own ("90m") are fine. The total is at most 24h here, so the number always parses.
+        // Minutes after hours (1h75m) must stay under 60; minutes alone (90m) are fine.
         int hIndex = text.indexOf('h');
         if (hIndex >= 0 && hIndex < text.length() - 1) {
             long minutes = Long.parseLong(text.substring(hIndex + 1, text.length() - 1));
@@ -380,8 +365,7 @@ public class SemanticValidator extends LifeScriptParserBaseVisitor<Void> {
         }
     }
 
-    // A single task or activity can't last more than a day. Returns null for anything longer,
-    // including values too large to read at all (e.g. 99999999999999999999m).
+    // null if over 24h or too large to read.
     private static Duration parseDurationWithinLimit(String text) {
         try {
             Duration duration = Literals.parseDuration(text);
@@ -391,7 +375,6 @@ public class SemanticValidator extends LifeScriptParserBaseVisitor<Void> {
         }
     }
 
-    // 95 minutes -> "1h35m", 2 hours -> "2h", 45 minutes -> "45m" (same style as DURATION_VAL)
     private static String formatDuration(Duration duration) {
         long hours = duration.toHours();
         long minutes = duration.toMinutesPart();
@@ -403,19 +386,18 @@ public class SemanticValidator extends LifeScriptParserBaseVisitor<Void> {
     public Void visitTaskDeadline(LifeScriptParser.TaskDeadlineContext ctx) {
         String dateText = ctx.DATE_VAL().getText();
 
-        // The grammar allows a missing time only so this can explain it better than a syntax error would.
+        // The grammar allows a missing time only so this can explain it better than a syntax error.
         if (ctx.TIME_VAL() == null) {
             diagnostics.error(ctx, String.format("Deadline needs a time, e.g. 'deadline: %s 17:00'", dateText));
             return visitChildren(ctx);
         }
         String timeText = ctx.TIME_VAL().getText();
 
-        // The time is checked on its own, so an invalid date and an invalid time are both reported.
         checkTime(timeText, ctx);
 
         try {
             LocalDate deadline = Literals.parseDate(dateText);
-            // A deadline after the period ends is allowed: it still orders tasks by urgency.
+            // A deadline after the period is allowed: it still orders tasks by urgency.
             if (period != null && deadline.isBefore(period.start())) {
                 diagnostics.error(ctx, String.format("Deadline '%s %s' is before the period starts (%s)",
                         dateText, timeText, period.start()));
@@ -427,8 +409,7 @@ public class SemanticValidator extends LifeScriptParserBaseVisitor<Void> {
         return visitChildren(ctx);
     }
 
-    // The lexer accepts any HH:MM; this rejects values like 25:00 or 09:61.
-    // Returns null (after reporting it at `entry`) when the time is invalid.
+    // The lexer accepts any HH:MM, e.g. 25:00.
     private LocalTime checkTime(String text, ParserRuleContext entry) {
         try {
             return Literals.parseTime(text);
@@ -450,7 +431,6 @@ public class SemanticValidator extends LifeScriptParserBaseVisitor<Void> {
         TimeRange range = new TimeRange(start, end);
 
         if (!range.isOrdered()) {
-            // End earlier than start usually means the range was meant to cross midnight.
             String hint = end.isBefore(start) && !range.endsAtMidnight()
                     ? " (to go past midnight, end at 00:00 and continue on the next day)"
                     : "";

@@ -11,11 +11,9 @@ import java.util.List;
 
 public class Routine implements FixedCommitment {
     private String name;
-    // Where the "routine:" line was written.
     private SourceLocation location;
     private LocalTime startTime;
-    // Days the routine repeats on. Mandatory in LifeScript, so never empty after validation
-    // (unlike Task, where empty means once).
+    // Never empty after validation: repeats is mandatory for routines.
     private List<DayOfWeek> repeatDays = new ArrayList<>();
     private List<Activity> activities = new ArrayList<>();
 
@@ -52,7 +50,6 @@ public class Routine implements FixedCommitment {
         this.startTime = startTime;
     }
 
-    // Total of all activities: this is how long the routine lasts.
     public Duration getDuration() {
         return activities.stream().map(Activity::getDuration).reduce(Duration.ZERO, Duration::plus);
     }
@@ -62,8 +59,7 @@ public class Routine implements FixedCommitment {
         return repeatDays.contains(date.getDayOfWeek());
     }
 
-    // From the start time until the activities are done. A routine ending exactly at
-    // midnight gets an end of 00:00, which TimeRange treats as end of day.
+    // Ending exactly at midnight gives 00:00, which TimeRange reads as end of day.
     @Override
     public TimeRange getTimeRange() {
         return new TimeRange(startTime, startTime.plus(getDuration()));

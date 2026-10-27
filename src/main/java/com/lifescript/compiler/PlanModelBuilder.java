@@ -37,18 +37,13 @@ public class PlanModelBuilder extends LifeScriptParserBaseVisitor<Void> {
         return plan;
     }
 
-    // Single entry point: the only method that writes to `plan`. Every section
-    // is built by a build* method that returns its result, and anything a
-    // builder depends on (e.g. time settings) is passed in explicitly.
     @Override
     public Void visitPlan(LifeScriptParser.PlanContext ctx) {
         plan.setName(ctx.IDENTIFIER().getText());
         plan.setPeriod(new PlanPeriod(Literals.parseDate(ctx.period().DATE_VAL(0).getText()),
                 Literals.parseDate(ctx.period().DATE_VAL(1).getText())));
 
-        // Resolve named periods (morning/afternoon/evening) before building any
-        // section that references them, regardless of where "settings" appears
-        // in the file.
+        // Settings may come after the sections that use them.
         Map<String, TimeRange> timeSettings = resolveTimeSettings(ctx);
         plan.setTimeSettings(timeSettings);
 
@@ -139,7 +134,7 @@ public class PlanModelBuilder extends LifeScriptParserBaseVisitor<Void> {
         return event;
     }
 
-    // Every day gets an entry; days not listed in the file are off (empty list).
+    // Days not listed are off (empty list).
     private Map<DayOfWeek, List<TimeRange>> buildAvailability(LifeScriptParser.AvailabilityContext ctx,
                                                               Map<String, TimeRange> timeSettings) {
         Map<DayOfWeek, List<TimeRange>> availability = new EnumMap<>(DayOfWeek.class);
@@ -155,13 +150,12 @@ public class PlanModelBuilder extends LifeScriptParserBaseVisitor<Void> {
         return availability;
     }
 
-    // Returns the day's ranges sorted by start time.
     private List<TimeRange> buildAvailabilityValue(LifeScriptParser.AvailabilityValueContext ctx,
                                                    Map<String, TimeRange> timeSettings) {
         List<TimeRange> ranges = new ArrayList<>();
 
         if (ctx.FLEXIBLE() != null) {
-            // flexible = from the start of morning to the end of evening, as configured in settings
+            // flexible = from the start of morning to the end of evening
             ranges.add(new TimeRange(timeSettings.get("morning").startTime(),
                     timeSettings.get("evening").endTime()));
         } else if (ctx.namedPeriodList() != null) {
@@ -178,7 +172,6 @@ public class PlanModelBuilder extends LifeScriptParserBaseVisitor<Void> {
         return ranges;
     }
 
-    // The "default:" block of the energy profile (empty if there is none).
     private List<EnergyEntry> buildDefaultEnergyProfile(LifeScriptParser.EnergyProfileContext ctx,
                                                         Map<String, TimeRange> timeSettings) {
         for (LifeScriptParser.EnergyProfileEntryContext entry : ctx.energyProfileEntry()) {
@@ -189,7 +182,6 @@ public class PlanModelBuilder extends LifeScriptParserBaseVisitor<Void> {
         return new ArrayList<>();
     }
 
-    // The per-day blocks of the energy profile. They are merged with the default by Plan.energyAt.
     private Map<DayOfWeek, List<EnergyEntry>> buildEnergyProfileOverrides(
             LifeScriptParser.EnergyProfileContext ctx, Map<String, TimeRange> timeSettings) {
         Map<DayOfWeek, List<EnergyEntry>> overrides = new EnumMap<>(DayOfWeek.class);
@@ -201,7 +193,6 @@ public class PlanModelBuilder extends LifeScriptParserBaseVisitor<Void> {
         return overrides;
     }
 
-    // One EnergyEntry per line, in file order.
     private List<EnergyEntry> buildEnergyEntries(LifeScriptParser.EnergyProfileEntryContext ctx,
                                                  Map<String, TimeRange> timeSettings) {
         List<EnergyEntry> entries = new ArrayList<>();
@@ -287,7 +278,6 @@ public class PlanModelBuilder extends LifeScriptParserBaseVisitor<Void> {
         return timeSettings;
     }
 
-    // Where each settings entry was written (only those in the file).
     private Map<String, SourceLocation> buildTimeSettingLocations(LifeScriptParser.SettingsContext ctx) {
         Map<String, SourceLocation> locations = new HashMap<>();
         for (LifeScriptParser.SettingsEntryContext entry : ctx.settingsEntry()) {
@@ -296,7 +286,6 @@ public class PlanModelBuilder extends LifeScriptParserBaseVisitor<Void> {
         return locations;
     }
 
-    // Where each day's availability line was written (only days listed in the file).
     private Map<DayOfWeek, SourceLocation> buildAvailabilityLocations(LifeScriptParser.AvailabilityContext ctx) {
         Map<DayOfWeek, SourceLocation> locations = new EnumMap<>(DayOfWeek.class);
         for (LifeScriptParser.AvailabilityEntryContext entry : ctx.availabilityEntry()) {

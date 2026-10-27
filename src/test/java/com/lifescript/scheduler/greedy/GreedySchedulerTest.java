@@ -33,8 +33,7 @@ class GreedySchedulerTest {
         return new ScheduleEntry(type, name, new TimeRange(LocalTime.parse(start), LocalTime.parse(end)));
     }
 
-    // A one-week plan (2026-10-05 is a Monday) with the given availability and tasks, and no energy
-    // profile unless `extra` adds one; without one, all energy is moderate.
+    // 2026-10-05 is a Monday. No energy profile unless `extra` adds one, so all energy is moderate.
     private static String plan(String availability, String extra, String tasks) {
         return """
                 plan: p
@@ -52,11 +51,9 @@ class GreedySchedulerTest {
 
     @Test
     void fullPlan_everyTaskPlaced_byEnergyThenEarliest_withBreaks() throws IOException {
-        // Order: inbox_zero mon, inbox_zero tue, research, inbox_zero wed, inbox_zero thu, write_report, inbox_zero fri.
-        // With 10-minute breaks, mon's team_sync keeps 09:50-10:40 free, so mon morning has only 08:00-09:50:
-        // too short for research (2h, high effort), which goes to tue 09:00-11:00, a full 2h of high energy.
-        // write_report (1h30m, high) must start after research ends -> wed 08:00-09:30, full high energy.
-        // inbox_zero (20m, low effort) -> the first low-energy (evening) slot of its day, else the first moderate one.
+        // mon morning has only 08:00-09:50 before team_sync's break, too short for research (2h),
+        // so it goes to tue 09:00-11:00; write_report must follow it: wed 08:00-09:30.
+        // inbox_zero (low effort) takes its day's first low-energy slot, else the first moderate one.
         Schedule schedule = new GreedyScheduler().schedule(build(load("fullPlan.ls")));
 
         assertEquals(List.of(
@@ -71,7 +68,6 @@ class GreedySchedulerTest {
                 entry(TASK, "research", "09:00", "11:00"),
                 entry(TASK, "inbox_zero", "14:00", "14:20"),
                 entry(ROUTINE, "evening_walk", "19:00", "19:45")), schedule.entriesOn(MON.plusDays(1)));
-        // wed
         assertEquals(List.of(
                 entry(ROUTINE, "morning_routine", "07:00", "07:35"),
                 entry(TASK, "write_report", "08:00", "09:30"),
@@ -192,9 +188,8 @@ class GreedySchedulerTest {
 
     @Test
     void taskStartsRightAfterACommitmentAndBreak_offTheQuarterHour() {
-        // The routine ends at 09:33, plus the 10-minute break, so free time starts at 09:43. 09:43 is a
-        // candidate start (option 3), and the only one that fits the 1h50m task before 11:33
-        // (the next quarter-hour, 09:45, would end at 11:35).
+        // warmup ends 09:33, plus the break: free from 09:43, the only start that fits before 11:33
+        // (09:45 would end at 11:35).
         Schedule schedule = schedule(plan("monday: 09:00-11:33", """
                 routines:
                 routine: warmup

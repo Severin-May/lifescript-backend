@@ -16,13 +16,12 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-// Shared test helpers for turning LifeScript text into a Plan.
 public final class TestPlans {
 
     private TestPlans() {
     }
 
-    // Loads a LifeScript file from src/test/resources/lifescript/.
+    // From src/test/resources/lifescript/.
     public static String load(String name) throws IOException {
         try (InputStream in = TestPlans.class.getResourceAsStream("/lifescript/" + name)) {
             if (in == null) throw new IOException("Test resource not found: " + name);
@@ -30,12 +29,11 @@ public final class TestPlans {
         }
     }
 
-    // The plan's problems in the classic text form, e.g. "Line 9: Duration '0m' must be greater than zero".
+    // e.g. "Line 9: Duration '0m' must be greater than zero"
     public static List<String> errors(String source) {
         return format(new LifeScriptCompiler().compile(source));
     }
 
-    // Syntax problems only (what the frontend checks while typing), in the same text form.
     public static List<String> syntaxErrors(String source) {
         return format(new LifeScriptCompiler().syntaxValidate(source));
     }
@@ -44,7 +42,7 @@ public final class TestPlans {
         return diagnostics.stream().map(Diagnostic::format).toList();
     }
 
-    // Builds a Plan, first asserting the source is valid (the builder assumes valid input).
+    // Asserts the source is valid first: the builder assumes valid input.
     public static Plan build(String source) {
         List<String> errors = errors(source);
         assertTrue(errors.isEmpty(), () -> "Source should be valid but got: " + errors);

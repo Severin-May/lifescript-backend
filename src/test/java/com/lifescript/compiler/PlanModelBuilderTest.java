@@ -51,8 +51,6 @@ class PlanModelBuilderTest {
                 """.formatted(extraSections, availability);
     }
 
-    // --- plan header ---
-
     @Test
     void nameAndPeriod_fullPlan() throws IOException {
         Plan plan = build(load("fullPlan.ls"));
@@ -60,8 +58,6 @@ class PlanModelBuilderTest {
         assertEquals("my_week", plan.getName());
         assertEquals(new PlanPeriod(LocalDate.parse("2026-10-05"), LocalDate.parse("2026-10-11")), plan.getPeriod());
     }
-
-    // --- availability ---
 
     @Test
     void availability_fullPlan() throws IOException {
@@ -119,14 +115,11 @@ class PlanModelBuilderTest {
         assertEquals(List.of(range("06:00", "12:00"), range("18:00", "22:00")), plan.getAvailability().get(MONDAY));
     }
 
-    // --- energy profile ---
-
     @Test
     void energyProfile_fullPlan_builtInFileOrder() throws IOException {
         Plan plan = build(load("fullPlan.ls"));
-        // fullPlan.ls: morning 08:00-12:00, afternoon 13:00-17:00, evening default 18:00-22:00.
 
-        // Each entry also records where its line was written: fullPlan.ls lines 19-21 and 23, indented 4 spaces.
+        // Locations: fullPlan.ls lines 19-21 and 23, indented 4 spaces.
         assertEquals(List.of(
                 new EnergyEntry(range("08:00", "12:00"), EnergyLevel.HIGH, new SourceLocation(19, 5, 18)),       // morning: high
                 new EnergyEntry(range("13:00", "17:00"), EnergyLevel.MODERATE, new SourceLocation(20, 5, 24)),   // afternoon: moderate
@@ -190,8 +183,6 @@ class PlanModelBuilderTest {
         assertEquals(EnergyLevel.LOW, plan.energyAt(SATURDAY, LocalTime.parse("09:00")));
         assertEquals(EnergyLevel.MODERATE, plan.energyAt(MONDAY, LocalTime.parse("09:00")));
     }
-
-    // --- routines ---
 
     @Test
     void routines_fullPlan() throws IOException {
@@ -259,8 +250,6 @@ class PlanModelBuilderTest {
         assertEquals(Duration.ofHours(1), range.duration());
     }
 
-    // --- events ---
-
     @Test
     void events_fullPlan() throws IOException {
         Plan plan = build(load("fullPlan.ls"));
@@ -285,8 +274,6 @@ class PlanModelBuilderTest {
 
         assertEquals(List.of(), plan.getEvents());
     }
-
-    // --- tasks ---
 
     @Test
     void tasks_fullPlan() throws IOException {

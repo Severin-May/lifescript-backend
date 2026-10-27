@@ -9,16 +9,12 @@ import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalTime;
 
-// Single definition of how LifeScript literals (durations, dates, times, strings) and value
-// keywords (days, energy levels, priorities) become Java values.
-// Shared by SemanticValidator and PlanModelBuilder so they can't drift apart.
 public final class Literals {
 
     private Literals() {
     }
 
-    // "1h30m", "2h", "45m"; throws IllegalArgumentException for values too large to represent
-    // (e.g. 99999999999999999999m)
+    // Throws IllegalArgumentException for values too large to represent.
     public static Duration parseDuration(String text) {
         try {
             int hIndex = text.indexOf('h');
@@ -39,44 +35,36 @@ public final class Literals {
 
             return duration;
         } catch (ArithmeticException e) {
-            // NumberFormatException (too many digits) is already an IllegalArgumentException;
-            // this covers numbers that fit in a long but overflow Duration.
+            // Fits in a long but overflows Duration.
             throw new IllegalArgumentException("Duration too large: " + text, e);
         }
     }
 
-    // "2026-10-05"; throws DateTimeParseException for dates that don't exist (e.g. 2024-02-30)
     public static LocalDate parseDate(String text) {
         return LocalDate.parse(text);
     }
 
-    // "09:00"
     public static LocalTime parseTime(String text) {
         return LocalTime.parse(text);
     }
 
-    // "09:00-12:00"
     public static TimeRange parseTimeRange(String text) {
         int dash = text.indexOf('-');
         return new TimeRange(parseTime(text.substring(0, dash)), parseTime(text.substring(dash + 1)));
     }
 
-    // "\"bring insurance card\"" -> "bring insurance card" (the lexer guarantees the surrounding quotes)
     public static String parseString(String text) {
         return text.substring(1, text.length() - 1);
     }
 
-    // "monday"
     public static DayOfWeek parseDay(String text) {
         return DayOfWeek.valueOf(text.toUpperCase());
     }
 
-    // "high", "moderate", "low"
     public static EnergyLevel parseEnergyLevel(String text) {
         return EnergyLevel.valueOf(text.toUpperCase());
     }
 
-    // "critical", "high", "medium", "low"
     public static Priority parsePriority(String text) {
         return Priority.valueOf(text.toUpperCase());
     }

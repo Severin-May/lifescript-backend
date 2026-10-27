@@ -12,9 +12,9 @@ public class Task {
     private Duration duration;
     private Priority priority;
     private EnergyLevel effort;
-    // Date and time the task must be done by; null = no deadline.
+    // null = no deadline
     private LocalDateTime deadline;
-    // Days the task repeats on. Empty = the task happens once.
+    // Empty = happens once.
     private List<DayOfWeek> repeatDays = new ArrayList<>();
     private List<String> dependencies = new ArrayList<>();
     private String note;

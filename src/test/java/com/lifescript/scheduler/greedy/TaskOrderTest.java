@@ -12,7 +12,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 class TaskOrderTest {
 
-    // A plan whose tasks section is `tasks`; 2026-10-05 is a Monday.
+    // 2026-10-05 is a Monday.
     private static List<String> order(String tasks) {
         Plan plan = build("""
                 plan: p

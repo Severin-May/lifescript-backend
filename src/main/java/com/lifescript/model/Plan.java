@@ -14,13 +14,11 @@ public class Plan {
     private String name;
     private PlanPeriod period;
     private Map<String, TimeRange> timeSettings = new HashMap<>();
-    // Where each settings entry was written; only the ones in the file (defaults have none).
+    // Only entries written in the file.
     private Map<String, SourceLocation> timeSettingLocations = new HashMap<>();
     private Map<DayOfWeek, List<TimeRange>> availability = new EnumMap<>(DayOfWeek.class);
-    // Where each day's availability line was written; only days listed in the file.
+    // Only days listed in the file.
     private Map<DayOfWeek, SourceLocation> availabilityLocations = new EnumMap<>(DayOfWeek.class);
-    // Lists, not maps keyed by range: every line of the file is kept, so two lines covering the
-    // same time stay visible to PlanModelValidator instead of one silently replacing the other.
     private List<EnergyEntry> defaultEnergyProfile = new ArrayList<>();
     private Map<DayOfWeek, List<EnergyEntry>> energyProfileOverrides = new EnumMap<>(DayOfWeek.class);
     private List<Task> tasks = new ArrayList<>();
@@ -91,8 +89,7 @@ public class Plan {
         this.energyProfileOverrides = energyProfileOverrides;
     }
 
-    // Energy at a given moment: the day's own block wins, then the default block,
-    // then MODERATE when no entry covers the time (or there is no energy profile).
+    // The day's block first, then the default, then MODERATE.
     public EnergyLevel energyAt(DayOfWeek day, LocalTime time) {
         EnergyLevel level = levelAt(energyProfileOverrides.getOrDefault(day, List.of()), time);
         if (level != null) {

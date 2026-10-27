@@ -28,11 +28,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
 
-// Places tasks one at a time, in TaskOrder, each in the best slot still free, and never moves them again.
-// Best slot = closest energy match to the task's effort, then most time at exactly its effort level,
-// then earliest (see EnergyFit). A task first tries to end by its
-// preferred end (with the deadline buffer); if it can't, by its hard end (the deadline), with a note.
-// Every task keeps the break time free on both sides of it.
 public class GreedyScheduler implements Scheduler {
 
     private final SchedulerSettings settings;
@@ -52,7 +47,7 @@ public class GreedyScheduler implements Scheduler {
         List<UnscheduledTask> unscheduled = new ArrayList<>();
         List<ScheduleNote> notes = new ArrayList<>();
 
-        // Only one-off tasks can be dependencies, so these are keyed by task name.
+        // Only one-off tasks can be dependencies.
         Map<String, LocalDateTime> endOf = new HashMap<>();
         Set<String> failed = new HashSet<>();
 
@@ -83,7 +78,7 @@ public class GreedyScheduler implements Scheduler {
             }
 
             days.get(placement.date()).add(new ScheduleEntry(EntryType.TASK, occurrence.name(), placement.time()));
-            // Reserve the task plus its break on both sides, so the next task can't start or end right against it.
+            // Padded on both sides because tasks aren't placed in time order.
             free.put(placement.date(), FreeTime.minus(free.get(placement.date()),
                     placement.time().paddedBy(settings.breakTime())));
             endOf.put(occurrence.name(), endDateTime(placement.date(), placement.time()));
@@ -100,8 +95,6 @@ public class GreedyScheduler implements Scheduler {
     private record Placement(LocalDate date, TimeRange time) {
     }
 
-    // Every date in the period, starting with the routines and events on it (they always happen,
-    // even outside availability).
     private static Map<LocalDate, List<ScheduleEntry>> fixedCommitments(Plan plan) {
         Map<LocalDate, List<ScheduleEntry>> days = new TreeMap<>();
         for (LocalDate date : plan.getPeriod().dates()) {
@@ -121,8 +114,7 @@ public class GreedyScheduler implements Scheduler {
         return days;
     }
 
-    // The best valid slot, or null if there is none. Candidates are checked in time order, so on an
-    // equally good fit the first one found (the earliest) is kept.
+    // Candidates come in time order, so of equally good fits the earliest is kept.
     private Placement bestPlacement(Plan plan, Map<LocalDate, List<TimeRange>> free, TaskOccurrence occurrence,
                                     LocalDateTime earliestStart, LocalDateTime latestEnd) {
         int duration = (int) occurrence.task().getDuration().toSeconds();
@@ -153,8 +145,7 @@ public class GreedyScheduler implements Scheduler {
         return best;
     }
 
-    // Where a task may start within a free range: the range's exact start, then every `step` on the clock
-    // after it (with 15m: 07:35, 07:45, 08:00, ...), as long as the whole task still fits in the range.
+    // The range's own start, then every step on the clock.
     private static List<Integer> candidateStarts(TimeRange range, int duration, int step) {
         int rangeStart = range.startTime().toSecondOfDay();
         int lastStart = range.endSecondOfDay() - duration;
@@ -168,7 +159,6 @@ public class GreedyScheduler implements Scheduler {
         return starts;
     }
 
-    // 2h, 1h30m, 45m (the way durations are written in LifeScript)
     private static String formatDuration(Duration duration) {
         long hours = duration.toHours();
         long minutes = duration.toMinutesPart();
@@ -176,13 +166,10 @@ public class GreedyScheduler implements Scheduler {
         return minutes == 0 ? hours + "h" : hours + "h" + minutes + "m";
     }
 
-    // An end of 00:00 is midnight at the end of `date`, i.e. the start of the next day.
     private static LocalDateTime endDateTime(LocalDate date, TimeRange time) {
         return time.endsAtMidnight() ? date.plusDays(1).atStartOfDay() : date.atTime(time.endTime());
     }
 
-    // e.g. "no free slot long enough on 2026-10-11" or "no free slot long enough after research ends
-    // and ending by 2026-10-09 17:00"
     private static String reason(TaskOccurrence occurrence, List<String> dependencies) {
         StringBuilder reason = new StringBuilder("no free slot long enough");
         if (occurrence.date() != null) {

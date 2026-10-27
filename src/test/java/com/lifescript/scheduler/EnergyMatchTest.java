@@ -61,8 +61,7 @@ class EnergyMatchTest {
 
     @Test
     void levelDuring_tieEquallyBadBothWays_lowerLevelWins() {
-        // For a moderate task, high and low are both one step away. fullPlan.ls has no adjacent high and
-        // low blocks, so this uses its own profile: 1h high then 1h low.
+        // fullPlan.ls has no adjacent high and low blocks.
         Plan adjacent = build("""
                 plan: p
                 period: 2026-10-05 to 2026-10-11

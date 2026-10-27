@@ -8,8 +8,7 @@ import static com.lifescript.TestPlans.errors;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-// Runs the full pipeline, so each input must pass SemanticValidator first;
-// the errors checked here come from PlanModelValidator. A clash is reported at the line written later.
+// Inputs pass SemanticValidator, so these errors come from PlanModelValidator.
 class PlanModelValidatorTest {
 
     // 2026-10-05 is a Monday, so the default period covers one full week.
@@ -36,8 +35,6 @@ class PlanModelValidatorTest {
     private static void assertNoErrors(List<String> errors) {
         assertTrue(errors.isEmpty(), () -> "Expected no errors but got: " + errors);
     }
-
-    // --- settings ---
 
     @Test
     void settings_outOfOrder_isReported() {
@@ -68,12 +65,8 @@ class PlanModelValidatorTest {
                 """));
     }
 
-    // --- availability ---
-
     @Test
     void availability_overlap_isReported() {
-        // A line is either named periods or time ranges (not mixed), so overlaps come from time ranges;
-        // named periods can only overlap if settings do, which checkSettingsOrder reports.
         List<String> errors = compile("""
                 availability:
                 monday: 09:00-12:00, 10:00-13:00, 08:00-17:00
@@ -86,8 +79,6 @@ class PlanModelValidatorTest {
                 "Line 5: Availability on monday: 08:00-17:00 overlaps 10:00-13:00",
                 "Line 5: Availability on monday: 09:00-12:00 overlaps 10:00-13:00"), errors);
     }
-
-    // --- energy profile ---
 
     @Test
     void energy_overlapWithinBlock_isReported() {
@@ -129,8 +120,7 @@ class PlanModelValidatorTest {
 
     @Test
     void energy_namedPeriodAndSameTimeRange_isReportedAsOverlap() {
-        // morning is 06:00-12:00 by default, so both lines cover the same time. The second line
-        // used to silently replace the first instead of being reported.
+        // morning is 06:00-12:00 by default: the same range.
         List<String> errors = compile("""
                 availability:
                 monday: flexible
@@ -158,8 +148,6 @@ class PlanModelValidatorTest {
                 09:00-10:00: low
                 """));
     }
-
-    // --- routines ---
 
     @Test
     void routines_overlap_isReportedOncePerPair_withSharedDays() {
@@ -217,8 +205,6 @@ class PlanModelValidatorTest {
 
         assertNoErrors(errors);
     }
-
-    // --- events ---
 
     @Test
     void event_overlappingRoutineOnThatDay_isReported() {

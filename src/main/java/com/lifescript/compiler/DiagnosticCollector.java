@@ -12,14 +12,11 @@ import org.antlr.v4.runtime.misc.Interval;
 import java.util.ArrayList;
 import java.util.List;
 
-// Collects diagnostics during compilation, working out each position from ANTLR tokens.
-// ANTLR counts lines from 1 but columns from 0; diagnostics count both from 1 (like Monaco).
+// ANTLR columns are 0-based; diagnostics are 1-based like Monaco.
 public class DiagnosticCollector {
 
     private final List<Diagnostic> diagnostics = new ArrayList<>();
 
-    // A syntax error marks exactly the token the parser couldn't use (or one character if there is
-    // no token to mark, e.g. at the end of the file).
     public void syntaxError(Token offending, int line, int charPositionInLine, String message) {
         int startColumn = charPositionInLine + 1;
         int length = offending == null || offending.getType() == Token.EOF || offending.getText() == null
@@ -28,8 +25,6 @@ public class DiagnosticCollector {
                 line, startColumn, line, startColumn + length));
     }
 
-    // A validation error marks from where the entry starts to the end of that line,
-    // e.g. the whole "duration: 0m" or "task: write_report" line.
     public void error(ParserRuleContext entry, String message) {
         error(entry.getStart(), message);
     }
@@ -38,14 +33,11 @@ public class DiagnosticCollector {
         error(locationOf(start), message);
     }
 
-    // For checks on the built Plan, which keeps the location of each thing it was built from.
     public void error(SourceLocation location, String message) {
         diagnostics.add(new Diagnostic(Stage.VALIDATION, Severity.ERROR, message,
                 location.line(), location.startColumn(), location.line(), location.endColumn()));
     }
 
-    // From where the entry starts to the end of its line. Also used by PlanModelBuilder, so positions
-    // recorded in the Plan are worked out exactly like the validators' own.
     public static SourceLocation locationOf(ParserRuleContext entry) {
         return locationOf(entry.getStart());
     }
@@ -63,7 +55,6 @@ public class DiagnosticCollector {
         return diagnostics.isEmpty();
     }
 
-    // Characters from the token's start to the end of its line (at least 1, so the mark is visible).
     private static int lengthToEndOfLine(Token start) {
         CharStream input = start.getInputStream();
         int from = start.getStartIndex();

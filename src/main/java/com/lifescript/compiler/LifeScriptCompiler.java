@@ -16,12 +16,10 @@ public class LifeScriptCompiler {
 
     private static final Logger log = LoggerFactory.getLogger(LifeScriptCompiler.class);
 
-    // All problems in the plan, in the order found; empty means the plan is valid.
     public List<Diagnostic> compile(String content) {
         return safely(content, this::runPipeline);
     }
 
-    // Syntax problems only, for checking while the user types.
     public List<Diagnostic> syntaxValidate(String content) {
         return safely(content, text -> {
             DiagnosticCollector collector = new DiagnosticCollector();
@@ -30,9 +28,7 @@ public class LifeScriptCompiler {
         });
     }
 
-    // Shared by compile and syntaxValidate: an empty plan is reported directly, and a crash anywhere is
-    // a bug in the compiler, not in the user's plan, so it becomes an error instead of failing the whole
-    // request (with the details logged for debugging).
+    // A crash is a compiler bug, not the user's: report it instead of failing the request.
     private List<Diagnostic> safely(String content, Function<String, List<Diagnostic>> check) {
         if (content == null || content.isBlank()) {
             return List.of(Diagnostic.withoutPosition(Stage.SYNTAX, "Plan is empty"));
@@ -67,8 +63,7 @@ public class LifeScriptCompiler {
     }
 
     private LifeScriptParser.PlanContext parseWithSyntaxChecks(String content, DiagnosticCollector collector) {
-        // Every line must end with a newline, but the last line of a file often doesn't
-        // (e.g. text from a browser text box). An extra blank line is harmless.
+        // The grammar needs a final newline, which text from a browser often lacks.
         CharStream input = CharStreams.fromString(content.endsWith("\n") ? content : content + "\n");
         LifeScriptLexer lexer = new LifeScriptLexer(input);
         CommonTokenStream tokens = new CommonTokenStream(lexer);
@@ -77,7 +72,7 @@ public class LifeScriptCompiler {
         lexer.removeErrorListeners();
         parser.removeErrorListeners();
 
-        // The parser reports the token it couldn't use; the lexer has no token yet (offendingSymbol is null).
+        // Lexer errors have no token (offendingSymbol is null).
         BaseErrorListener syntaxErrorListener = new BaseErrorListener() {
             @Override
             public void syntaxError(Recognizer<?, ?> recognizer, Object offendingSymbol,

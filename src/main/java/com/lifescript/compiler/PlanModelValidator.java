@@ -15,10 +15,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-// Checks that need the built Plan: named periods resolved through settings, routine times
-// computed from their activities, and relations between sections. Runs after PlanModelBuilder,
-// so it can assume the input passed SemanticValidator. Each problem is reported at the line the
-// Plan recorded for it; when two things clash, at the one written later (the message names both).
+// Clashes are reported at the item written later; the message names both.
 public class PlanModelValidator {
 
     private static final List<String> PERIOD_ORDER = List.of("morning", "afternoon", "evening");
@@ -37,9 +34,7 @@ public class PlanModelValidator {
         checkEventOverlaps(plan);
     }
 
-    // morning must end before afternoon starts, and afternoon before evening. This also keeps
-    // flexible (morning start to evening end) a valid range. Reported at the earlier period's settings
-    // line if it was written, otherwise at the later one's (defaults are in order, so at least one was).
+    // Reported at the earlier period's line if written, else the later's (defaults are ordered).
     private void checkSettingsOrder(Plan plan) {
         Map<String, TimeRange> timeSettings = plan.getTimeSettings();
         Map<String, SourceLocation> locations = plan.getTimeSettingLocations();
@@ -57,7 +52,6 @@ public class PlanModelValidator {
         }
     }
 
-    // Reported at the day's availability line (only listed days have ranges, so it always exists).
     private void checkAvailabilityOverlaps(Plan plan) {
         for (Map.Entry<DayOfWeek, List<TimeRange>> day : plan.getAvailability().entrySet()) {
             List<TimeRange> ranges = day.getValue();
@@ -73,8 +67,7 @@ public class PlanModelValidator {
         }
     }
 
-    // Within one block the energy at a given time must be unambiguous. A day block overlapping
-    // the default block is fine: that is how a day block replaces part of the default.
+    // A day block may overlap the default: that's how it replaces part of it.
     private void checkEnergyOverlaps(Plan plan) {
         checkEnergyBlock("default", plan.getDefaultEnergyProfile());
         for (Map.Entry<DayOfWeek, List<EnergyEntry>> day : plan.getEnergyProfileOverrides().entrySet()) {
@@ -82,9 +75,6 @@ public class PlanModelValidator {
         }
     }
 
-    // Any overlap is an error. With different levels the energy in the shared time is unclear;
-    // with the same level one entry is redundant. Also catches two lines that resolve to the same
-    // range (e.g. "morning" and "06:00-12:00").
     private void checkEnergyBlock(String blockName, List<EnergyEntry> block) {
         for (int i = 0; i < block.size(); i++) {
             for (int j = i + 1; j < block.size(); j++) {
@@ -112,7 +102,6 @@ public class PlanModelValidator {
         return level.name().toLowerCase();
     }
 
-    // Reported once per pair, listing every weekday in the period on which both happen and clash.
     private void checkRoutineOverlaps(Plan plan) {
         Set<DayOfWeek> daysInPeriod = plan.getPeriod().weekdays();
         List<Routine> routines = plan.getRoutines();

@@ -11,7 +11,6 @@ import org.springframework.web.bind.annotation.RestController;
 public class CompilerController {
     private final LifeScriptCompiler compiler = new LifeScriptCompiler();
 
-    // Syntax only; the frontend calls this while the user types.
     @PostMapping("/validate")
     public CompileResponse validate(@RequestBody CompileRequest request) {
         return CompileResponse.of(compiler.syntaxValidate(request.getContent()));
