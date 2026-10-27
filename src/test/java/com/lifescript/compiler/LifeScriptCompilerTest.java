@@ -1,5 +1,7 @@
 package com.lifescript.compiler;
 
+import com.lifescript.diagnostics.Diagnostic;
+import com.lifescript.diagnostics.Stage;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
@@ -28,6 +30,32 @@ class LifeScriptCompilerTest {
         List<String> errors = compiler.fullCompile(load("fullPlan.ls"));
 
         assertTrue(errors.isEmpty(), () -> "Expected no errors but got: " + errors);
+    }
+
+    @Test
+    void syntaxError_isADiagnosticMarkingExactlyTheOffendingToken() {
+        String plan = """
+                plan: p
+                period: 2024-01-01 to 2024-01-31
+
+                availability:
+                monday: flexible
+
+                tasks:
+                task: low
+                duration: 1h
+                priority: high
+                effort: high
+                """;
+
+        Diagnostic first = compiler.compile(plan).get(0);
+
+        // "low" is a keyword, so it can't be a task name: line 8, columns 7-9 (end column 10 is exclusive)
+        assertEquals(Stage.SYNTAX, first.stage());
+        assertEquals(List.of(8, 7, 8, 10),
+                List.of(first.startLineNumber(), first.startColumn(), first.endLineNumber(), first.endColumn()));
+        assertTrue(first.message().startsWith("Syntax error - "), first::message);
+        assertTrue(compiler.fullCompile(plan).get(0).startsWith("Line 8: Syntax error - "));
     }
 
     @Test
