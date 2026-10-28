@@ -11,6 +11,8 @@ import org.antlr.v4.runtime.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.time.Clock;
+import java.time.LocalDate;
 import java.util.List;
 
 public class LifeScriptCompiler {
@@ -18,13 +20,15 @@ public class LifeScriptCompiler {
     private static final Logger log = LoggerFactory.getLogger(LifeScriptCompiler.class);
 
     private final Scheduler scheduler;
+    private final Clock clock;
 
     public LifeScriptCompiler() {
-        this(new GreedyScheduler());
+        this(new GreedyScheduler(), Clock.systemDefaultZone());
     }
 
-    public LifeScriptCompiler(Scheduler scheduler) {
+    public LifeScriptCompiler(Scheduler scheduler, Clock clock) {
         this.scheduler = scheduler;
+        this.clock = clock;
     }
 
     public CompileResult compile(String content) {
@@ -73,7 +77,7 @@ public class LifeScriptCompiler {
             return CompileResult.failed(collector.list());
         }
 
-        new SemanticValidator(collector).visit(tree);
+        new SemanticValidator(collector, LocalDate.now(clock)).visit(tree);
         if (!collector.isEmpty()) {
             return CompileResult.failed(collector.list());
         }

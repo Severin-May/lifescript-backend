@@ -8,6 +8,7 @@ import org.junit.jupiter.api.Test;
 import java.io.IOException;
 import java.util.List;
 
+import static com.lifescript.TestPlans.compiler;
 import static com.lifescript.TestPlans.errors;
 import static com.lifescript.TestPlans.load;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -17,7 +18,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class LifeScriptCompilerTest {
 
-    private final LifeScriptCompiler compiler = new LifeScriptCompiler();
+    private final LifeScriptCompiler compiler = compiler();
 
     @Test
     void validPlan_hasNoErrors() throws IOException {
@@ -44,7 +45,7 @@ class LifeScriptCompilerTest {
 
     @Test
     void schedulerCrash_isReportedAsInternalError() throws IOException {
-        LifeScriptCompiler crashing = new LifeScriptCompiler(plan -> { throw new IllegalStateException("boom"); });
+        LifeScriptCompiler crashing = compiler(plan -> { throw new IllegalStateException("boom"); });
 
         CompileResult result = crashing.compile(load("fullPlan.ls"));
 

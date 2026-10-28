@@ -1,5 +1,6 @@
 package com.lifescript.api;
 
+import com.lifescript.TestPlans;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
@@ -12,7 +13,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 class CompilerControllerTest {
 
-    private final MockMvc mvc = MockMvcBuilders.standaloneSetup(new CompilerController()).build();
+    private final MockMvc mvc = MockMvcBuilders.standaloneSetup(new CompilerController(TestPlans.compiler())).build();
 
     private static String body(String plan) {
         return "{\"content\": \"" + plan.replace("\n", "\\n") + "\"}";

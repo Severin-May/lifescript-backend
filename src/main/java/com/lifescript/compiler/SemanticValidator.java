@@ -20,6 +20,7 @@ public class SemanticValidator extends LifeScriptParserBaseVisitor<Void> {
     // null if the period is invalid; checks that need it are skipped.
     private PlanPeriod period;
     private final DiagnosticCollector diagnostics;
+    private final LocalDate today;
     private final Set<String> taskNames = new HashSet<>();
     private final Map<String, List<String>> dependencyGraph = new HashMap<>();
     private final Map<String, ParserRuleContext> dependencyLines = new HashMap<>();
@@ -30,8 +31,9 @@ public class SemanticValidator extends LifeScriptParserBaseVisitor<Void> {
     private static final Duration MAX_DURATION = Duration.ofHours(24);
     private static final int MAX_PERIOD_DAYS = 7;
 
-    public SemanticValidator(DiagnosticCollector diagnostics) {
+    public SemanticValidator(DiagnosticCollector diagnostics, LocalDate today) {
         this.diagnostics = diagnostics;
+        this.today = today;
     }
 
     @Override
@@ -470,6 +472,10 @@ public class SemanticValidator extends LifeScriptParserBaseVisitor<Void> {
 
         if (start.isAfter(end)) {
             diagnostics.error(ctx, String.format("Start date '%s' must not be after end date '%s'", start, end));
+            return visitChildren(ctx);
+        }
+        if (start.isBefore(today)) {
+            diagnostics.error(ctx, String.format("Period can't start in the past (today is %s)", today));
             return visitChildren(ctx);
         }
         long days = ChronoUnit.DAYS.between(start, end) + 1;

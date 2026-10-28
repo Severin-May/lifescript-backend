@@ -6,6 +6,7 @@ import org.junit.jupiter.api.Test;
 
 import java.util.List;
 
+import static com.lifescript.TestPlans.compiler;
 import static com.lifescript.TestPlans.errors;
 import static com.lifescript.TestPlans.syntaxErrors;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -14,7 +15,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class SyntaxErrorTest {
 
-    private final LifeScriptCompiler compiler = new LifeScriptCompiler();
+    private final LifeScriptCompiler compiler = compiler();
 
     @Test
     void syntaxError_isADiagnosticMarkingExactlyTheOffendingToken() {

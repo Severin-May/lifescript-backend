@@ -4,12 +4,13 @@ import org.junit.jupiter.api.Test;
 
 import java.util.List;
 
+import static com.lifescript.TestPlans.compiler;
 import static com.lifescript.TestPlans.errors;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 class CaseSensitivityTest {
 
-    private final LifeScriptCompiler compiler = new LifeScriptCompiler();
+    private final LifeScriptCompiler compiler = compiler();
 
     @Test
     void keywordsInAnyCase_namesKeepTheirSpelling() {

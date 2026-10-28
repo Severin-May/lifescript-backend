@@ -176,6 +176,18 @@ class TimeAndDateValidationTest {
     }
 
     @Test
+    void period_startingInThePast_isReported() {
+        // tests run with today fixed to 2024-01-01 (see TestPlans.TODAY)
+        assertEquals(List.of("Line 2: Period can't start in the past (today is 2024-01-01)"),
+                errors(planWithPeriod("2023-12-31 to 2024-01-05")));
+    }
+
+    @Test
+    void period_startingToday_isFine() {
+        assertEquals(List.of(), errors(planWithPeriod("2024-01-01 to 2024-01-07")));
+    }
+
+    @Test
     void period_endingBeforeItStarts_isReported() {
         assertEquals(List.of("Line 2: Start date '2026-10-07' must not be after end date '2026-10-05'"),
                 errors(planWithPeriod("2026-10-07 to 2026-10-05")));

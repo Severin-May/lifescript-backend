@@ -9,7 +9,15 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/api")
 public class CompilerController {
-    private final LifeScriptCompiler compiler = new LifeScriptCompiler();
+    private final LifeScriptCompiler compiler;
+
+    public CompilerController() {
+        this(new LifeScriptCompiler());
+    }
+
+    CompilerController(LifeScriptCompiler compiler) {
+        this.compiler = compiler;
+    }
 
     @PostMapping("/validate")
     public CompileResponse validate(@RequestBody CompileRequest request) {
