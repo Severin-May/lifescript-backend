@@ -7,7 +7,7 @@ import com.lifescript.model.TimeRange;
 import com.lifescript.scheduler.EnergyFit;
 import com.lifescript.scheduler.EnergyMatch;
 import com.lifescript.scheduler.EntryType;
-import com.lifescript.scheduler.FreeTime;
+import com.lifescript.scheduler.AvailableTime;
 import com.lifescript.scheduler.Schedule;
 import com.lifescript.scheduler.ScheduleEntry;
 import com.lifescript.scheduler.ScheduleNote;
@@ -42,7 +42,7 @@ public class GreedyScheduler implements Scheduler {
 
     @Override
     public Schedule schedule(Plan plan) {
-        Map<LocalDate, List<TimeRange>> free = FreeTime.of(plan, settings.breakTime());
+        Map<LocalDate, List<TimeRange>> available = AvailableTime.of(plan, settings.breakTime());
         Map<LocalDate, List<ScheduleEntry>> days = fixedCommitments(plan);
         List<UnscheduledTask> unscheduled = new ArrayList<>();
         List<ScheduleNote> notes = new ArrayList<>();
@@ -64,10 +64,10 @@ public class GreedyScheduler implements Scheduler {
             LocalDateTime earliestStart = dependencies.stream().map(endOf::get)
                     .max(LocalDateTime::compareTo).orElse(null);
 
-            Placement placement = bestPlacement(plan, free, occurrence, earliestStart, occurrence.preferredEnd());
+            Placement placement = bestPlacement(plan, available, occurrence, earliestStart, occurrence.preferredEnd());
             boolean withoutBuffer = false;
             if (placement == null && occurrence.hardEnd() != null && !occurrence.hardEnd().equals(occurrence.preferredEnd())) {
-                placement = bestPlacement(plan, free, occurrence, earliestStart, occurrence.hardEnd());
+                placement = bestPlacement(plan, available, occurrence, earliestStart, occurrence.hardEnd());
                 withoutBuffer = placement != null;
             }
 
@@ -79,7 +79,7 @@ public class GreedyScheduler implements Scheduler {
 
             days.get(placement.date()).add(new ScheduleEntry(EntryType.TASK, occurrence.name(), placement.time()));
             // Padded on both sides because tasks aren't placed in time order.
-            free.put(placement.date(), FreeTime.minus(free.get(placement.date()),
+            available.put(placement.date(), AvailableTime.minus(available.get(placement.date()),
                     placement.time().paddedBy(settings.breakTime())));
             endOf.put(occurrence.name(), endDateTime(placement.date(), placement.time()));
             if (withoutBuffer) {
@@ -115,16 +115,16 @@ public class GreedyScheduler implements Scheduler {
     }
 
     // Candidates come in time order, so of equally good fits the earliest is kept.
-    private Placement bestPlacement(Plan plan, Map<LocalDate, List<TimeRange>> free, TaskOccurrence occurrence,
+    private Placement bestPlacement(Plan plan, Map<LocalDate, List<TimeRange>> available, TaskOccurrence occurrence,
                                     LocalDateTime earliestStart, LocalDateTime latestEnd) {
         int duration = (int) occurrence.task().getDuration().toSeconds();
         int step = (int) settings.startStep().toSeconds();
-        List<LocalDate> dates = occurrence.date() != null ? List.of(occurrence.date()) : List.copyOf(free.keySet());
+        List<LocalDate> dates = occurrence.date() != null ? List.of(occurrence.date()) : List.copyOf(available.keySet());
 
         Placement best = null;
         EnergyFit bestFit = null;
         for (LocalDate date : dates) {
-            for (TimeRange range : free.get(date)) {
+            for (TimeRange range : available.get(date)) {
                 for (int start : candidateStarts(range, duration, step)) {
                     int end = start + duration;
                     TimeRange time = TimeRange.ofSeconds(start, end);

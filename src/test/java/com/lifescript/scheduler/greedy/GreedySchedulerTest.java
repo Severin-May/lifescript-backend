@@ -62,7 +62,7 @@ class GreedySchedulerTest {
                 entry(TASK, "inbox_zero", "18:00", "18:20"),
                 entry(ROUTINE, "evening_walk", "19:00", "19:45")), schedule.entriesOn(MON));
 
-        // tue: free 09-12 (high), 14-18 (moderate); inbox_zero has no low energy, so the first moderate slot
+        // tue: available 09-12 (high), 14-18 (moderate); inbox_zero has no low energy, so the first moderate slot
         assertEquals(List.of(
                 entry(ROUTINE, "morning_routine", "07:00", "07:35"),
                 entry(TASK, "research", "09:00", "11:00"),
@@ -77,7 +77,7 @@ class GreedySchedulerTest {
                 entry(ROUTINE, "evening_walk", "19:00", "19:45")), schedule.entriesOn(MON.plusDays(2)));
         // thu: only the afternoon (moderate)
         assertTrue(schedule.entriesOn(MON.plusDays(3)).contains(entry(TASK, "inbox_zero", "13:00", "13:20")));
-        // fri: free 09-12:50; 12-13 is uncovered (moderate), which beats high for a low-effort task
+        // fri: available 09-12:50; 12-13 is uncovered (moderate), which beats high for a low-effort task
         assertTrue(schedule.entriesOn(MON.plusDays(4)).contains(entry(TASK, "inbox_zero", "12:00", "12:20")));
         // sat/sun: only the daily routine
         assertEquals(List.of(entry(ROUTINE, "morning_routine", "07:00", "07:35")), schedule.entriesOn(MON.plusDays(5)));
@@ -146,7 +146,7 @@ class GreedySchedulerTest {
     @Test
     void dependentStartsOnlyAfterItsDependencyEnds() {
         // prepare (low effort) picks the low-energy hour 11-12, so present can't start before 12:00;
-        // there is no free time after that. A known limit of greedy: it never moves prepare earlier.
+        // there is no available time after that. A known limit of greedy: it never moves prepare earlier.
         Schedule schedule = schedule(plan("monday: 09:00-12:00", """
                 energy profile:
                 default:
@@ -188,7 +188,7 @@ class GreedySchedulerTest {
 
     @Test
     void taskStartsRightAfterACommitmentAndBreak_offTheQuarterHour() {
-        // warmup ends 09:33, plus the break: free from 09:43, the only start that fits before 11:33
+        // warmup ends 09:33, plus the break: available from 09:43, the only start that fits before 11:33
         // (09:45 would end at 11:35).
         Schedule schedule = schedule(plan("monday: 09:00-11:33", """
                 routines:
