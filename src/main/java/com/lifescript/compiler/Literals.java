@@ -8,6 +8,7 @@ import java.time.DayOfWeek;
 import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalTime;
+import java.util.Locale;
 
 public final class Literals {
 
@@ -16,18 +17,19 @@ public final class Literals {
 
     // Throws IllegalArgumentException for values too large to represent.
     public static Duration parseDuration(String text) {
+        String value = text.toLowerCase(Locale.ROOT);
         try {
-            int hIndex = text.indexOf('h');
+            int hIndex = value.indexOf('h');
 
             if (hIndex < 0) {
-                long minutes = Long.parseLong(text.substring(0, text.length() - 1));
+                long minutes = Long.parseLong(value.substring(0, value.length() - 1));
                 return Duration.ofMinutes(minutes);
             }
 
-            long hours = Long.parseLong(text.substring(0, hIndex));
+            long hours = Long.parseLong(value.substring(0, hIndex));
             Duration duration = Duration.ofHours(hours);
 
-            String rest = text.substring(hIndex + 1);
+            String rest = value.substring(hIndex + 1);
             if (!rest.isEmpty()) {
                 long minutes = Long.parseLong(rest.substring(0, rest.length() - 1));
                 duration = duration.plusMinutes(minutes);
@@ -55,6 +57,11 @@ public final class Literals {
 
     public static String parseString(String text) {
         return text.substring(1, text.length() - 1);
+    }
+
+    // "Morning" -> "morning", the key time settings are stored under
+    public static String parseNamedPeriod(String text) {
+        return text.toLowerCase(Locale.ROOT);
     }
 
     public static DayOfWeek parseDay(String text) {

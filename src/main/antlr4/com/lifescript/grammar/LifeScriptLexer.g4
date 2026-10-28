@@ -1,5 +1,8 @@
 lexer grammar LifeScriptLexer;
 
+// Keywords match in any case; names keep their case and are compared exactly.
+options { caseInsensitive = true; }
+
 // Fragments
 fragment DIGIT  : [0-9] ;
 fragment HOUR   : DIGIT DIGIT ;

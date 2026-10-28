@@ -151,7 +151,7 @@ public class PlanModelBuilder {
                     timeSettings.get("evening").endTime()));
         } else if (ctx.namedPeriodList() != null) {
             for (LifeScriptParser.NamedPeriodContext period : ctx.namedPeriodList().namedPeriod()) {
-                ranges.add(timeSettings.get(period.getText()));
+                ranges.add(timeSettings.get(Literals.parseNamedPeriod(period.getText())));
             }
         } else {
             for (LifeScriptParser.TimeRangeContext range : ctx.timeRangeList().timeRange()) {
@@ -257,7 +257,7 @@ public class PlanModelBuilder {
                                               LifeScriptParser.TimeRangeContext timeRange,
                                               Map<String, TimeRange> timeSettings) {
         return namedPeriod != null
-                ? timeSettings.get(namedPeriod.getText())
+                ? timeSettings.get(Literals.parseNamedPeriod(namedPeriod.getText()))
                 : Literals.parseTimeRange(timeRange.getText());
     }
 
@@ -267,7 +267,7 @@ public class PlanModelBuilder {
         for (LifeScriptParser.PlanSectionContext section : ctx.planSection()) {
             if (section.settings() != null) {
                 for (LifeScriptParser.SettingsEntryContext entry : section.settings().settingsEntry()) {
-                    timeSettings.put(entry.namedPeriod().getText(), Literals.parseTimeRange(entry.timeRange().getText()));
+                    timeSettings.put(Literals.parseNamedPeriod(entry.namedPeriod().getText()), Literals.parseTimeRange(entry.timeRange().getText()));
                 }
             }
         }
@@ -278,7 +278,7 @@ public class PlanModelBuilder {
     private Map<String, SourceLocation> buildTimeSettingLocations(LifeScriptParser.SettingsContext ctx) {
         Map<String, SourceLocation> locations = new HashMap<>();
         for (LifeScriptParser.SettingsEntryContext entry : ctx.settingsEntry()) {
-            locations.put(entry.namedPeriod().getText(), DiagnosticCollector.locationOf(entry));
+            locations.put(Literals.parseNamedPeriod(entry.namedPeriod().getText()), DiagnosticCollector.locationOf(entry));
         }
         return locations;
     }
