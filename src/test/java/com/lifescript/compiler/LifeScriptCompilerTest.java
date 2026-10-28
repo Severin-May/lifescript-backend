@@ -45,7 +45,78 @@ class LifeScriptCompilerTest {
                 monday: flexible
 
                 tasks:
+                task: a
+                duration 1h
+                priority: high
+                effort: high
+                """;
+
+        Diagnostic first = compiler.compile(plan).diagnostics().get(0);
+
+        // line 9, columns 10-11 ("1h"); the end column is exclusive
+        assertEquals(Stage.SYNTAX, first.stage());
+        assertEquals(List.of(9, 10, 9, 12),
+                List.of(first.startLineNumber(), first.startColumn(), first.endLineNumber(), first.endColumn()));
+        assertTrue(errors(plan).get(0).startsWith("Line 9: Syntax error - "), () -> errors(plan).get(0));
+    }
+
+    @Test
+    void keywordUsedAsName_isReportedAsReservedWord_atTheKeyword() {
+        String plan = """
+                plan: p
+                period: 2024-01-01 to 2024-01-31
+
+                availability:
+                monday: flexible
+
+                tasks:
                 task: low
+                duration: 1h
+                priority: high
+                effort: high
+
+                events:
+                event: date
+                date: 2024-01-03
+                time: morning
+                """;
+
+        Diagnostic first = compiler.compile(plan).diagnostics().get(0);
+
+        assertEquals("'low' is a reserved word and can't be used as a name", first.message());
+        // line 8, columns 7-9 ("low")
+        assertEquals(List.of(8, 7, 8, 10),
+                List.of(first.startLineNumber(), first.startColumn(), first.endLineNumber(), first.endColumn()));
+        assertTrue(errors(plan).contains("Line 14: 'date' is a reserved word and can't be used as a name"),
+                () -> "Got: " + errors(plan));
+    }
+
+    @Test
+    void keywordUsedAsActivityName_afterTheFirstActivity_isReportedAsReservedWord() {
+        String plan = """
+                plan: p
+                period: 2024-01-01 to 2024-01-31
+
+                availability:
+                monday: flexible
+
+                routines:
+                routine: r
+                time: 07:00
+                repeats: daily
+                activities:
+                stretch: 10m
+                time: 30m
+
+                routine: s
+                time: 09:00
+                repeats: daily
+                activities:
+                walk: 10m
+                repeats: 15m
+
+                tasks:
+                task: a
                 duration: 1h
                 priority: high
                 effort: high
@@ -53,12 +124,36 @@ class LifeScriptCompilerTest {
 
         Diagnostic first = compiler.compile(plan).diagnostics().get(0);
 
-        // line 8, columns 7-9 ("low"); the end column is exclusive
-        assertEquals(Stage.SYNTAX, first.stage());
-        assertEquals(List.of(8, 7, 8, 10),
+        // the "time" of "time: 30m" on line 13
+        assertEquals(List.of(13, 1, 13, 5),
                 List.of(first.startLineNumber(), first.startColumn(), first.endLineNumber(), first.endColumn()));
-        assertTrue(first.message().startsWith("Syntax error - "), first::message);
-        assertTrue(errors(plan).get(0).startsWith("Line 8: Syntax error - "));
+        assertEquals(List.of(
+                "Line 13: 'time' is a reserved word and can't be used as a name",
+                "Line 20: 'repeats' is a reserved word and can't be used as a name"), errors(plan));
+    }
+
+    @Test
+    void eventTimeWithADuration_isAnOrdinarySyntaxError() {
+        String plan = """
+                plan: p
+                period: 2024-01-01 to 2024-01-31
+
+                availability:
+                monday: flexible
+
+                events:
+                event: dentist
+                date: 2024-01-03
+                time: 30m
+
+                tasks:
+                task: a
+                duration: 1h
+                priority: high
+                effort: high
+                """;
+
+        assertTrue(errors(plan).get(0).startsWith("Line 10: Syntax error - "), () -> errors(plan).get(0));
     }
 
     @Test
