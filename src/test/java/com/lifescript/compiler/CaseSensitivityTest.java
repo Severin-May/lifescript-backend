@@ -66,7 +66,7 @@ class CaseSensitivityTest {
     void keywordDuplicatesInDifferentCase_areStillDuplicates() {
         String plan = """
                 plan: p
-                period: 2024-01-01 to 2024-01-31
+                period: 2024-01-01 to 2024-01-07
 
                 settings:
                 Morning: 06:00-12:00
@@ -104,7 +104,7 @@ class CaseSensitivityTest {
     void dependencyDifferingOnlyInCase_suggestsTheDefinedName() {
         String plan = """
                 plan: p
-                period: 2024-01-01 to 2024-01-31
+                period: 2024-01-01 to 2024-01-07
 
                 availability:
                 monday: flexible

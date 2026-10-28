@@ -69,7 +69,7 @@ class LifeScriptCompilerTest {
         // The closing """ on the last line means no final newline.
         String plan = """
                 plan: p
-                period: 2024-01-01 to 2024-01-31
+                period: 2024-01-01 to 2024-01-07
 
                 availability:
                 monday: flexible
@@ -89,7 +89,7 @@ class LifeScriptCompilerTest {
     void validationErrors_markFromEntryStartToEndOfLine_cycleAtTheClosingTasksDependencies() {
         String plan = """
                 plan: p
-                period: 2024-01-01 to 2024-01-31
+                period: 2024-01-01 to 2024-01-07
 
                 availability:
                 monday: flexible

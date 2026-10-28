@@ -12,11 +12,12 @@ import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.format.DateTimeParseException;
+import java.time.temporal.ChronoUnit;
 import java.util.*;
 import java.util.function.Function;
 
 public class SemanticValidator extends LifeScriptParserBaseVisitor<Void> {
-    // null if a period date is invalid; checks that need it are skipped.
+    // null if the period is invalid; checks that need it are skipped.
     private PlanPeriod period;
     private final DiagnosticCollector diagnostics;
     private final Set<String> taskNames = new HashSet<>();
@@ -27,6 +28,7 @@ public class SemanticValidator extends LifeScriptParserBaseVisitor<Void> {
     private static final String BLACK = "BLACK";
 
     private static final Duration MAX_DURATION = Duration.ofHours(24);
+    private static final int MAX_PERIOD_DAYS = 7;
 
     public SemanticValidator(DiagnosticCollector diagnostics) {
         this.diagnostics = diagnostics;
@@ -466,10 +468,18 @@ public class SemanticValidator extends LifeScriptParserBaseVisitor<Void> {
             return visitChildren(ctx);
         }
 
-        period = new PlanPeriod(start, end);
-        if (!start.isBefore(end)) {
-            diagnostics.error(ctx, String.format("Start date '%s' must be before end date '%s'", start, end));
+        if (start.isAfter(end)) {
+            diagnostics.error(ctx, String.format("Start date '%s' must not be after end date '%s'", start, end));
+            return visitChildren(ctx);
         }
+        long days = ChronoUnit.DAYS.between(start, end) + 1;
+        if (days > MAX_PERIOD_DAYS) {
+            diagnostics.error(ctx, String.format("Period can be at most %d days (this one is %d days)",
+                    MAX_PERIOD_DAYS, days));
+            return visitChildren(ctx);
+        }
+
+        period = new PlanPeriod(start, end);
         return visitChildren(ctx);
     }
 

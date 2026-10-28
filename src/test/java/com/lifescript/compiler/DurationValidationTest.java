@@ -14,7 +14,7 @@ class DurationValidationTest {
         // Used to crash with NumberFormatException instead of reporting an error.
         String plan = """
                 plan: p
-                period: 2024-01-01 to 2024-01-31
+                period: 2024-01-01 to 2024-01-07
 
                 availability:
                 monday: flexible
@@ -35,7 +35,7 @@ class DurationValidationTest {
     void taskDuration_overOneDay_isReported_butExactlyOneDayIsFine() {
         String plan = """
                 plan: p
-                period: 2024-01-01 to 2024-01-31
+                period: 2024-01-01 to 2024-01-07
 
                 availability:
                 monday: flexible
@@ -61,7 +61,7 @@ class DurationValidationTest {
     void durationMinutesAfterHours_over59_isReported_butMinutesOnTheirOwnAreFine() {
         String plan = """
                 plan: p
-                period: 2024-01-01 to 2024-01-31
+                period: 2024-01-01 to 2024-01-07
 
                 availability:
                 monday: flexible
@@ -92,7 +92,7 @@ class DurationValidationTest {
     void zeroDuration_isReported_forTasksAndActivities() {
         String plan = """
                 plan: p
-                period: 2024-01-01 to 2024-01-31
+                period: 2024-01-01 to 2024-01-07
 
                 availability:
                 monday: flexible
@@ -129,7 +129,7 @@ class DurationValidationTest {
         // The past-midnight check is skipped: the oversized activity is the real problem.
         String plan = """
                 plan: p
-                period: 2024-01-01 to 2024-01-31
+                period: 2024-01-01 to 2024-01-07
 
                 availability:
                 monday: flexible

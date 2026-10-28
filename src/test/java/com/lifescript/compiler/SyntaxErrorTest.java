@@ -20,7 +20,7 @@ class SyntaxErrorTest {
     void syntaxError_isADiagnosticMarkingExactlyTheOffendingToken() {
         String plan = """
                 plan: p
-                period: 2024-01-01 to 2024-01-31
+                period: 2024-01-01 to 2024-01-07
 
                 availability:
                 monday: flexible
@@ -45,7 +45,7 @@ class SyntaxErrorTest {
     void syntaxError_isReported() {
         String plan = """
                 plan p
-                period: 2024-01-01 to 2024-01-31
+                period: 2024-01-01 to 2024-01-07
 
                 tasks:
                 task: a
@@ -67,7 +67,7 @@ class SyntaxErrorTest {
     void keywordUsedAsName_isReportedAsReservedWord_atTheKeyword() {
         String plan = """
                 plan: p
-                period: 2024-01-01 to 2024-01-31
+                period: 2024-01-01 to 2024-01-07
 
                 availability:
                 monday: flexible
@@ -98,7 +98,7 @@ class SyntaxErrorTest {
     void keywordUsedAsActivityName_afterTheFirstActivity_isReportedAsReservedWord() {
         String plan = """
                 plan: p
-                period: 2024-01-01 to 2024-01-31
+                period: 2024-01-01 to 2024-01-07
 
                 availability:
                 monday: flexible
@@ -139,7 +139,7 @@ class SyntaxErrorTest {
     void eventTimeWithADuration_isAnOrdinarySyntaxError() {
         String plan = """
                 plan: p
-                period: 2024-01-01 to 2024-01-31
+                period: 2024-01-01 to 2024-01-07
 
                 availability:
                 monday: flexible
@@ -164,7 +164,7 @@ class SyntaxErrorTest {
         // A routine's time is a start time; named periods are ranges, so they no longer fit.
         String plan = """
                 plan: p
-                period: 2024-01-01 to 2024-01-31
+                period: 2024-01-01 to 2024-01-07
 
                 availability:
                 monday: flexible
@@ -193,7 +193,7 @@ class SyntaxErrorTest {
         // Tasks are always flexible; anything at a fixed time is a routine.
         String plan = """
                 plan: p
-                period: 2024-01-01 to 2024-01-31
+                period: 2024-01-01 to 2024-01-07
 
                 availability:
                 monday: flexible

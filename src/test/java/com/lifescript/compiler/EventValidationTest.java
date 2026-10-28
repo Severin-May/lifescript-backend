@@ -13,7 +13,7 @@ class EventValidationTest {
     void event_missingMandatoryFields_reportsErrors() {
         String plan = """
                 plan: p
-                period: 2024-01-01 to 2024-01-31
+                period: 2024-01-01 to 2024-01-07
 
                 availability:
                 monday: flexible
@@ -39,7 +39,7 @@ class EventValidationTest {
     void event_invalidValues_areReported() {
         String plan = """
                 plan: p
-                period: 2024-01-01 to 2024-01-31
+                period: 2024-01-01 to 2024-01-07
 
                 availability:
                 monday: flexible
@@ -60,14 +60,14 @@ class EventValidationTest {
                 time: 10:00-11:00
 
                 event: backwards
-                date: 2024-01-10
+                date: 2024-01-03
                 time: 11:00-10:00
                 """;
 
         List<String> errors = errors(plan);
 
         assertTrue(errors.stream().anyMatch(e ->
-                e.contains("Event date '2024-02-15' must be within the period range '2024-01-01'-'2024-01-31'")), () -> "Got: " + errors);
+                e.contains("Event date '2024-02-15' must be within the period range '2024-01-01'-'2024-01-07'")), () -> "Got: " + errors);
         assertTrue(errors.stream().anyMatch(e -> e.contains("Invalid event date '2024-01-32'")), () -> "Got: " + errors);
         assertTrue(errors.stream().anyMatch(e -> e.contains("Start time '11:00' must be before end time '10:00'")), () -> "Got: " + errors);
     }
@@ -76,7 +76,7 @@ class EventValidationTest {
     void event_duplicates_areReported() {
         String plan = """
                 plan: p
-                period: 2024-01-01 to 2024-01-31
+                period: 2024-01-01 to 2024-01-07
 
                 availability:
                 monday: flexible
@@ -89,12 +89,12 @@ class EventValidationTest {
 
                 events:
                 event: dentist
-                date: 2024-01-10
-                date: 2024-01-11
+                date: 2024-01-03
+                date: 2024-01-04
                 time: 10:00-11:00
 
                 event: dentist
-                date: 2024-01-12
+                date: 2024-01-05
                 time: afternoon
                 """;
 

@@ -14,7 +14,7 @@ class TaskValidationTest {
     void task_missingMandatoryFields_reportsErrors() {
         String plan = """
                 plan: p
-                period: 2024-01-01 to 2024-01-31
+                period: 2024-01-01 to 2024-01-07
 
                 tasks:
                 task: a
@@ -32,7 +32,7 @@ class TaskValidationTest {
     void deadlineBeforePeriodStart_isReported() {
         String plan = """
                 plan: p
-                period: 2024-01-10 to 2024-01-31
+                period: 2024-01-10 to 2024-01-16
 
                 availability:
                 monday: flexible
@@ -54,7 +54,7 @@ class TaskValidationTest {
     void deadlineWithoutTime_isReported() {
         String plan = """
                 plan: p
-                period: 2024-01-01 to 2024-01-31
+                period: 2024-01-01 to 2024-01-07
 
                 availability:
                 monday: flexible
@@ -76,7 +76,7 @@ class TaskValidationTest {
     void deadlineInvalidTime_isReported_togetherWithInvalidDate() {
         String plan = """
                 plan: p
-                period: 2024-01-01 to 2024-01-31
+                period: 2024-01-01 to 2024-01-07
 
                 availability:
                 monday: flexible
@@ -107,7 +107,7 @@ class TaskValidationTest {
     void deadlineOnPeriodStart_orAfterPeriodEnd_isFine() {
         String plan = """
                 plan: p
-                period: 2024-01-10 to 2024-01-31
+                period: 2024-01-10 to 2024-01-16
 
                 availability:
                 monday: flexible
@@ -135,7 +135,7 @@ class TaskValidationTest {
     void nonExistingDependency_isReported() {
         String plan = """
                 plan: p
-                period: 2024-01-01 to 2024-01-31
+                period: 2024-01-01 to 2024-01-07
 
                 availability:
                 monday: flexible
@@ -157,7 +157,7 @@ class TaskValidationTest {
     void duplicateDependency_isReportedOnce() {
         String plan = """
                 plan: p
-                period: 2024-01-01 to 2024-01-31
+                period: 2024-01-01 to 2024-01-07
 
                 availability:
                 monday: flexible
@@ -182,7 +182,7 @@ class TaskValidationTest {
     void circularDependency_isDetected() {
         String plan = """
                 plan: p
-                period: 2024-01-01 to 2024-01-31
+                period: 2024-01-01 to 2024-01-07
 
                 tasks:
                 task: a
@@ -208,7 +208,7 @@ class TaskValidationTest {
         // Used to crash: c reaches a after the a -> b -> a cycle was already found.
         String plan = """
                 plan: p
-                period: 2024-01-01 to 2024-01-31
+                period: 2024-01-01 to 2024-01-07
 
                 availability:
                 monday: flexible
@@ -243,7 +243,7 @@ class TaskValidationTest {
     void duplicateTaskName_isReported() {
         String plan = """
                 plan: p
-                period: 2024-01-01 to 2024-01-31
+                period: 2024-01-01 to 2024-01-07
 
                 availability:
                 monday: flexible
@@ -269,7 +269,7 @@ class TaskValidationTest {
     void duplicateTask_secondCopyIsNotValidated() {
         String plan = """
                 plan: p
-                period: 2024-01-01 to 2024-01-31
+                period: 2024-01-01 to 2024-01-07
 
                 availability:
                 monday: flexible
@@ -296,7 +296,7 @@ class TaskValidationTest {
         // The second "a" used to overwrite the first one's dependencies, hiding the a -> b -> a cycle.
         String plan = """
                 plan: p
-                period: 2024-01-01 to 2024-01-31
+                period: 2024-01-01 to 2024-01-07
 
                 availability:
                 monday: flexible
@@ -330,7 +330,7 @@ class TaskValidationTest {
     void repeatingTask_withDeadline_isReported() {
         String plan = """
                 plan: p
-                period: 2024-01-01 to 2024-01-31
+                period: 2024-01-01 to 2024-01-07
 
                 availability:
                 monday: flexible
@@ -353,7 +353,7 @@ class TaskValidationTest {
     void repeatingTask_withDependencies_isReported() {
         String plan = """
                 plan: p
-                period: 2024-01-01 to 2024-01-31
+                period: 2024-01-01 to 2024-01-07
 
                 availability:
                 monday: flexible
@@ -381,7 +381,7 @@ class TaskValidationTest {
     void dependingOnRepeatingTask_isReported() {
         String plan = """
                 plan: p
-                period: 2024-01-01 to 2024-01-31
+                period: 2024-01-01 to 2024-01-07
 
                 availability:
                 monday: flexible

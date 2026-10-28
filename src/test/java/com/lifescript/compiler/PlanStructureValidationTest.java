@@ -14,7 +14,7 @@ class PlanStructureValidationTest {
     void plan_missingTasksSection_reportsError() {
         String plan = """
                 plan: p
-                period: 2024-01-01 to 2024-01-31
+                period: 2024-01-01 to 2024-01-07
 
                 settings:
                 morning: 08:00-12:00
@@ -29,7 +29,7 @@ class PlanStructureValidationTest {
     void plan_missingAvailabilitySection_reportsError() {
         String plan = """
                 plan: p
-                period: 2024-01-01 to 2024-01-31
+                period: 2024-01-01 to 2024-01-07
 
                 tasks:
                 task: a
@@ -47,7 +47,7 @@ class PlanStructureValidationTest {
     void duplicateSection_isFlaggedAndContentsSkipped() {
         String plan = """
                 plan: p
-                period: 2024-01-01 to 2024-01-31
+                period: 2024-01-01 to 2024-01-07
 
                 tasks:
                 task: a
@@ -71,7 +71,7 @@ class PlanStructureValidationTest {
     void duplicateKeys_areReportedAcrossSections() {
         String plan = """
                 plan: p
-                period: 2024-01-01 to 2024-01-31
+                period: 2024-01-01 to 2024-01-07
 
                 settings:
                 morning: 08:00-12:00
@@ -148,7 +148,7 @@ class PlanStructureValidationTest {
         // Regression: sectionKind used to label every unknown section as "tasks".
         String plan = """
                 plan: p
-                period: 2024-01-01 to 2024-01-31
+                period: 2024-01-01 to 2024-01-07
 
                 availability:
                 monday: flexible
@@ -161,12 +161,12 @@ class PlanStructureValidationTest {
 
                 events:
                 event: e1
-                date: 2024-01-10
+                date: 2024-01-03
                 time: 10:00-11:00
 
                 events:
                 event: e2
-                date: 2024-01-11
+                date: 2024-01-04
                 time: 10:00-11:00
                 """;
 

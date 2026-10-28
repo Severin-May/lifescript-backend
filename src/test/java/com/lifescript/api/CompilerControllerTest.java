@@ -20,7 +20,7 @@ class CompilerControllerTest {
 
     private static final String VALID_PLAN = """
             plan: p
-            period: 2024-01-01 to 2024-01-31
+            period: 2024-01-01 to 2024-01-07
 
             availability:
             monday: flexible
@@ -46,7 +46,7 @@ class CompilerControllerTest {
         // 2024-01-01 is a Monday; flexible starts at the default morning start, 06:00
         mvc.perform(post("/api/compile").contentType(MediaType.APPLICATION_JSON).content(body(VALID_PLAN)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.schedule.days.length()").value(31))
+                .andExpect(jsonPath("$.schedule.days.length()").value(7))
                 .andExpect(jsonPath("$.schedule.days['2024-01-01'].length()").value(1))
                 .andExpect(jsonPath("$.schedule.days['2024-01-01'][0].type").value("TASK"))
                 .andExpect(jsonPath("$.schedule.days['2024-01-01'][0].name").value("a"))

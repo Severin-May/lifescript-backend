@@ -15,7 +15,7 @@ class RoutineValidationTest {
     void routine_missingMandatoryFields_reportsErrors() {
         String plan = """
                 plan: p
-                period: 2024-01-01 to 2024-01-31
+                period: 2024-01-01 to 2024-01-07
 
                 routines:
                 routine: r
@@ -38,7 +38,7 @@ class RoutineValidationTest {
     void routine_missingRepeats_reportsError() {
         String plan = """
                 plan: p
-                period: 2024-01-01 to 2024-01-31
+                period: 2024-01-01 to 2024-01-07
 
                 availability:
                 monday: flexible
@@ -65,7 +65,7 @@ class RoutineValidationTest {
     void routine_runningPastMidnight_isReported() {
         String plan = """
                 plan: p
-                period: 2024-01-01 to 2024-01-31
+                period: 2024-01-01 to 2024-01-07
 
                 availability:
                 monday: flexible
@@ -102,7 +102,7 @@ class RoutineValidationTest {
     void routine_invalidStartTime_isReported() {
         String plan = """
                 plan: p
-                period: 2024-01-01 to 2024-01-31
+                period: 2024-01-01 to 2024-01-07
 
                 availability:
                 monday: flexible
@@ -131,7 +131,7 @@ class RoutineValidationTest {
     void duplicateDayInRepeats_isReported() {
         String plan = """
                 plan: p
-                period: 2024-01-01 to 2024-01-31
+                period: 2024-01-01 to 2024-01-07
 
                 availability:
                 monday: flexible
