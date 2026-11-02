@@ -62,9 +62,12 @@ EVENTS          : 'events' ;
 EVENT           : 'event' ;
 DATE            : 'date' ;
 
-// Identifiers
+// Identifiers: letters of any language. Marks (\p{M}) are needed by scripts like Hindi.
+// The text is NFC-normalized so "é" typed as one or as two characters (e + accent) is the same name;
+// the token keeps its original positions, so diagnostics still match the editor.
 IDENTIFIER
-    : [a-z_] [a-z0-9_]*
+    : [\p{L}_] [\p{L}\p{M}\p{N}_]*
+      { setText(java.text.Normalizer.normalize(getText(), java.text.Normalizer.Form.NFC)); }
     ;
 
 // Symbols

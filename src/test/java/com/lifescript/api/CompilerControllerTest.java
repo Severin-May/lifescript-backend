@@ -44,6 +44,16 @@ class CompilerControllerTest {
     }
 
     @Test
+    void compile_nonAsciiName_survivesTheRoundTrip() throws Exception {
+        String plan = VALID_PLAN.replace("task: a", "task: házifeladat");
+
+        mvc.perform(post("/api/compile").contentType(MediaType.APPLICATION_JSON).content(body(plan)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.valid").value(true))
+                .andExpect(jsonPath("$.schedule.days['2024-01-01'][0].name").value("házifeladat"));
+    }
+
+    @Test
     void compile_validPlan_hasTheSchedule() throws Exception {
         // 2024-01-01 is a Monday; flexible starts at the default morning start, 06:00
         mvc.perform(post("/api/compile").contentType(MediaType.APPLICATION_JSON).content(body(VALID_PLAN)))

@@ -19,8 +19,9 @@ public class DiagnosticCollector {
 
     public void syntaxError(Token offending, int line, int charPositionInLine, String message) {
         int startColumn = charPositionInLine + 1;
-        int length = offending == null || offending.getType() == Token.EOF || offending.getText() == null
-                ? 1 : Math.max(1, offending.getText().length());
+        // From the positions, not getText(): a name's text is normalized and can be shorter than in the editor.
+        int length = offending == null || offending.getType() == Token.EOF || offending.getStartIndex() < 0
+                ? 1 : Math.max(1, offending.getStopIndex() - offending.getStartIndex() + 1);
         diagnostics.add(new Diagnostic(Stage.SYNTAX, Severity.ERROR, message,
                 line, startColumn, line, startColumn + length));
     }
