@@ -88,8 +88,7 @@ public class GreedyScheduler implements Scheduler {
             endOf.put(occurrence.name(), endDateTime(placement.date(), placement.time()));
             if (withoutBuffer) {
                 warnings.add(new ScheduleWarning(occurrence.name(), placement.date(),
-                        "only fits by ending less than " + formatDuration(settings.deadlineBuffer())
-                                + " before its deadline"));
+                        closeToDeadlineWarning(plan, occurrence, endOf.get(occurrence.name()))));
             }
         }
 
@@ -181,6 +180,21 @@ public class GreedyScheduler implements Scheduler {
         return time.endsAtMidnight() ? date.plusDays(1).atStartOfDay() : date.atTime(time.endTime());
     }
 
+    private static String closeToDeadlineWarning(Plan plan, TaskOccurrence occurrence, LocalDateTime end) {
+        LocalDateTime deadline = plan.tasks().stream().filter(task -> task.name().equals(occurrence.deadlineSetBy()))
+                .findFirst().orElseThrow().deadline();
+        String deadlineText = deadline.toLocalDate().equals(end.toLocalDate())
+                ? deadline.toLocalTime().toString() : deadline.toLocalDate() + " " + deadline.toLocalTime();
+        String ends = "ends at " + end.toLocalTime();
+        if (!occurrence.name().equals(occurrence.deadlineSetBy())) {
+            return ends + ", which leaves little time for '" + occurrence.deadlineSetBy()
+                    + "' (which depends on it) before its deadline at " + deadlineText;
+        }
+        Duration gap = Duration.between(end, deadline);
+        return gap.isZero() ? "ends right at its deadline at " + deadlineText
+                : ends + ", only " + formatDuration(gap) + " before its deadline at " + deadlineText;
+    }
+
     private static String reason(TaskOccurrence occurrence, List<String> dependencies) {
         StringBuilder reason = new StringBuilder("no free slot long enough");
         if (occurrence.date() != null) {
@@ -193,6 +207,10 @@ public class GreedyScheduler implements Scheduler {
         if (occurrence.hardEnd() != null) {
             reason.append(dependencies.isEmpty() ? "" : " and").append(" ending by ")
                     .append(occurrence.hardEnd().toLocalDate()).append(' ').append(occurrence.hardEnd().toLocalTime());
+            if (!occurrence.name().equals(occurrence.deadlineSetBy())) {
+                reason.append(", so that '").append(occurrence.deadlineSetBy())
+                        .append("' (which depends on it) can meet its deadline");
+            }
         }
         if (dependencies.isEmpty() && occurrence.hardEnd() == null) {
             reason.append(" in the period");

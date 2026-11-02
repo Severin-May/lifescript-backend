@@ -57,6 +57,7 @@ class TaskOccurrencesTest {
         TaskOccurrence research = find(occurrences, "research");
         assertEquals(at("2026-10-07T15:00"), research.preferredEnd());
         assertEquals(at("2026-10-07T17:00"), research.hardEnd());
+        assertEquals("research", research.deadlineSetBy());
     }
 
     @Test
@@ -127,5 +128,11 @@ class TaskOccurrencesTest {
 
         assertNull(find(occurrences, "unrelated").preferredEnd());
         assertNull(find(occurrences, "unrelated").hardEnd());
+
+        // The limits come from c's deadline, whichever task they were passed down to.
+        assertEquals("c", find(occurrences, "a").deadlineSetBy());
+        assertEquals("c", find(occurrences, "b").deadlineSetBy());
+        assertEquals("c", find(occurrences, "c").deadlineSetBy());
+        assertNull(find(occurrences, "unrelated").deadlineSetBy());
     }
 }

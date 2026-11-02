@@ -107,8 +107,68 @@ class GreedySchedulerTest {
                 """));
 
         assertEquals(List.of(entry(TASK, "submit_form", "09:00", "10:00")), schedule.entriesOn(MON));
-        assertEquals(List.of(new ScheduleWarning("submit_form", MON, "only fits by ending less than 2h before its deadline")),
+        assertEquals(List.of(new ScheduleWarning("submit_form", MON, "ends at 10:00, only 1h before its deadline at 11:00")),
                 schedule.warnings());
+    }
+
+    @Test
+    void taskEndingExactlyAtItsDeadline_saysSo() {
+        Schedule schedule = schedule(plan("monday: 09:00-10:00", "", """
+                task: submit_form
+                duration: 1h
+                priority: high
+                effort: moderate
+                deadline: 2026-10-05 10:00
+                """));
+
+        assertEquals(List.of(new ScheduleWarning("submit_form", MON, "ends right at its deadline at 10:00")),
+                schedule.warnings());
+    }
+
+    @Test
+    void deadlinePassedDownFromDependent_warningNamesTheDependent() {
+        // write_report is due mon 12:00, so research must end by 11:30 (09:30 with the buffer).
+        Schedule schedule = schedule(plan("monday: 09:00-12:00", "", """
+                task: research
+                duration: 1h
+                priority: high
+                effort: moderate
+
+                task: write_report
+                duration: 30m
+                priority: high
+                effort: moderate
+                deadline: 2026-10-05 12:00
+                dependencies: research
+                """));
+
+        assertEquals(List.of(
+                new ScheduleWarning("research", MON,
+                        "ends at 10:00, which leaves little time for 'write_report' (which depends on it) "
+                                + "before its deadline at 12:00"),
+                new ScheduleWarning("write_report", MON, "ends at 10:40, only 1h20m before its deadline at 12:00")),
+                schedule.warnings());
+    }
+
+    @Test
+    void deadlinePassedDownFromDependent_unscheduledReasonNamesTheDependent() {
+        Schedule schedule = schedule(plan("monday: 09:00-10:00", "", """
+                task: research
+                duration: 2h
+                priority: high
+                effort: moderate
+
+                task: write_report
+                duration: 30m
+                priority: high
+                effort: moderate
+                deadline: 2026-10-05 17:00
+                dependencies: research
+                """));
+
+        assertEquals(new UnscheduledTask("research", null, "no free slot long enough ending by 2026-10-05 16:30, "
+                        + "so that 'write_report' (which depends on it) can meet its deadline", null),
+                schedule.unscheduled().get(0));
     }
 
     @Test

@@ -24,49 +24,61 @@ public final class TaskOccurrences {
             }
         }
 
-        Map<String, LocalDateTime> preferredEnds = new HashMap<>();
-        Map<String, LocalDateTime> hardEnds = new HashMap<>();
+        Map<String, EffectiveDeadline> preferredDeadlines = new HashMap<>();
+        Map<String, EffectiveDeadline> hardDeadlines = new HashMap<>();
         List<TaskOccurrence> occurrences = new ArrayList<>();
         for (Task task : plan.tasks()) {
             if (task.repeatDays().isEmpty()) {
+                // The buffer shifts every deadline equally, so both are set by the same task.
+                EffectiveDeadline hard = effectiveDeadline(task, Duration.ZERO, dependents, hardDeadlines);
                 occurrences.add(new TaskOccurrence(task, null,
-                        latestEnd(task, settings.deadlineBuffer(), dependents, preferredEnds),
-                        latestEnd(task, Duration.ZERO, dependents, hardEnds)));
+                        effectiveDeadline(task, settings.deadlineBuffer(), dependents, preferredDeadlines).time(),
+                        hard.time(), hard.setBy()));
                 continue;
             }
             for (LocalDate date : plan.period().dates()) {
                 if (task.repeatDays().contains(date.getDayOfWeek())) {
                     LocalDateTime endOfDay = date.plusDays(1).atStartOfDay();
-                    occurrences.add(new TaskOccurrence(task, date, endOfDay, endOfDay));
+                    occurrences.add(new TaskOccurrence(task, date, endOfDay, endOfDay, null));
                 }
             }
         }
         return occurrences;
     }
 
-    // A dependency must end before its dependent starts: the dependent's limit minus its duration.
+    // The effective deadline: the earliest of the task's own deadline and, for each task depending on it,
+    // that task's effective deadline minus its duration (it must end before its dependent starts).
     // Terminates because SemanticValidator rejects dependency cycles. `computed` keeps each task's result,
-    // otherwise layered dependencies are recomputed once per path (exponential); null is a valid result.
-    private static LocalDateTime latestEnd(Task task, Duration buffer, Map<String, List<Task>> dependents,
-                                           Map<String, LocalDateTime> computed) {
+    // otherwise layered dependencies are recomputed once per path (exponential).
+    private static EffectiveDeadline effectiveDeadline(Task task, Duration buffer, Map<String, List<Task>> dependents,
+                                                       Map<String, EffectiveDeadline> computed) {
         if (computed.containsKey(task.name())) {
             return computed.get(task.name());
         }
-        LocalDateTime limit = minus(task.deadline(), buffer);
+        EffectiveDeadline deadline = task.deadline() == null
+                ? EffectiveDeadline.NONE : new EffectiveDeadline(task.deadline().minus(buffer), task.name());
         for (Task dependent : dependents.getOrDefault(task.name(), List.of())) {
-            limit = earlier(limit, minus(latestEnd(dependent, buffer, dependents, computed), dependent.duration()));
+            deadline = earlier(deadline,
+                    effectiveDeadline(dependent, buffer, dependents, computed).minus(dependent.duration()));
         }
-        computed.put(task.name(), limit);
-        return limit;
+        computed.put(task.name(), deadline);
+        return deadline;
     }
 
-    private static LocalDateTime minus(LocalDateTime time, Duration duration) {
-        return time == null ? null : time.minus(duration);
+    // time: null = no deadline. setBy: the task whose own deadline it comes from.
+    private record EffectiveDeadline(LocalDateTime time, String setBy) {
+
+        static final EffectiveDeadline NONE = new EffectiveDeadline(null, null);
+
+        EffectiveDeadline minus(Duration duration) {
+            return time == null ? this : new EffectiveDeadline(time.minus(duration), setBy);
+        }
     }
 
-    private static LocalDateTime earlier(LocalDateTime a, LocalDateTime b) {
-        if (a == null) return b;
-        if (b == null) return a;
-        return a.isBefore(b) ? a : b;
+    // On a tie the first one wins, so a task's own deadline beats an equal one passed down.
+    private static EffectiveDeadline earlier(EffectiveDeadline a, EffectiveDeadline b) {
+        if (a.time() == null) return b;
+        if (b.time() == null) return a;
+        return b.time().isBefore(a.time()) ? b : a;
     }
 }
