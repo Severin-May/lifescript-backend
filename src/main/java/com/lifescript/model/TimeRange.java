@@ -1,6 +1,8 @@
 package com.lifescript.model;
 
 import java.time.Duration;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -82,6 +84,11 @@ public record TimeRange(LocalTime startTime, LocalTime endTime) {
     // An end of 00:00 counts as 24:00.
     public int endSecondOfDay() {
         return endsAtMidnight() ? SECONDS_PER_DAY : endTime.toSecondOfDay();
+    }
+
+    // The end as a moment when the range is on `date`: ending at 00:00 means the next day's start.
+    public LocalDateTime endOn(LocalDate date) {
+        return endsAtMidnight() ? date.plusDays(1).atStartOfDay() : date.atTime(endTime);
     }
 
     // Only meaningful for ordered ranges.

@@ -1,5 +1,6 @@
 package com.lifescript.scheduler.greedy;
 
+import com.lifescript.model.Durations;
 import com.lifescript.model.Event;
 import com.lifescript.model.Plan;
 import com.lifescript.model.Routine;
@@ -85,7 +86,7 @@ public class GreedyScheduler implements Scheduler {
             // Padded on both sides because tasks aren't placed in time order.
             available.put(placement.date(), AvailableTime.minus(available.get(placement.date()),
                     placement.time().paddedBy(settings.breakTime())));
-            endOf.put(occurrence.name(), endDateTime(placement.date(), placement.time()));
+            endOf.put(occurrence.name(), placement.time().endOn(placement.date()));
             if (withoutBuffer) {
                 warnings.add(new ScheduleWarning(occurrence.name(), placement.date(),
                         closeToDeadlineWarning(plan, occurrence, endOf.get(occurrence.name()))));
@@ -134,7 +135,7 @@ public class GreedyScheduler implements Scheduler {
                     if (earliestStart != null && date.atTime(time.startTime()).isBefore(earliestStart)) {
                         continue;
                     }
-                    if (latestEnd != null && endDateTime(date, time).isAfter(latestEnd)) {
+                    if (latestEnd != null && time.endOn(date).isAfter(latestEnd)) {
                         continue;
                     }
                     EnergyFit fit = EnergyMatch.fit(plan, date.getDayOfWeek(), time, occurrence.task().effort());
@@ -169,17 +170,6 @@ public class GreedyScheduler implements Scheduler {
         return now.toLocalDate().atStartOfDay().plusSeconds(rounded);
     }
 
-    private static String formatDuration(Duration duration) {
-        long hours = duration.toHours();
-        long minutes = duration.toMinutesPart();
-        if (hours == 0) return minutes + "m";
-        return minutes == 0 ? hours + "h" : hours + "h" + minutes + "m";
-    }
-
-    private static LocalDateTime endDateTime(LocalDate date, TimeRange time) {
-        return time.endsAtMidnight() ? date.plusDays(1).atStartOfDay() : date.atTime(time.endTime());
-    }
-
     private static String closeToDeadlineWarning(Plan plan, TaskOccurrence occurrence, LocalDateTime end) {
         LocalDateTime deadline = plan.tasks().stream().filter(task -> task.name().equals(occurrence.deadlineSetBy()))
                 .findFirst().orElseThrow().deadline();
@@ -192,7 +182,7 @@ public class GreedyScheduler implements Scheduler {
         }
         Duration gap = Duration.between(end, deadline);
         return gap.isZero() ? "ends right at its deadline at " + deadlineText
-                : ends + ", only " + formatDuration(gap) + " before its deadline at " + deadlineText;
+                : ends + ", only " + Durations.format(gap) + " before its deadline at " + deadlineText;
     }
 
     private static String reason(TaskOccurrence occurrence, List<String> dependencies) {

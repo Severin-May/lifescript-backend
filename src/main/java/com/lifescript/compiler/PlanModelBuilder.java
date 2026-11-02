@@ -29,9 +29,9 @@ import java.util.Map;
 public class PlanModelBuilder {
 
     private static final Map<String, TimeRange> DEFAULT_TIME_SETTINGS = Map.of(
-            "morning", new TimeRange(LocalTime.of(6, 0), LocalTime.of(12, 0)),
-            "afternoon", new TimeRange(LocalTime.of(12, 0), LocalTime.of(18, 0)),
-            "evening", new TimeRange(LocalTime.of(18, 0), LocalTime.of(22, 0))
+            Keywords.MORNING, new TimeRange(LocalTime.of(6, 0), LocalTime.of(12, 0)),
+            Keywords.AFTERNOON, new TimeRange(LocalTime.of(12, 0), LocalTime.of(18, 0)),
+            Keywords.EVENING, new TimeRange(LocalTime.of(18, 0), LocalTime.of(22, 0))
     );
 
     public Plan build(LifeScriptParser.PlanContext ctx) {
@@ -51,20 +51,20 @@ public class PlanModelBuilder {
         List<Event> events = List.of();
 
         for (LifeScriptParser.PlanSectionContext section : ctx.planSection()) {
-            if (section.routines() != null) {
-                routines = buildRoutines(section.routines());
-            } else if (section.tasks() != null) {
-                tasks = buildTasks(section.tasks());
-            } else if (section.settings() != null) {
-                timeSettingLocations = buildTimeSettingLocations(section.settings());
-            } else if (section.availability() != null) {
-                availability = buildAvailability(section.availability(), timeSettings);
-                availabilityLocations = buildAvailabilityLocations(section.availability());
-            } else if (section.energyProfile() != null) {
-                defaultEnergyProfile = buildDefaultEnergyProfile(section.energyProfile(), timeSettings);
-                energyProfileOverrides = buildEnergyProfileOverrides(section.energyProfile(), timeSettings);
-            } else if (section.events() != null) {
-                events = buildEvents(section.events(), timeSettings);
+            switch (SectionKind.of(section)) {
+                case ROUTINES -> routines = buildRoutines(section.routines());
+                case TASKS -> tasks = buildTasks(section.tasks());
+                case SETTINGS -> timeSettingLocations = buildTimeSettingLocations(section.settings());
+                case AVAILABILITY -> {
+                    availability = buildAvailability(section.availability(), timeSettings);
+                    availabilityLocations = buildAvailabilityLocations(section.availability());
+                }
+                case ENERGY_PROFILE -> {
+                    defaultEnergyProfile = buildDefaultEnergyProfile(section.energyProfile(), timeSettings);
+                    energyProfileOverrides = buildEnergyProfileOverrides(section.energyProfile(), timeSettings);
+                }
+                case EVENTS -> events = buildEvents(section.events(), timeSettings);
+                default -> throw new IllegalStateException("Unhandled section kind: " + SectionKind.of(section));
             }
         }
 
@@ -157,8 +157,8 @@ public class PlanModelBuilder {
 
         if (ctx.FLEXIBLE() != null) {
             // flexible = from the start of morning to the end of evening
-            ranges.add(new TimeRange(timeSettings.get("morning").startTime(),
-                    timeSettings.get("evening").endTime()));
+            ranges.add(new TimeRange(timeSettings.get(Keywords.MORNING).startTime(),
+                    timeSettings.get(Keywords.EVENING).endTime()));
         } else if (ctx.namedPeriodList() != null) {
             for (LifeScriptParser.NamedPeriodContext period : ctx.namedPeriodList().namedPeriod()) {
                 ranges.add(timeSettings.get(Keywords.parseNamedPeriod(period.getText())));
@@ -276,7 +276,7 @@ public class PlanModelBuilder {
         Map<String, TimeRange> timeSettings = new HashMap<>(DEFAULT_TIME_SETTINGS);
 
         for (LifeScriptParser.PlanSectionContext section : ctx.planSection()) {
-            if (section.settings() != null) {
+            if (SectionKind.of(section) == SectionKind.SETTINGS) {
                 for (LifeScriptParser.SettingsEntryContext entry : section.settings().settingsEntry()) {
                     timeSettings.put(Keywords.parseNamedPeriod(entry.namedPeriod().getText()), Literals.parseTimeRange(entry.timeRange().getText()));
                 }

@@ -3,6 +3,8 @@ package com.lifescript.model;
 import org.junit.jupiter.api.Test;
 
 import java.time.Duration;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.List;
 
@@ -163,5 +165,13 @@ class TimeRangeTest {
         assertFalse(range("12:00", "08:00").isOrdered());
         assertFalse(range("09:00", "09:00").isOrdered());
         assertFalse(range("22:00", "02:00").isOrdered());
+    }
+
+    @Test
+    void endOn_isTheEndMoment_andMidnightIsTheNextDaysStart() {
+        LocalDate monday = LocalDate.of(2024, 1, 1);
+
+        assertEquals(LocalDateTime.of(2024, 1, 1, 17, 0), range("09:00", "17:00").endOn(monday));
+        assertEquals(LocalDateTime.of(2024, 1, 2, 0, 0), range("22:00", "00:00").endOn(monday));
     }
 }

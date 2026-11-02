@@ -42,14 +42,6 @@ public final class Literals {
         return parseDurationLiteral(text).toDuration();
     }
 
-    // 95 minutes -> "1h35m", the way durations are written in LifeScript
-    public static String formatDuration(Duration duration) {
-        long hours = duration.toHours();
-        long minutes = duration.toMinutesPart();
-        if (hours == 0) return minutes + "m";
-        return minutes == 0 ? hours + "h" : hours + "h" + minutes + "m";
-    }
-
     public static LocalDate parseDate(String text) {
         return LocalDate.parse(text);
     }

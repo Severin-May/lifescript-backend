@@ -2,10 +2,10 @@ package com.lifescript.compiler;
 
 import com.lifescript.grammar.LifeScriptParser;
 import com.lifescript.grammar.LifeScriptParserBaseVisitor;
+import com.lifescript.model.Durations;
 import com.lifescript.model.PlanPeriod;
 import com.lifescript.model.TimeRange;
 import org.antlr.v4.runtime.ParserRuleContext;
-import org.antlr.v4.runtime.tree.TerminalNode;
 
 import java.time.Duration;
 import java.time.LocalDate;
@@ -20,12 +20,6 @@ public class SemanticValidator extends LifeScriptParserBaseVisitor<Void> {
     private PlanPeriod period;
     private final DiagnosticCollector diagnostics;
     private final LocalDate today;
-    private final Set<String> taskNames = new HashSet<>();
-    private final Map<String, List<String>> dependencyGraph = new HashMap<>();
-    private final Map<String, ParserRuleContext> dependencyLines = new HashMap<>();
-
-    private static final String GRAY = "GRAY";
-    private static final String BLACK = "BLACK";
 
     private static final Duration MAX_DURATION = Duration.ofHours(24);
     private static final int MAX_PERIOD_DAYS = 7;
@@ -45,9 +39,10 @@ public class SemanticValidator extends LifeScriptParserBaseVisitor<Void> {
         boolean hasAvailability = false;
 
         for (LifeScriptParser.PlanSectionContext section :
-                checkDuplicateKeys(ctx.planSection(), this::sectionKind, "section")) {
-            if (section.tasks() != null) hasTasks = true;
-            if (section.availability() != null) hasAvailability = true;
+                checkDuplicateKeys(ctx.planSection(), section -> SectionKind.of(section).keyword(), "section")) {
+            SectionKind kind = SectionKind.of(section);
+            if (kind == SectionKind.TASKS) hasTasks = true;
+            if (kind == SectionKind.AVAILABILITY) hasAvailability = true;
             visit(section);
         }
 
@@ -59,17 +54,6 @@ public class SemanticValidator extends LifeScriptParserBaseVisitor<Void> {
         }
 
         return null;
-    }
-
-    private String sectionKind(LifeScriptParser.PlanSectionContext ctx) {
-        if (ctx.settings() != null) return "settings";
-        if (ctx.availability() != null) return "availability";
-        if (ctx.energyProfile() != null) return "energy profile";
-        if (ctx.routines() != null) return "routines";
-        if (ctx.tasks() != null) return "tasks";
-        if (ctx.events() != null) return "events";
-        // Fail loudly if a section is added to the grammar but not here.
-        throw new IllegalStateException("sectionKind: unhandled section " + ctx.getText());
     }
 
     @Override
@@ -126,86 +110,16 @@ public class SemanticValidator extends LifeScriptParserBaseVisitor<Void> {
         }
     }
 
-    // GRAY = on the current path, BLACK = done. A task is always finished, even after a cycle,
-    // so GRAY means on `path`. The cycle is reported at the closing task's dependencies line.
-    private void detectTaskCycle(String task, Map<String, String> colors, List<String> path) {
-        if (GRAY.equals(colors.get(task))) {
-            int cycleStart = path.indexOf(task);
-            List<String> cycle = path.subList(cycleStart, path.size());
-            String closingTask = path.get(path.size() - 1);
-            diagnostics.error(dependencyLines.get(closingTask), String.format("Circular dependency detected: %s → %s",
-                    String.join(" → ", cycle), task));
-            return;
-        }
-        if (BLACK.equals(colors.get(task))) return;
-
-        colors.put(task, GRAY);
-        path.add(task);
-
-        for (String dep : dependencyGraph.getOrDefault(task, List.of())) {
-            detectTaskCycle(dep, colors, path);
-        }
-
-        path.remove(path.size() - 1);
-        colors.put(task, BLACK);
-    }
-
     @Override
     public Void visitTasks(LifeScriptParser.TasksContext ctx) {
         List<LifeScriptParser.TaskContext> tasks =
                 checkDuplicateKeys(ctx.task(), t -> t.IDENTIFIER().getText(), "task name");
-        Set<String> repeatingTasks = new HashSet<>();
-
-        for (LifeScriptParser.TaskContext task: tasks) {
-            String taskName = task.IDENTIFIER().getText();
-            taskNames.add(taskName);
-            if (task.taskProperty().stream().anyMatch(p -> p.repeats() != null)) {
-                repeatingTasks.add(taskName);
-            }
-        }
-
-        for (LifeScriptParser.TaskContext task: tasks) {
-            String taskName = task.IDENTIFIER().getText();
-            List<String> deps = new ArrayList<>();
-
-            for (LifeScriptParser.TaskPropertyContext prop : task.taskProperty()) {
-                if (prop.taskDependencies() != null) {
-                    dependencyLines.put(taskName, prop);
-                    Set<String> seenDeps = new HashSet<>();
-                    for (TerminalNode dep : prop.taskDependencies().IDENTIFIER()) {
-                        if (!seenDeps.add(dep.getText())) {
-                            diagnostics.error(prop, String.format("Duplicate dependency '%s'", dep.getText()));
-                            continue;
-                        }
-                        if (!taskNames.contains(dep.getText())) {
-                            String hint = taskNames.stream().filter(name -> name.equalsIgnoreCase(dep.getText()))
-                                    .findFirst().map(name -> String.format(" (did you mean '%s'?)", name)).orElse("");
-                            diagnostics.error(prop, String.format("Task '%s' depends on '%s', which doesn't exist%s",
-                                    taskName, dep.getText(), hint));
-                        }
-                        if (repeatingTasks.contains(dep.getText())) {
-                            diagnostics.error(prop, String.format("Task '%s' can't depend on repeating task '%s'", taskName, dep.getText()));
-                        }
-                        deps.add(dep.getText());
-                    }
-                    if (repeatingTasks.contains(taskName)) {
-                        diagnostics.error(prop, String.format("Repeating task '%s' can't have dependencies", taskName));
-                    }
-                }
-                if (prop.taskDeadline() != null && repeatingTasks.contains(taskName)) {
-                    diagnostics.error(prop, String.format("Repeating task '%s' can't have a deadline", taskName));
-                }
-            }
+        DependencyChecker dependencies = new DependencyChecker(diagnostics, tasks);
+        for (LifeScriptParser.TaskContext task : tasks) {
+            dependencies.checkTask(task);
             visit(task);
-            dependencyGraph.put(taskName, deps);
         }
-
-        Map<String, String> colors = new HashMap<>();
-        for (String taskName : taskNames) {
-            if (!colors.containsKey(taskName)) {
-                detectTaskCycle(taskName, colors, new ArrayList<>());
-            }
-        }
+        dependencies.checkCycles();
         return null;
     }
 
@@ -270,7 +184,7 @@ public class SemanticValidator extends LifeScriptParserBaseVisitor<Void> {
                 LocalTime start = Literals.parseTime(startText);
                 if (start.toSecondOfDay() + total.toSeconds() > Duration.ofDays(1).toSeconds()) {
                     diagnostics.error(ctx, String.format("Routine '%s' starting at %s lasts %s and would run past midnight",
-                            routineName, startText, Literals.formatDuration(total)));
+                            routineName, startText, Durations.format(total)));
                 }
             } catch (DateTimeParseException ignored) {
             }
@@ -369,7 +283,7 @@ public class SemanticValidator extends LifeScriptParserBaseVisitor<Void> {
         Literals.DurationLiteral literal = Literals.parseDurationLiteral(text);
         if (literal.hasHours() && literal.minutes() > 59) {
             diagnostics.error(entry, String.format("Minutes in '%s' must be at most 59 (write %s)",
-                    text, Literals.formatDuration(duration)));
+                    text, Durations.format(duration)));
         }
     }
 
@@ -386,6 +300,12 @@ public class SemanticValidator extends LifeScriptParserBaseVisitor<Void> {
     @Override
     public Void visitTaskDeadline(LifeScriptParser.TaskDeadlineContext ctx) {
         String dateText = ctx.DATE_VAL().getText();
+
+        // A deadline's parent is a task property, whose parent is the task.
+        LifeScriptParser.TaskContext task = (LifeScriptParser.TaskContext) ctx.getParent().getParent();
+        if (DependencyChecker.isRepeating(task)) {
+            diagnostics.error(ctx, String.format("Repeating task '%s' can't have a deadline", task.IDENTIFIER().getText()));
+        }
 
         // The grammar allows a missing time only so this can explain it better than a syntax error.
         if (ctx.TIME_VAL() == null) {

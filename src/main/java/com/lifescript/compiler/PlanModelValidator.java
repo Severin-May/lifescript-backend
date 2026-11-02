@@ -17,8 +17,6 @@ import java.util.stream.Collectors;
 // Clashes are reported at the item written later; the message names both.
 public class PlanModelValidator {
 
-    private static final List<String> PERIOD_ORDER = List.of("morning", "afternoon", "evening");
-
     private final DiagnosticCollector diagnostics;
 
     public PlanModelValidator(DiagnosticCollector diagnostics) {
@@ -37,9 +35,9 @@ public class PlanModelValidator {
     private void checkSettingsOrder(Plan plan) {
         Map<String, TimeRange> timeSettings = plan.timeSettings();
         Map<String, SourceLocation> locations = plan.timeSettingLocations();
-        for (int i = 0; i < PERIOD_ORDER.size() - 1; i++) {
-            String earlierName = PERIOD_ORDER.get(i);
-            String laterName = PERIOD_ORDER.get(i + 1);
+        for (int i = 0; i < Keywords.NAMED_PERIODS.size() - 1; i++) {
+            String earlierName = Keywords.NAMED_PERIODS.get(i);
+            String laterName = Keywords.NAMED_PERIODS.get(i + 1);
             TimeRange earlier = timeSettings.get(earlierName);
             TimeRange later = timeSettings.get(laterName);
 

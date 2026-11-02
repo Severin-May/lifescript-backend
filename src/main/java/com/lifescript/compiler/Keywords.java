@@ -4,11 +4,18 @@ import com.lifescript.model.EnergyLevel;
 import com.lifescript.model.Priority;
 
 import java.time.DayOfWeek;
+import java.util.List;
 import java.util.Locale;
 
 // Keywords that stand for values (days, energy levels, priorities, named periods), in both directions.
 // Keywords match in any case, so their text is compared and stored lowercased.
 public final class Keywords {
+
+    // The named periods, in the order they must follow each other during the day.
+    public static final String MORNING = "morning";
+    public static final String AFTERNOON = "afternoon";
+    public static final String EVENING = "evening";
+    public static final List<String> NAMED_PERIODS = List.of(MORNING, AFTERNOON, EVENING);
 
     private Keywords() {
     }
