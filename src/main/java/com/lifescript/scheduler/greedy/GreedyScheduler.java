@@ -41,8 +41,9 @@ public class GreedyScheduler implements Scheduler {
     }
 
     @Override
-    public Schedule schedule(Plan plan) {
-        Map<LocalDate, List<TimeRange>> available = AvailableTime.of(plan, settings.breakTime());
+    public Schedule schedule(Plan plan, LocalDateTime now) {
+        Map<LocalDate, List<TimeRange>> available =
+                AvailableTime.of(plan, settings.breakTime(), roundUpToStep(now));
         Map<LocalDate, List<ScheduleEntry>> days = fixedCommitments(plan);
         List<UnscheduledTask> unscheduled = new ArrayList<>();
         List<ScheduleNote> notes = new ArrayList<>();
@@ -157,6 +158,13 @@ public class GreedyScheduler implements Scheduler {
             starts.add(start);
         }
         return starts;
+    }
+
+    // 15:07 -> 15:15 with a 15m step, so tasks start at tidy times.
+    private LocalDateTime roundUpToStep(LocalDateTime now) {
+        long step = settings.startStep().toSeconds();
+        long rounded = (now.toLocalTime().toSecondOfDay() + step - 1) / step * step;
+        return now.toLocalDate().atStartOfDay().plusSeconds(rounded);
     }
 
     private static String formatDuration(Duration duration) {

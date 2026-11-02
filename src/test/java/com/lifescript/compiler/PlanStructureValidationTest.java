@@ -5,6 +5,7 @@ import org.junit.jupiter.api.Test;
 import java.util.List;
 
 import static com.lifescript.TestPlans.errors;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -120,7 +121,7 @@ class PlanStructureValidationTest {
     }
 
     @Test
-    void availabilityDayOutsidePeriod_isReported() {
+    void availabilityDayOutsidePeriod_isIgnored() {
         // 2024-01-01 is a Monday, so the period covers Monday to Wednesday only.
         String plan = """
                 plan: p
@@ -137,10 +138,7 @@ class PlanStructureValidationTest {
                 effort: high
                 """;
 
-        List<String> errors = errors(plan);
-
-        assertTrue(errors.stream().anyMatch(e -> e.contains("Availability day of week 'friday' must be within the period range")));
-        assertFalse(errors.stream().anyMatch(e -> e.contains("'monday' must be within the period range")));
+        assertEquals(List.of(), errors(plan));
     }
 
     @Test

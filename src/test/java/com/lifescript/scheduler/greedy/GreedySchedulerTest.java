@@ -10,6 +10,7 @@ import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.List;
 
@@ -26,7 +27,11 @@ class GreedySchedulerTest {
     private static final LocalDate MON = LocalDate.parse("2026-10-05");
 
     private static Schedule schedule(String source) {
-        return new GreedyScheduler().schedule(build(source));
+        return schedule(source, MON.atStartOfDay());
+    }
+
+    private static Schedule schedule(String source, LocalDateTime now) {
+        return new GreedyScheduler().schedule(build(source), now);
     }
 
     private static ScheduleEntry entry(EntryType type, String name, String start, String end) {
@@ -54,7 +59,7 @@ class GreedySchedulerTest {
         // mon morning has only 08:00-09:50 before team_sync's break, too short for research (2h),
         // so it goes to tue 09:00-11:00; write_report must follow it: wed 08:00-09:30.
         // inbox_zero (low effort) takes its day's first low-energy slot, else the first moderate one.
-        Schedule schedule = new GreedyScheduler().schedule(build(load("fullPlan.ls")));
+        Schedule schedule = new GreedyScheduler().schedule(build(load("fullPlan.ls")), LocalDateTime.parse("2026-10-05T00:00"));
 
         assertEquals(List.of(
                 entry(ROUTINE, "morning_routine", "07:00", "07:35"),
@@ -206,6 +211,21 @@ class GreedySchedulerTest {
 
         assertTrue(schedule.entriesOn(MON).contains(entry(TASK, "deep_work", "09:43", "11:33")),
                 () -> "Got: " + schedule.entriesOn(MON));
+    }
+
+    @Test
+    void nothingIsPlacedBeforeNow_whichIsRoundedUpToTheNextQuarterHour() {
+        String plan = plan("monday: 09:00-18:00", "", """
+                task: a
+                duration: 1h
+                priority: high
+                effort: moderate
+                """);
+
+        assertEquals(List.of(entry(TASK, "a", "15:00", "16:00")),
+                schedule(plan, MON.atTime(15, 0)).entriesOn(MON));
+        assertEquals(List.of(entry(TASK, "a", "15:15", "16:15")),
+                schedule(plan, MON.atTime(15, 7)).entriesOn(MON));
     }
 
     @Test

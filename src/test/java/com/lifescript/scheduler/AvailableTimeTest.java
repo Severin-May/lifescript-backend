@@ -7,6 +7,7 @@ import org.junit.jupiter.api.Test;
 import java.io.IOException;
 import java.time.Duration;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.List;
 import java.util.Map;
@@ -21,6 +22,8 @@ class AvailableTimeTest {
         return new TimeRange(LocalTime.parse(start), LocalTime.parse(end));
     }
 
+    private static final LocalDateTime PERIOD_START = LocalDateTime.parse("2026-10-05T00:00");
+
     private static LocalDate date(String text) {
         return LocalDate.parse(text);
     }
@@ -33,7 +36,7 @@ class AvailableTimeTest {
         // Events: dentist wed 14:00-15:00 (outside availability), team_offsite fri 13:00-17:00.
         Plan plan = build(load("fullPlan.ls"));
 
-        Map<LocalDate, List<TimeRange>> available = AvailableTime.of(plan, Duration.ZERO);
+        Map<LocalDate, List<TimeRange>> available = AvailableTime.of(plan, Duration.ZERO, PERIOD_START);
 
         assertEquals(List.of(range("08:00", "10:00"), range("10:30", "19:00"), range("19:45", "22:00")),
                 available.get(date("2026-10-05")));   // mon: flexible minus team_sync and evening_walk
@@ -55,7 +58,7 @@ class AvailableTimeTest {
     void fullPlan_withBreaks_routinesAndEventsTakeTenMinutesOnEachSide() throws IOException {
         Plan plan = build(load("fullPlan.ls"));
 
-        Map<LocalDate, List<TimeRange>> available = AvailableTime.of(plan, Duration.ofMinutes(10));
+        Map<LocalDate, List<TimeRange>> available = AvailableTime.of(plan, Duration.ofMinutes(10), PERIOD_START);
 
         // mon: team_sync 10:00-10:30 takes 09:50-10:40, evening_walk 19:00-19:45 takes 18:50-19:55
         assertEquals(List.of(range("08:00", "09:50"), range("10:40", "18:50"), range("19:55", "22:00")),
@@ -67,7 +70,19 @@ class AvailableTimeTest {
     }
 
     @Test
-    void minus_cutsATakenRangeOutOfADaysFreeTime() {
+    void timeBeforeNotBefore_isCutOnThatDayOnly() throws IOException {
+        Plan plan = build(load("fullPlan.ls"));
+
+        Map<LocalDate, List<TimeRange>> available =
+                AvailableTime.of(plan, Duration.ofMinutes(10), LocalDateTime.parse("2026-10-05T15:00"));
+
+        // mon from 15:00: of 10:40-18:50 only 15:00-18:50 is left; tue is untouched
+        assertEquals(List.of(range("15:00", "18:50"), range("19:55", "22:00")), available.get(date("2026-10-05")));
+        assertEquals(List.of(range("09:00", "12:00"), range("14:00", "18:00")), available.get(date("2026-10-06")));
+    }
+
+    @Test
+    void minus_cutsATakenRangeOutOfADaysAvailableTime() {
         List<TimeRange> available = List.of(range("08:00", "12:00"), range("14:00", "18:00"));
 
         assertEquals(List.of(range("08:00", "09:00"), range("11:00", "12:00"), range("14:00", "18:00")),

@@ -13,6 +13,7 @@ import org.slf4j.LoggerFactory;
 
 import java.time.Clock;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 
 public class LifeScriptCompiler {
@@ -65,7 +66,8 @@ public class LifeScriptCompiler {
 
     // A crash is a compiler bug, not the user's: report it instead of failing the request.
     private static Diagnostic internalError(String content, RuntimeException e) {
-        log.error("Compiler crashed on input:\n{}", content, e);
+        // Plans are personal data, so only their size is logged, never their text.
+        log.error("Compiler crashed on a plan of {} characters, {} lines", content.length(), content.lines().count(), e);
         return Diagnostic.withoutPosition(Stage.INTERNAL,
                 "Internal error while compiling the plan (this is a bug in LifeScript, not in your plan)");
     }
@@ -89,7 +91,7 @@ public class LifeScriptCompiler {
             return CompileResult.failed(collector.list());
         }
 
-        return new CompileResult(List.of(), scheduler.schedule(plan));
+        return new CompileResult(List.of(), scheduler.schedule(plan, LocalDateTime.now(clock)));
     }
 
     private LifeScriptParser.PlanContext parseWithSyntaxChecks(String content, DiagnosticCollector collector) {

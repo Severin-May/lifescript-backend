@@ -4,6 +4,9 @@ import com.lifescript.diagnostics.Diagnostic;
 import com.lifescript.diagnostics.Severity;
 import com.lifescript.diagnostics.Stage;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.springframework.boot.test.system.CapturedOutput;
+import org.springframework.boot.test.system.OutputCaptureExtension;
 
 import java.io.IOException;
 import java.util.List;
@@ -45,12 +48,24 @@ class LifeScriptCompilerTest {
 
     @Test
     void schedulerCrash_isReportedAsInternalError() throws IOException {
-        LifeScriptCompiler crashing = compiler(plan -> { throw new IllegalStateException("boom"); });
+        LifeScriptCompiler crashing = compiler((plan, now) -> { throw new IllegalStateException("boom"); });
 
         CompileResult result = crashing.compile(load("fullPlan.ls"));
 
         assertEquals(Stage.INTERNAL, result.diagnostics().get(0).stage());
         assertNull(result.schedule());
+    }
+
+    @Test
+    @ExtendWith(OutputCaptureExtension.class)
+    void schedulerCrash_isLoggedWithoutThePlansContents(CapturedOutput output) throws IOException {
+        LifeScriptCompiler crashing = compiler((plan, now) -> { throw new IllegalStateException("boom"); });
+
+        crashing.compile(load("fullPlan.ls"));
+
+        assertTrue(output.getOut().contains("Compiler crashed"), output::getOut);
+        assertTrue(output.getOut().contains("boom"), output::getOut);
+        assertFalse(output.getOut().contains("bring insurance card"), output::getOut);
     }
 
     @Test

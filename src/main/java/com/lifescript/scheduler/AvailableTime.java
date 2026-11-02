@@ -6,6 +6,8 @@ import com.lifescript.model.TimeRange;
 
 import java.time.Duration;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -16,8 +18,8 @@ public final class AvailableTime {
     private AvailableTime() {
     }
 
-    // Routines and events also take breakTime on both sides.
-    public static Map<LocalDate, List<TimeRange>> of(Plan plan, Duration breakTime) {
+    // Routines and events also take breakTime on both sides. Nothing before notBefore is available.
+    public static Map<LocalDate, List<TimeRange>> of(Plan plan, Duration breakTime, LocalDateTime notBefore) {
         List<FixedCommitment> commitments = new ArrayList<>(plan.getRoutines());
         commitments.addAll(plan.getEvents());
 
@@ -28,6 +30,11 @@ public final class AvailableTime {
                 if (commitment.occursOn(date)) {
                     ranges = minus(ranges, commitment.getTimeRange().paddedBy(breakTime));
                 }
+            }
+            if (date.isBefore(notBefore.toLocalDate())) {
+                ranges = List.of();
+            } else if (date.equals(notBefore.toLocalDate()) && !notBefore.toLocalTime().equals(LocalTime.MIDNIGHT)) {
+                ranges = minus(ranges, new TimeRange(LocalTime.MIDNIGHT, notBefore.toLocalTime()));
             }
             available.put(date, new ArrayList<>(ranges));
         }

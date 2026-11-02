@@ -7,7 +7,6 @@ import com.lifescript.model.TimeRange;
 import org.antlr.v4.runtime.ParserRuleContext;
 import org.antlr.v4.runtime.tree.TerminalNode;
 
-import java.time.DayOfWeek;
 import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalTime;
@@ -518,18 +517,5 @@ public class SemanticValidator extends LifeScriptParserBaseVisitor<Void> {
     // Keywords match in any case, so keys made of keyword text are compared lowercased; names are not.
     private static String keyword(String text) {
         return text.toLowerCase(Locale.ROOT);
-    }
-
-    @Override
-    public Void visitAvailabilityEntry(LifeScriptParser.AvailabilityEntryContext ctx) {
-        String dayOfWeek = ctx.dayOfWeek().getText();
-        DayOfWeek day = Literals.parseDay(dayOfWeek);
-
-        if (period != null && !period.weekdays().contains(day)) {
-            diagnostics.error(ctx, String.format("Availability day of week '%s' must be within the period range '%s'-'%s'",
-                    dayOfWeek, period.start(), period.end()));
-        }
-
-        return visitChildren(ctx);
     }
 }
