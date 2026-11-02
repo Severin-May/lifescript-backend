@@ -27,6 +27,7 @@ import static com.lifescript.TestPlans.load;
 import static java.time.DayOfWeek.*;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class PlanModelBuilderTest {
@@ -55,8 +56,8 @@ class PlanModelBuilderTest {
     void nameAndPeriod_fullPlan() throws IOException {
         Plan plan = build(load("fullPlan.ls"));
 
-        assertEquals("my_week", plan.getName());
-        assertEquals(new PlanPeriod(LocalDate.parse("2026-10-05"), LocalDate.parse("2026-10-11")), plan.getPeriod());
+        assertEquals("my_week", plan.name());
+        assertEquals(new PlanPeriod(LocalDate.parse("2026-10-05"), LocalDate.parse("2026-10-11")), plan.period());
     }
 
     @Test
@@ -64,20 +65,20 @@ class PlanModelBuilderTest {
         Plan plan = build(load("fullPlan.ls"));
         // fullPlan.ls overrides morning (08:00-12:00) and afternoon (13:00-17:00); evening is default 18:00-22:00.
 
-        assertEquals(List.of(range("08:00", "22:00")), plan.getAvailability().get(MONDAY));
-        assertEquals(List.of(range("09:00", "12:00"), range("14:00", "18:00")), plan.getAvailability().get(TUESDAY));
-        assertEquals(List.of(range("08:00", "12:00"), range("18:00", "22:00")), plan.getAvailability().get(WEDNESDAY));
-        assertEquals(List.of(range("13:00", "17:00")), plan.getAvailability().get(THURSDAY));
-        assertEquals(List.of(range("09:00", "17:00")), plan.getAvailability().get(FRIDAY));
+        assertEquals(List.of(range("08:00", "22:00")), plan.availability().get(MONDAY));
+        assertEquals(List.of(range("09:00", "12:00"), range("14:00", "18:00")), plan.availability().get(TUESDAY));
+        assertEquals(List.of(range("08:00", "12:00"), range("18:00", "22:00")), plan.availability().get(WEDNESDAY));
+        assertEquals(List.of(range("13:00", "17:00")), plan.availability().get(THURSDAY));
+        assertEquals(List.of(range("09:00", "17:00")), plan.availability().get(FRIDAY));
     }
 
     @Test
     void availability_unlistedDays_areOff() throws IOException {
         Plan plan = build(load("fullPlan.ls"));
 
-        assertEquals(7, plan.getAvailability().size());
-        assertEquals(List.of(), plan.getAvailability().get(SATURDAY));
-        assertEquals(List.of(), plan.getAvailability().get(SUNDAY));
+        assertEquals(7, plan.availability().size());
+        assertEquals(List.of(), plan.availability().get(SATURDAY));
+        assertEquals(List.of(), plan.availability().get(SUNDAY));
     }
 
     @Test
@@ -85,7 +86,7 @@ class PlanModelBuilderTest {
         Plan plan = build(planWithAvailability("", "monday: flexible"));
 
         // No settings section, so flexible = default morning start (06:00) to default evening end (22:00).
-        assertEquals(List.of(range("06:00", "22:00")), plan.getAvailability().get(MONDAY));
+        assertEquals(List.of(range("06:00", "22:00")), plan.availability().get(MONDAY));
     }
 
     @Test
@@ -98,21 +99,21 @@ class PlanModelBuilderTest {
         Plan plan = build(planWithAvailability(settings, "monday: flexible"));
 
         // flexible = overridden morning start (07:30) to overridden evening end (00:00).
-        assertEquals(List.of(range("07:30", "00:00")), plan.getAvailability().get(MONDAY));
+        assertEquals(List.of(range("07:30", "00:00")), plan.availability().get(MONDAY));
     }
 
     @Test
     void availability_rangesAreSortedByStartTime() {
         Plan plan = build(planWithAvailability("", "monday: 14:00-18:00, 09:00-12:00"));
 
-        assertEquals(List.of(range("09:00", "12:00"), range("14:00", "18:00")), plan.getAvailability().get(MONDAY));
+        assertEquals(List.of(range("09:00", "12:00"), range("14:00", "18:00")), plan.availability().get(MONDAY));
     }
 
     @Test
     void availability_namedPeriods_areSortedByStartTime() {
         Plan plan = build(planWithAvailability("", "monday: evening, morning"));
 
-        assertEquals(List.of(range("06:00", "12:00"), range("18:00", "22:00")), plan.getAvailability().get(MONDAY));
+        assertEquals(List.of(range("06:00", "12:00"), range("18:00", "22:00")), plan.availability().get(MONDAY));
     }
 
     @Test
@@ -124,10 +125,10 @@ class PlanModelBuilderTest {
                 new EnergyEntry(range("08:00", "12:00"), EnergyLevel.HIGH, new SourceLocation(19, 5, 18)),       // morning: high
                 new EnergyEntry(range("13:00", "17:00"), EnergyLevel.MODERATE, new SourceLocation(20, 5, 24)),   // afternoon: moderate
                 new EnergyEntry(range("18:00", "22:00"), EnergyLevel.LOW, new SourceLocation(21, 5, 17))),       // evening: low
-                plan.getDefaultEnergyProfile());
+                plan.defaultEnergyProfile());
         assertEquals(Map.of(FRIDAY, List.of(
                         new EnergyEntry(range("13:00", "17:00"), EnergyLevel.LOW, new SourceLocation(23, 5, 19)))), // afternoon: low
-                plan.getEnergyProfileOverrides());
+                plan.energyProfileOverrides());
     }
 
     @Test
@@ -152,8 +153,8 @@ class PlanModelBuilderTest {
     void energyAt_noEnergyProfile_isModerateEverywhere() {
         Plan plan = build(planWithAvailability("", "monday: flexible"));
 
-        assertTrue(plan.getDefaultEnergyProfile().isEmpty());
-        assertTrue(plan.getEnergyProfileOverrides().isEmpty());
+        assertTrue(plan.defaultEnergyProfile().isEmpty());
+        assertTrue(plan.energyProfileOverrides().isEmpty());
         assertEquals(EnergyLevel.MODERATE, plan.energyAt(MONDAY, LocalTime.parse("09:00")));
         assertEquals(EnergyLevel.MODERATE, plan.energyAt(SUNDAY, LocalTime.parse("21:00")));
     }
@@ -187,29 +188,29 @@ class PlanModelBuilderTest {
     @Test
     void routines_fullPlan() throws IOException {
         Plan plan = build(load("fullPlan.ls"));
-        List<Routine> routines = plan.getRoutines();
+        List<Routine> routines = plan.routines();
 
         assertEquals(List.of("morning_routine", "evening_walk", "team_sync"),
-                routines.stream().map(Routine::getName).toList());
+                routines.stream().map(Routine::name).toList());
 
         Routine morning = routines.get(0);
-        assertEquals(LocalTime.of(7, 0), morning.getStartTime());
-        assertEquals(Duration.ofMinutes(35), morning.getDuration());     // stretch 15m + shower 20m
-        assertEquals(range("07:00", "07:35"), morning.getTimeRange());
-        assertEquals(List.of(DayOfWeek.values()), morning.getRepeatDays()); // daily
+        assertEquals(LocalTime.of(7, 0), morning.startTime());
+        assertEquals(Duration.ofMinutes(35), morning.duration());     // stretch 15m + shower 20m
+        assertEquals(range("07:00", "07:35"), morning.timeRange());
+        assertEquals(List.of(DayOfWeek.values()), morning.repeatDays()); // daily
         assertEquals(List.of("stretch", "shower"),
-                morning.getActivities().stream().map(Activity::getName).toList());
+                morning.activities().stream().map(Activity::name).toList());
         assertEquals(List.of(Duration.ofMinutes(15), Duration.ofMinutes(20)),
-                morning.getActivities().stream().map(Activity::getDuration).toList());
+                morning.activities().stream().map(Activity::duration).toList());
 
         Routine walk = routines.get(1);
-        assertEquals(range("19:00", "19:45"), walk.getTimeRange());      // start + walk 45m
-        assertEquals(List.of(MONDAY, TUESDAY, WEDNESDAY, THURSDAY, FRIDAY), walk.getRepeatDays()); // weekdays
-        assertEquals(Duration.ofMinutes(45), walk.getActivities().get(0).getDuration());
+        assertEquals(range("19:00", "19:45"), walk.timeRange());      // start + walk 45m
+        assertEquals(List.of(MONDAY, TUESDAY, WEDNESDAY, THURSDAY, FRIDAY), walk.repeatDays()); // weekdays
+        assertEquals(Duration.ofMinutes(45), walk.activities().get(0).duration());
 
         Routine teamSync = routines.get(2);
-        assertEquals(range("10:00", "10:30"), teamSync.getTimeRange());
-        assertEquals(List.of(MONDAY, WEDNESDAY), teamSync.getRepeatDays());
+        assertEquals(range("10:00", "10:30"), teamSync.timeRange());
+        assertEquals(List.of(MONDAY, WEDNESDAY), teamSync.repeatDays());
     }
 
     @Test
@@ -224,11 +225,11 @@ class PlanModelBuilderTest {
                 tidy_desk: 30m
                 """;
         Plan plan = build(planWithAvailability(routines, "monday: flexible"));
-        Routine review = plan.getRoutines().get(0);
+        Routine review = plan.routines().get(0);
 
-        assertEquals(List.of(FRIDAY), review.getRepeatDays());
-        assertEquals(Duration.ofMinutes(90), review.getDuration());       // 1h + 30m
-        assertEquals(range("17:00", "18:30"), review.getTimeRange());
+        assertEquals(List.of(FRIDAY), review.repeatDays());
+        assertEquals(Duration.ofMinutes(90), review.duration());       // 1h + 30m
+        assertEquals(range("17:00", "18:30"), review.timeRange());
     }
 
     @Test
@@ -242,7 +243,7 @@ class PlanModelBuilderTest {
                 read: 1h
                 """;
         Plan plan = build(planWithAvailability(routines, "monday: flexible"));
-        TimeRange range = plan.getRoutines().get(0).getTimeRange();
+        TimeRange range = plan.routines().get(0).timeRange();
 
         assertEquals(range("23:00", "00:00"), range);
         assertTrue(range.endsAtMidnight());
@@ -253,48 +254,60 @@ class PlanModelBuilderTest {
     @Test
     void events_fullPlan() throws IOException {
         Plan plan = build(load("fullPlan.ls"));
-        List<Event> events = plan.getEvents();
+        List<Event> events = plan.events();
 
-        assertEquals(List.of("dentist", "team_offsite"), events.stream().map(Event::getName).toList());
+        assertEquals(List.of("dentist", "team_offsite"), events.stream().map(Event::name).toList());
 
         Event dentist = events.get(0);
-        assertEquals(LocalDate.of(2026, 10, 7), dentist.getDate());
-        assertEquals(range("14:00", "15:00"), dentist.getTimeRange());
-        assertEquals("bring insurance card", dentist.getNote());
+        assertEquals(LocalDate.of(2026, 10, 7), dentist.date());
+        assertEquals(range("14:00", "15:00"), dentist.timeRange());
+        assertEquals("bring insurance card", dentist.note());
 
         Event offsite = events.get(1);
-        assertEquals(LocalDate.of(2026, 10, 9), offsite.getDate());
-        assertEquals(range("13:00", "17:00"), offsite.getTimeRange());   // afternoon, overridden in fullPlan settings
-        assertNull(offsite.getNote());
+        assertEquals(LocalDate.of(2026, 10, 9), offsite.date());
+        assertEquals(range("13:00", "17:00"), offsite.timeRange());   // afternoon, overridden in fullPlan settings
+        assertNull(offsite.note());
     }
 
     @Test
     void events_noSection_isEmpty() {
         Plan plan = build(planWithAvailability("", "monday: flexible"));
 
-        assertEquals(List.of(), plan.getEvents());
+        assertEquals(List.of(), plan.events());
     }
 
     @Test
     void tasks_fullPlan() throws IOException {
         Plan plan = build(load("fullPlan.ls"));
-        List<Task> tasks = plan.getTasks();
+        List<Task> tasks = plan.tasks();
 
         assertEquals(List.of("research", "write_report", "inbox_zero"),
-                tasks.stream().map(Task::getName).toList());
+                tasks.stream().map(Task::name).toList());
 
         Task writeReport = tasks.get(1);
-        assertEquals(Duration.ofMinutes(90), writeReport.getDuration());
-        assertEquals(Priority.CRITICAL, writeReport.getPriority());
-        assertEquals(EnergyLevel.HIGH, writeReport.getEffort());
-        assertEquals(LocalDateTime.of(2026, 10, 9, 17, 0), writeReport.getDeadline());
-        assertEquals(List.of("research"), writeReport.getDependencies());
-        assertEquals("final draft for review", writeReport.getNote());
-        assertEquals(List.of(), writeReport.getRepeatDays());
+        assertEquals(Duration.ofMinutes(90), writeReport.duration());
+        assertEquals(Priority.CRITICAL, writeReport.priority());
+        assertEquals(EnergyLevel.HIGH, writeReport.effort());
+        assertEquals(LocalDateTime.of(2026, 10, 9, 17, 0), writeReport.deadline());
+        assertEquals(List.of("research"), writeReport.dependencies());
+        assertEquals("final draft for review", writeReport.note());
+        assertEquals(List.of(), writeReport.repeatDays());
 
         Task inboxZero = tasks.get(2);
-        assertEquals(Priority.LOW, inboxZero.getPriority());
-        assertNull(inboxZero.getDeadline());
-        assertEquals(List.<DayOfWeek>of(MONDAY, TUESDAY, WEDNESDAY, THURSDAY, FRIDAY), inboxZero.getRepeatDays());
+        assertEquals(Priority.LOW, inboxZero.priority());
+        assertNull(inboxZero.deadline());
+        assertEquals(List.<DayOfWeek>of(MONDAY, TUESDAY, WEDNESDAY, THURSDAY, FRIDAY), inboxZero.repeatDays());
+    }
+
+    @Test
+    void plan_isReadOnly_includingNestedLists() throws IOException {
+        Plan plan = build(load("fullPlan.ls"));
+        TimeRange range = new TimeRange(LocalTime.of(20, 0), LocalTime.of(21, 0));
+
+        assertThrows(UnsupportedOperationException.class, () -> plan.tasks().clear());
+        assertThrows(UnsupportedOperationException.class, () -> plan.availability().put(SUNDAY, List.of()));
+        assertThrows(UnsupportedOperationException.class, () -> plan.availability().get(MONDAY).add(range));
+        assertThrows(UnsupportedOperationException.class, () -> plan.tasks().get(0).dependencies().add("x"));
+        assertThrows(UnsupportedOperationException.class, () -> plan.routines().get(0).activities().clear());
     }
 }

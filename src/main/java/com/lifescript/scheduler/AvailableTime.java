@@ -20,15 +20,15 @@ public final class AvailableTime {
 
     // Routines and events also take breakTime on both sides. Nothing before notBefore is available.
     public static Map<LocalDate, List<TimeRange>> of(Plan plan, Duration breakTime, LocalDateTime notBefore) {
-        List<FixedCommitment> commitments = new ArrayList<>(plan.getRoutines());
-        commitments.addAll(plan.getEvents());
+        List<FixedCommitment> commitments = new ArrayList<>(plan.routines());
+        commitments.addAll(plan.events());
 
         Map<LocalDate, List<TimeRange>> available = new TreeMap<>();
-        for (LocalDate date : plan.getPeriod().dates()) {
-            List<TimeRange> ranges = plan.getAvailability().getOrDefault(date.getDayOfWeek(), List.of());
+        for (LocalDate date : plan.period().dates()) {
+            List<TimeRange> ranges = plan.availability().getOrDefault(date.getDayOfWeek(), List.of());
             for (FixedCommitment commitment : commitments) {
                 if (commitment.occursOn(date)) {
-                    ranges = minus(ranges, commitment.getTimeRange().paddedBy(breakTime));
+                    ranges = minus(ranges, commitment.timeRange().paddedBy(breakTime));
                 }
             }
             if (date.isBefore(notBefore.toLocalDate())) {

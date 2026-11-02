@@ -4,15 +4,19 @@ import com.lifescript.diagnostics.SourceLocation;
 import com.lifescript.grammar.LifeScriptParser;
 import com.lifescript.model.Activity;
 import com.lifescript.model.EnergyEntry;
+import com.lifescript.model.EnergyLevel;
 import com.lifescript.model.Event;
 import com.lifescript.model.Plan;
 import com.lifescript.model.PlanPeriod;
+import com.lifescript.model.Priority;
 import com.lifescript.model.Routine;
 import com.lifescript.model.Task;
 import com.lifescript.model.TimeRange;
 import org.antlr.v4.runtime.tree.TerminalNode;
 
 import java.time.DayOfWeek;
+import java.time.Duration;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.ArrayList;
@@ -31,34 +35,41 @@ public class PlanModelBuilder {
     );
 
     public Plan build(LifeScriptParser.PlanContext ctx) {
-        Plan plan = new Plan();
-        plan.setName(ctx.IDENTIFIER().getText());
-        plan.setPeriod(new PlanPeriod(Literals.parseDate(ctx.period().DATE_VAL(0).getText()),
-                Literals.parseDate(ctx.period().DATE_VAL(1).getText())));
+        PlanPeriod period = new PlanPeriod(Literals.parseDate(ctx.period().DATE_VAL(0).getText()),
+                Literals.parseDate(ctx.period().DATE_VAL(1).getText()));
 
         // Settings may come after the sections that use them.
         Map<String, TimeRange> timeSettings = resolveTimeSettings(ctx);
-        plan.setTimeSettings(timeSettings);
+
+        Map<String, SourceLocation> timeSettingLocations = Map.of();
+        Map<DayOfWeek, List<TimeRange>> availability = Map.of();
+        Map<DayOfWeek, SourceLocation> availabilityLocations = Map.of();
+        List<EnergyEntry> defaultEnergyProfile = List.of();
+        Map<DayOfWeek, List<EnergyEntry>> energyProfileOverrides = Map.of();
+        List<Task> tasks = List.of();
+        List<Routine> routines = List.of();
+        List<Event> events = List.of();
 
         for (LifeScriptParser.PlanSectionContext section : ctx.planSection()) {
             if (section.routines() != null) {
-                plan.setRoutines(buildRoutines(section.routines()));
+                routines = buildRoutines(section.routines());
             } else if (section.tasks() != null) {
-                plan.setTasks(buildTasks(section.tasks()));
+                tasks = buildTasks(section.tasks());
             } else if (section.settings() != null) {
-                plan.setTimeSettingLocations(buildTimeSettingLocations(section.settings()));
+                timeSettingLocations = buildTimeSettingLocations(section.settings());
             } else if (section.availability() != null) {
-                plan.setAvailability(buildAvailability(section.availability(), timeSettings));
-                plan.setAvailabilityLocations(buildAvailabilityLocations(section.availability()));
+                availability = buildAvailability(section.availability(), timeSettings);
+                availabilityLocations = buildAvailabilityLocations(section.availability());
             } else if (section.energyProfile() != null) {
-                plan.setDefaultEnergyProfile(buildDefaultEnergyProfile(section.energyProfile(), timeSettings));
-                plan.setEnergyProfileOverrides(buildEnergyProfileOverrides(section.energyProfile(), timeSettings));
+                defaultEnergyProfile = buildDefaultEnergyProfile(section.energyProfile(), timeSettings);
+                energyProfileOverrides = buildEnergyProfileOverrides(section.energyProfile(), timeSettings);
             } else if (section.events() != null) {
-                plan.setEvents(buildEvents(section.events(), timeSettings));
+                events = buildEvents(section.events(), timeSettings);
             }
         }
 
-        return plan;
+        return new Plan(ctx.IDENTIFIER().getText(), period, timeSettings, timeSettingLocations, availability,
+                availabilityLocations, defaultEnergyProfile, energyProfileOverrides, tasks, routines, events);
     }
 
     private List<Routine> buildRoutines(LifeScriptParser.RoutinesContext ctx) {
@@ -70,30 +81,29 @@ public class PlanModelBuilder {
     }
 
     private Routine buildRoutine(LifeScriptParser.RoutineEntryContext ctx) {
-        Routine routine = new Routine();
-        routine.setName(ctx.IDENTIFIER().getText());
-        routine.setLocation(DiagnosticCollector.locationOf(ctx));
+        LocalTime startTime = null;
+        List<DayOfWeek> repeatDays = List.of();
+        List<Activity> activities = List.of();
 
         for (LifeScriptParser.RoutinePropertyContext prop : ctx.routineProperty()) {
             if (prop.routineTime() != null) {
-                routine.setStartTime(Literals.parseTime(prop.routineTime().TIME_VAL().getText()));
+                startTime = Literals.parseTime(prop.routineTime().TIME_VAL().getText());
             } else if (prop.repeats() != null) {
-                routine.setRepeatDays(buildRepeatDays(prop.repeats().repeatPattern()));
+                repeatDays = buildRepeatDays(prop.repeats().repeatPattern());
             } else if (prop.routineActivities() != null) {
-                routine.setActivities(buildActivities(prop.routineActivities()));
+                activities = buildActivities(prop.routineActivities());
             }
         }
 
-        return routine;
+        return new Routine(ctx.IDENTIFIER().getText(), startTime, repeatDays, activities,
+                DiagnosticCollector.locationOf(ctx));
     }
 
     private List<Activity> buildActivities(LifeScriptParser.RoutineActivitiesContext ctx) {
         List<Activity> activities = new ArrayList<>();
         for (LifeScriptParser.ActivityEntryContext entry : ctx.activityEntry()) {
-            Activity activity = new Activity();
-            activity.setName(entry.IDENTIFIER().getText());
-            activity.setDuration(Literals.parseDuration(entry.DURATION_VAL().getText()));
-            activities.add(activity);
+            activities.add(new Activity(entry.IDENTIFIER().getText(),
+                    Literals.parseDuration(entry.DURATION_VAL().getText())));
         }
         return activities;
     }
@@ -107,22 +117,22 @@ public class PlanModelBuilder {
     }
 
     private Event buildEvent(LifeScriptParser.EventContext ctx, Map<String, TimeRange> timeSettings) {
-        Event event = new Event();
-        event.setName(ctx.IDENTIFIER().getText());
-        event.setLocation(DiagnosticCollector.locationOf(ctx));
+        LocalDate date = null;
+        TimeRange timeRange = null;
+        String note = null;
 
         for (LifeScriptParser.EventPropertyContext prop : ctx.eventProperty()) {
             if (prop.eventDate() != null) {
-                event.setDate(Literals.parseDate(prop.eventDate().DATE_VAL().getText()));
+                date = Literals.parseDate(prop.eventDate().DATE_VAL().getText());
             } else if (prop.eventTime() != null) {
                 LifeScriptParser.EventTimeContext time = prop.eventTime();
-                event.setTimeRange(resolveTimeRange(time.namedPeriod(), time.timeRange(), timeSettings));
+                timeRange = resolveTimeRange(time.namedPeriod(), time.timeRange(), timeSettings);
             } else if (prop.eventNote() != null) {
-                event.setNote(Literals.parseString(prop.eventNote().STRING().getText()));
+                note = Literals.parseString(prop.eventNote().STRING().getText());
             }
         }
 
-        return event;
+        return new Event(ctx.IDENTIFIER().getText(), date, timeRange, note, DiagnosticCollector.locationOf(ctx));
     }
 
     // Days not listed are off (empty list).
@@ -204,34 +214,35 @@ public class PlanModelBuilder {
     }
 
     private Task buildTask(LifeScriptParser.TaskContext ctx) {
-        Task task = new Task();
-        task.setName(ctx.IDENTIFIER().getText());
+        Duration duration = null;
+        Priority priority = null;
+        EnergyLevel effort = null;
+        LocalDateTime deadline = null;
+        List<DayOfWeek> repeatDays = List.of();
+        List<String> dependencies = List.of();
+        String note = null;
 
         for (LifeScriptParser.TaskPropertyContext prop : ctx.taskProperty()) {
             if (prop.taskDuration() != null) {
-                task.setDuration(Literals.parseDuration(prop.taskDuration().DURATION_VAL().getText()));
+                duration = Literals.parseDuration(prop.taskDuration().DURATION_VAL().getText());
             } else if (prop.taskPriority() != null) {
-                task.setPriority(Keywords.parsePriority(prop.taskPriority().priorityLevel().getText()));
+                priority = Keywords.parsePriority(prop.taskPriority().priorityLevel().getText());
             } else if (prop.taskEffort() != null) {
-                task.setEffort(Keywords.parseEnergyLevel(prop.taskEffort().energyLevel().getText()));
+                effort = Keywords.parseEnergyLevel(prop.taskEffort().energyLevel().getText());
             } else if (prop.taskDeadline() != null) {
-                LifeScriptParser.TaskDeadlineContext deadline = prop.taskDeadline();
-                task.setDeadline(LocalDateTime.of(Literals.parseDate(deadline.DATE_VAL().getText()),
-                        Literals.parseTime(deadline.TIME_VAL().getText())));
+                LifeScriptParser.TaskDeadlineContext deadlineCtx = prop.taskDeadline();
+                deadline = LocalDateTime.of(Literals.parseDate(deadlineCtx.DATE_VAL().getText()),
+                        Literals.parseTime(deadlineCtx.TIME_VAL().getText()));
             } else if (prop.repeats() != null) {
-                task.setRepeatDays(buildRepeatDays(prop.repeats().repeatPattern()));
+                repeatDays = buildRepeatDays(prop.repeats().repeatPattern());
             } else if (prop.taskDependencies() != null) {
-                List<String> dependencies = new ArrayList<>();
-                for (TerminalNode name : prop.taskDependencies().IDENTIFIER()) {
-                    dependencies.add(name.getText());
-                }
-                task.setDependencies(dependencies);
+                dependencies = prop.taskDependencies().IDENTIFIER().stream().map(TerminalNode::getText).toList();
             } else if (prop.taskNote() != null) {
-                task.setNote(Literals.parseString(prop.taskNote().STRING().getText()));
+                note = Literals.parseString(prop.taskNote().STRING().getText());
             }
         }
 
-        return task;
+        return new Task(ctx.IDENTIFIER().getText(), duration, priority, effort, deadline, repeatDays, dependencies, note);
     }
 
     private List<DayOfWeek> buildRepeatDays(LifeScriptParser.RepeatPatternContext ctx) {

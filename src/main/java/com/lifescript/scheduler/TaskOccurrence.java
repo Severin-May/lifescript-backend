@@ -10,6 +10,6 @@ import java.time.LocalDateTime;
 public record TaskOccurrence(Task task, LocalDate date, LocalDateTime preferredEnd, LocalDateTime hardEnd) {
 
     public String name() {
-        return task.getName();
+        return task.name();
     }
 }

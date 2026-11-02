@@ -6,11 +6,11 @@ import java.time.LocalDate;
 
 public interface FixedCommitment {
 
-    String getName();
+    String name();
 
-    TimeRange getTimeRange();
+    TimeRange timeRange();
 
     boolean occursOn(LocalDate date);
 
-    SourceLocation getLocation();
+    SourceLocation location();
 }

@@ -4,89 +4,43 @@ import com.lifescript.diagnostics.SourceLocation;
 
 import java.time.DayOfWeek;
 import java.time.LocalTime;
-import java.util.ArrayList;
+import java.util.Collections;
 import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-public class Plan {
-    private String name;
-    private PlanPeriod period;
-    private Map<String, TimeRange> timeSettings = new HashMap<>();
-    // Only entries written in the file.
-    private Map<String, SourceLocation> timeSettingLocations = new HashMap<>();
-    private Map<DayOfWeek, List<TimeRange>> availability = new EnumMap<>(DayOfWeek.class);
-    // Only days listed in the file.
-    private Map<DayOfWeek, SourceLocation> availabilityLocations = new EnumMap<>(DayOfWeek.class);
-    private List<EnergyEntry> defaultEnergyProfile = new ArrayList<>();
-    private Map<DayOfWeek, List<EnergyEntry>> energyProfileOverrides = new EnumMap<>(DayOfWeek.class);
-    private List<Task> tasks = new ArrayList<>();
-    private List<Routine> routines = new ArrayList<>();
-    private List<Event> events = new ArrayList<>();
+// timeSettingLocations: only entries written in the file. availabilityLocations: only days listed in the file.
+public record Plan(String name, PlanPeriod period,
+                   Map<String, TimeRange> timeSettings, Map<String, SourceLocation> timeSettingLocations,
+                   Map<DayOfWeek, List<TimeRange>> availability, Map<DayOfWeek, SourceLocation> availabilityLocations,
+                   List<EnergyEntry> defaultEnergyProfile, Map<DayOfWeek, List<EnergyEntry>> energyProfileOverrides,
+                   List<Task> tasks, List<Routine> routines, List<Event> events) {
 
-    public String getName() {
-        return name;
+    // Copied so the plan can't be changed afterwards, including the lists inside the maps.
+    // Day maps stay EnumMaps (Monday to Sunday order), others HashMaps, so iteration order is unchanged.
+    public Plan {
+        timeSettings = Collections.unmodifiableMap(new HashMap<>(timeSettings));
+        timeSettingLocations = Collections.unmodifiableMap(new HashMap<>(timeSettingLocations));
+        availability = copyListsByDay(availability);
+        availabilityLocations = copyByDay(availabilityLocations);
+        defaultEnergyProfile = List.copyOf(defaultEnergyProfile);
+        energyProfileOverrides = copyListsByDay(energyProfileOverrides);
+        tasks = List.copyOf(tasks);
+        routines = List.copyOf(routines);
+        events = List.copyOf(events);
     }
 
-    public void setName(String name) {
-        this.name = name;
+    private static <V> Map<DayOfWeek, V> copyByDay(Map<DayOfWeek, V> byDay) {
+        Map<DayOfWeek, V> copy = new EnumMap<>(DayOfWeek.class);
+        copy.putAll(byDay);
+        return Collections.unmodifiableMap(copy);
     }
 
-    public PlanPeriod getPeriod() {
-        return period;
-    }
-
-    public void setPeriod(PlanPeriod period) {
-        this.period = period;
-    }
-
-    public Map<String, TimeRange> getTimeSettings() {
-        return timeSettings;
-    }
-
-    public void setTimeSettings(Map<String, TimeRange> timeSettings) {
-        this.timeSettings = timeSettings;
-    }
-
-    public Map<String, SourceLocation> getTimeSettingLocations() {
-        return timeSettingLocations;
-    }
-
-    public void setTimeSettingLocations(Map<String, SourceLocation> timeSettingLocations) {
-        this.timeSettingLocations = timeSettingLocations;
-    }
-
-    public Map<DayOfWeek, List<TimeRange>> getAvailability() {
-        return availability;
-    }
-
-    public void setAvailability(Map<DayOfWeek, List<TimeRange>> availability) {
-        this.availability = availability;
-    }
-
-    public Map<DayOfWeek, SourceLocation> getAvailabilityLocations() {
-        return availabilityLocations;
-    }
-
-    public void setAvailabilityLocations(Map<DayOfWeek, SourceLocation> availabilityLocations) {
-        this.availabilityLocations = availabilityLocations;
-    }
-
-    public List<EnergyEntry> getDefaultEnergyProfile() {
-        return defaultEnergyProfile;
-    }
-
-    public void setDefaultEnergyProfile(List<EnergyEntry> defaultEnergyProfile) {
-        this.defaultEnergyProfile = defaultEnergyProfile;
-    }
-
-    public Map<DayOfWeek, List<EnergyEntry>> getEnergyProfileOverrides() {
-        return energyProfileOverrides;
-    }
-
-    public void setEnergyProfileOverrides(Map<DayOfWeek, List<EnergyEntry>> energyProfileOverrides) {
-        this.energyProfileOverrides = energyProfileOverrides;
+    private static <V> Map<DayOfWeek, List<V>> copyListsByDay(Map<DayOfWeek, List<V>> byDay) {
+        Map<DayOfWeek, List<V>> copy = new EnumMap<>(DayOfWeek.class);
+        byDay.forEach((day, list) -> copy.put(day, List.copyOf(list)));
+        return Collections.unmodifiableMap(copy);
     }
 
     // The day's block first, then the default, then MODERATE.
@@ -106,29 +60,5 @@ public class Plan {
             }
         }
         return null;
-    }
-
-    public List<Task> getTasks() {
-        return tasks;
-    }
-
-    public void setTasks(List<Task> tasks) {
-        this.tasks = tasks;
-    }
-
-    public List<Event> getEvents() {
-        return events;
-    }
-
-    public void setEvents(List<Event> events) {
-        this.events = events;
-    }
-
-    public List<Routine> getRoutines() {
-        return routines;
-    }
-
-    public void setRoutines(List<Routine> routines) {
-        this.routines = routines;
     }
 }

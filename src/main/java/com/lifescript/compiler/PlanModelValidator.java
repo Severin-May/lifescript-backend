@@ -35,8 +35,8 @@ public class PlanModelValidator {
 
     // Reported at the earlier period's line if written, else the later's (defaults are ordered).
     private void checkSettingsOrder(Plan plan) {
-        Map<String, TimeRange> timeSettings = plan.getTimeSettings();
-        Map<String, SourceLocation> locations = plan.getTimeSettingLocations();
+        Map<String, TimeRange> timeSettings = plan.timeSettings();
+        Map<String, SourceLocation> locations = plan.timeSettingLocations();
         for (int i = 0; i < PERIOD_ORDER.size() - 1; i++) {
             String earlierName = PERIOD_ORDER.get(i);
             String laterName = PERIOD_ORDER.get(i + 1);
@@ -52,12 +52,12 @@ public class PlanModelValidator {
     }
 
     private void checkAvailabilityOverlaps(Plan plan) {
-        for (Map.Entry<DayOfWeek, List<TimeRange>> day : plan.getAvailability().entrySet()) {
+        for (Map.Entry<DayOfWeek, List<TimeRange>> day : plan.availability().entrySet()) {
             List<TimeRange> ranges = day.getValue();
             for (int i = 0; i < ranges.size(); i++) {
                 for (int j = i + 1; j < ranges.size(); j++) {
                     if (ranges.get(i).overlaps(ranges.get(j))) {
-                        diagnostics.error(plan.getAvailabilityLocations().get(day.getKey()),
+                        diagnostics.error(plan.availabilityLocations().get(day.getKey()),
                                 String.format("Availability on %s: %s overlaps %s",
                                         Keywords.format(day.getKey()), ranges.get(i), ranges.get(j)));
                     }
@@ -68,8 +68,8 @@ public class PlanModelValidator {
 
     // A day block may overlap the default: that's how it replaces part of it.
     private void checkEnergyOverlaps(Plan plan) {
-        checkEnergyBlock("default", plan.getDefaultEnergyProfile());
-        for (Map.Entry<DayOfWeek, List<EnergyEntry>> day : plan.getEnergyProfileOverrides().entrySet()) {
+        checkEnergyBlock("default", plan.defaultEnergyProfile());
+        for (Map.Entry<DayOfWeek, List<EnergyEntry>> day : plan.energyProfileOverrides().entrySet()) {
             checkEnergyBlock(Keywords.format(day.getKey()), day.getValue());
         }
     }
@@ -98,27 +98,27 @@ public class PlanModelValidator {
     }
 
     private void checkRoutineOverlaps(Plan plan) {
-        Set<DayOfWeek> daysInPeriod = plan.getPeriod().weekdays();
-        List<Routine> routines = plan.getRoutines();
+        Set<DayOfWeek> daysInPeriod = plan.period().weekdays();
+        List<Routine> routines = plan.routines();
 
         for (int i = 0; i < routines.size(); i++) {
             for (int j = i + 1; j < routines.size(); j++) {
                 Routine a = routines.get(i);
                 Routine b = routines.get(j);
-                if (!a.getTimeRange().overlaps(b.getTimeRange())) {
+                if (!a.timeRange().overlaps(b.timeRange())) {
                     continue;
                 }
 
                 List<DayOfWeek> clashDays = new ArrayList<>();
                 for (DayOfWeek day : DayOfWeek.values()) {
-                    if (daysInPeriod.contains(day) && a.getRepeatDays().contains(day) && b.getRepeatDays().contains(day)) {
+                    if (daysInPeriod.contains(day) && a.repeatDays().contains(day) && b.repeatDays().contains(day)) {
                         clashDays.add(day);
                     }
                 }
 
                 if (!clashDays.isEmpty()) {
-                    diagnostics.error(b.getLocation(), String.format("Routine %s (%s) overlaps routine %s (%s) on %s",
-                            a.getName(), a.getTimeRange(), b.getName(), b.getTimeRange(),
+                    diagnostics.error(b.location(), String.format("Routine %s (%s) overlaps routine %s (%s) on %s",
+                            a.name(), a.timeRange(), b.name(), b.timeRange(),
                             clashDays.stream().map(Keywords::format).collect(Collectors.joining(", "))));
                 }
             }
@@ -126,25 +126,25 @@ public class PlanModelValidator {
     }
 
     private void checkEventOverlaps(Plan plan) {
-        List<Event> events = plan.getEvents();
+        List<Event> events = plan.events();
 
         for (int i = 0; i < events.size(); i++) {
             Event event = events.get(i);
 
-            for (Routine routine : plan.getRoutines()) {
-                if (routine.occursOn(event.getDate()) && event.getTimeRange().overlaps(routine.getTimeRange())) {
-                    diagnostics.error(event.getLocation(), String.format("Event %s (%s) on %s overlaps routine %s (%s)",
-                            event.getName(), event.getTimeRange(), event.getDate(),
-                            routine.getName(), routine.getTimeRange()));
+            for (Routine routine : plan.routines()) {
+                if (routine.occursOn(event.date()) && event.timeRange().overlaps(routine.timeRange())) {
+                    diagnostics.error(event.location(), String.format("Event %s (%s) on %s overlaps routine %s (%s)",
+                            event.name(), event.timeRange(), event.date(),
+                            routine.name(), routine.timeRange()));
                 }
             }
 
             for (int j = i + 1; j < events.size(); j++) {
                 Event other = events.get(j);
-                if (other.occursOn(event.getDate()) && event.getTimeRange().overlaps(other.getTimeRange())) {
-                    diagnostics.error(other.getLocation(), String.format("Event %s (%s) overlaps event %s (%s) on %s",
-                            event.getName(), event.getTimeRange(), other.getName(), other.getTimeRange(),
-                            event.getDate()));
+                if (other.occursOn(event.date()) && event.timeRange().overlaps(other.timeRange())) {
+                    diagnostics.error(other.location(), String.format("Event %s (%s) overlaps event %s (%s) on %s",
+                            event.name(), event.timeRange(), other.name(), other.timeRange(),
+                            event.date()));
                 }
             }
         }

@@ -35,8 +35,8 @@ public final class EnergyMatch {
         int start = time.startTime().toSecondOfDay();
         int end = time.endSecondOfDay();
         TreeSet<Integer> cuts = new TreeSet<>(List.of(start, end));
-        addCuts(cuts, plan.getDefaultEnergyProfile(), start, end);
-        addCuts(cuts, plan.getEnergyProfileOverrides().getOrDefault(day, List.of()), start, end);
+        addCuts(cuts, plan.defaultEnergyProfile(), start, end);
+        addCuts(cuts, plan.energyProfileOverrides().getOrDefault(day, List.of()), start, end);
 
         Map<EnergyLevel, Integer> secondsPerLevel = new EnumMap<>(EnergyLevel.class);
         Integer pieceStart = cuts.first();

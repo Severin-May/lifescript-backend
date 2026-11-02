@@ -18,7 +18,7 @@ final class TaskOrder {
     static List<TaskOccurrence> of(List<TaskOccurrence> occurrences) {
         Comparator<TaskOccurrence> rank = Comparator
                 .comparing(TaskOccurrence::preferredEnd, Comparator.nullsLast(Comparator.<LocalDateTime>naturalOrder()))
-                .thenComparing(o -> o.task().getPriority(), Comparator.<Priority>naturalOrder())
+                .thenComparing(o -> o.task().priority(), Comparator.<Priority>naturalOrder())
                 .thenComparing(occurrences::indexOf);
 
         // Without deadlines, only this keeps dependencies first.
@@ -27,7 +27,7 @@ final class TaskOrder {
         Set<String> done = new HashSet<>();
         while (!remaining.isEmpty()) {
             TaskOccurrence next = remaining.stream()
-                    .filter(o -> done.containsAll(o.task().getDependencies()))
+                    .filter(o -> done.containsAll(o.task().dependencies()))
                     .min(rank)
                     .orElseThrow(() -> new IllegalStateException("Dependency cycle; SemanticValidator should have rejected it"));
             remaining.remove(next);

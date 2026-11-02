@@ -53,11 +53,11 @@ public class GreedyScheduler implements Scheduler {
         Set<String> failed = new HashSet<>();
 
         for (TaskOccurrence occurrence : TaskOrder.of(TaskOccurrences.of(plan, settings))) {
-            List<String> dependencies = occurrence.task().getDependencies();
+            List<String> dependencies = occurrence.task().dependencies();
             String failedDependency = dependencies.stream().filter(failed::contains).findFirst().orElse(null);
             if (failedDependency != null) {
                 unscheduled.add(new UnscheduledTask(occurrence.name(), occurrence.date(),
-                        "depends on " + failedDependency + ", which could not be scheduled", occurrence.task().getNote()));
+                        "depends on " + failedDependency + ", which could not be scheduled", occurrence.task().note()));
                 failed.add(occurrence.name());
                 continue;
             }
@@ -74,13 +74,13 @@ public class GreedyScheduler implements Scheduler {
 
             if (placement == null) {
                 unscheduled.add(new UnscheduledTask(occurrence.name(), occurrence.date(), reason(occurrence, dependencies),
-                        occurrence.task().getNote()));
+                        occurrence.task().note()));
                 failed.add(occurrence.name());
                 continue;
             }
 
             days.get(placement.date()).add(new ScheduleEntry(EntryType.TASK, occurrence.name(), placement.time(),
-                    occurrence.task().getNote()));
+                    occurrence.task().note()));
             // Padded on both sides because tasks aren't placed in time order.
             available.put(placement.date(), AvailableTime.minus(available.get(placement.date()),
                     placement.time().paddedBy(settings.breakTime())));
@@ -100,16 +100,16 @@ public class GreedyScheduler implements Scheduler {
 
     private static Map<LocalDate, List<ScheduleEntry>> fixedCommitments(Plan plan) {
         Map<LocalDate, List<ScheduleEntry>> days = new TreeMap<>();
-        for (LocalDate date : plan.getPeriod().dates()) {
+        for (LocalDate date : plan.period().dates()) {
             List<ScheduleEntry> entries = new ArrayList<>();
-            for (Routine routine : plan.getRoutines()) {
+            for (Routine routine : plan.routines()) {
                 if (routine.occursOn(date)) {
-                    entries.add(new ScheduleEntry(EntryType.ROUTINE, routine.getName(), routine.getTimeRange(), null));
+                    entries.add(new ScheduleEntry(EntryType.ROUTINE, routine.name(), routine.timeRange(), null));
                 }
             }
-            for (Event event : plan.getEvents()) {
+            for (Event event : plan.events()) {
                 if (event.occursOn(date)) {
-                    entries.add(new ScheduleEntry(EntryType.EVENT, event.getName(), event.getTimeRange(), event.getNote()));
+                    entries.add(new ScheduleEntry(EntryType.EVENT, event.name(), event.timeRange(), event.note()));
                 }
             }
             days.put(date, entries);
@@ -120,7 +120,7 @@ public class GreedyScheduler implements Scheduler {
     // Candidates come in time order, so of equally good fits the earliest is kept.
     private Placement bestPlacement(Plan plan, Map<LocalDate, List<TimeRange>> available, TaskOccurrence occurrence,
                                     LocalDateTime earliestStart, LocalDateTime latestEnd) {
-        int duration = (int) occurrence.task().getDuration().toSeconds();
+        int duration = (int) occurrence.task().duration().toSeconds();
         int step = (int) settings.startStep().toSeconds();
         List<LocalDate> dates = occurrence.date() != null ? List.of(occurrence.date()) : List.copyOf(available.keySet());
 
@@ -137,7 +137,7 @@ public class GreedyScheduler implements Scheduler {
                     if (latestEnd != null && endDateTime(date, time).isAfter(latestEnd)) {
                         continue;
                     }
-                    EnergyFit fit = EnergyMatch.fit(plan, date.getDayOfWeek(), time, occurrence.task().getEffort());
+                    EnergyFit fit = EnergyMatch.fit(plan, date.getDayOfWeek(), time, occurrence.task().effort());
                     if (best == null || fit.isBetterThan(bestFit)) {
                         best = new Placement(date, time);
                         bestFit = fit;
