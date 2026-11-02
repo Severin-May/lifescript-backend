@@ -27,8 +27,8 @@ class TimeAndDateValidationTest {
 
         List<String> errors = errors(plan);
 
-        assertTrue(errors.stream().anyMatch(e -> e.contains("Invalid date '2024-13-40'")));
-        assertTrue(errors.stream().anyMatch(e -> e.contains("Invalid deadline date '2024-02-30'")));
+        assertTrue(errors.stream().anyMatch(e -> e.contains("Date '2024-13-40' isn't a real date")));
+        assertTrue(errors.stream().anyMatch(e -> e.contains("Deadline date '2024-02-30' isn't a real date")));
     }
 
     @Test
@@ -51,9 +51,9 @@ class TimeAndDateValidationTest {
 
         List<String> errors = errors(plan);
 
-        assertTrue(errors.stream().anyMatch(e -> e.contains("Invalid time '25:00'")));
-        assertTrue(errors.stream().anyMatch(e -> e.contains("Invalid time '09:61'")));
-        assertTrue(errors.stream().anyMatch(e -> e.contains("Invalid time '24:00'")));
+        assertTrue(errors.stream().anyMatch(e -> e.contains("Time '25:00' isn't valid (hours 00-23, minutes 00-59; midnight is 00:00)")));
+        assertTrue(errors.stream().anyMatch(e -> e.contains("Time '09:61' isn't valid (hours 00-23, minutes 00-59; midnight is 00:00)")));
+        assertTrue(errors.stream().anyMatch(e -> e.contains("Time '24:00' isn't valid (hours 00-23, minutes 00-59; midnight is 00:00)")));
         assertFalse(errors.stream().anyMatch(e -> e.contains("Syntax error")));
     }
 
@@ -189,7 +189,7 @@ class TimeAndDateValidationTest {
 
     @Test
     void period_endingBeforeItStarts_isReported() {
-        assertEquals(List.of("Line 2: Start date '2026-10-07' must not be after end date '2026-10-05'"),
+        assertEquals(List.of("Line 2: Start date '2026-10-07' can't be after end date '2026-10-05'"),
                 errors(planWithPeriod("2026-10-07 to 2026-10-05")));
     }
 }

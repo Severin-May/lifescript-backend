@@ -27,6 +27,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
+import java.util.stream.Collectors;
 
 public class GreedyScheduler implements Scheduler {
 
@@ -57,7 +58,7 @@ public class GreedyScheduler implements Scheduler {
             String failedDependency = dependencies.stream().filter(failed::contains).findFirst().orElse(null);
             if (failedDependency != null) {
                 unscheduled.add(new UnscheduledTask(occurrence.name(), occurrence.date(),
-                        "depends on " + failedDependency + ", which could not be scheduled", occurrence.task().note()));
+                        "depends on '" + failedDependency + "', which couldn't be scheduled", occurrence.task().note()));
                 failed.add(occurrence.name());
                 continue;
             }
@@ -186,7 +187,7 @@ public class GreedyScheduler implements Scheduler {
             return reason.append(" on ").append(occurrence.date()).toString();
         }
         if (!dependencies.isEmpty()) {
-            reason.append(" after ").append(String.join(", ", dependencies))
+            reason.append(" after ").append(dependencies.stream().map(name -> "'" + name + "'").collect(Collectors.joining(", ")))
                     .append(dependencies.size() == 1 ? " ends" : " end");
         }
         if (occurrence.hardEnd() != null) {

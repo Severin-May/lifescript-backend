@@ -178,8 +178,8 @@ class PlanModelValidatorTest {
 
         // gym overlaps both others on its two days; reading only touches morning_routine (07:35)
         assertEquals(List.of(
-                "Line 15: Routine morning_routine (07:00-07:35) overlaps routine gym (07:15-08:00) on monday, wednesday",
-                "Line 21: Routine gym (07:15-08:00) overlaps routine reading (07:35-08:05) on monday, wednesday"), errors);
+                "Line 15: Routine 'morning_routine' (07:00-07:35) overlaps routine 'gym' (07:15-08:00) on monday, wednesday",
+                "Line 21: Routine 'gym' (07:15-08:00) overlaps routine 'reading' (07:35-08:05) on monday, wednesday"), errors);
     }
 
     @Test
@@ -232,7 +232,7 @@ class PlanModelValidatorTest {
 
         // lunch is on a Thursday, when team_sync doesn't happen
         assertEquals(List.of(
-                "Line 15: Event dentist (10:00-11:00) on 2026-10-07 overlaps routine team_sync (10:00-10:30)"), errors);
+                "Line 15: Event 'dentist' (10:00-11:00) on 2026-10-07 overlaps routine 'team_sync' (10:00-10:30)"), errors);
     }
 
     @Test
@@ -256,7 +256,7 @@ class PlanModelValidatorTest {
                 """);
 
         assertEquals(List.of(
-                "Line 12: Event dentist (10:00-11:00) overlaps event call (10:30-11:30) on 2026-10-07"), errors);
+                "Line 12: Event 'dentist' (10:00-11:00) overlaps event 'call' (10:30-11:30) on 2026-10-07"), errors);
     }
 
     @Test

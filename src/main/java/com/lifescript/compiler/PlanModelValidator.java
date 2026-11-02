@@ -117,7 +117,7 @@ public class PlanModelValidator {
                 }
 
                 if (!clashDays.isEmpty()) {
-                    diagnostics.error(b.location(), String.format("Routine %s (%s) overlaps routine %s (%s) on %s",
+                    diagnostics.error(b.location(), String.format("Routine '%s' (%s) overlaps routine '%s' (%s) on %s",
                             a.name(), a.timeRange(), b.name(), b.timeRange(),
                             clashDays.stream().map(Keywords::format).collect(Collectors.joining(", "))));
                 }
@@ -133,7 +133,7 @@ public class PlanModelValidator {
 
             for (Routine routine : plan.routines()) {
                 if (routine.occursOn(event.date()) && event.timeRange().overlaps(routine.timeRange())) {
-                    diagnostics.error(event.location(), String.format("Event %s (%s) on %s overlaps routine %s (%s)",
+                    diagnostics.error(event.location(), String.format("Event '%s' (%s) on %s overlaps routine '%s' (%s)",
                             event.name(), event.timeRange(), event.date(),
                             routine.name(), routine.timeRange()));
                 }
@@ -142,7 +142,7 @@ public class PlanModelValidator {
             for (int j = i + 1; j < events.size(); j++) {
                 Event other = events.get(j);
                 if (other.occursOn(event.date()) && event.timeRange().overlaps(other.timeRange())) {
-                    diagnostics.error(other.location(), String.format("Event %s (%s) overlaps event %s (%s) on %s",
+                    diagnostics.error(other.location(), String.format("Event '%s' (%s) overlaps event '%s' (%s) on %s",
                             event.name(), event.timeRange(), other.name(), other.timeRange(),
                             event.date()));
                 }

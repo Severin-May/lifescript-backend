@@ -150,7 +150,7 @@ class GreedySchedulerTest {
 
         assertEquals(List.of(
                 new UnscheduledTask("big", null, "no free slot long enough in the period", "split it up?"),
-                new UnscheduledTask("after_big", null, "depends on big, which could not be scheduled", "after big is done")),
+                new UnscheduledTask("after_big", null, "depends on 'big', which couldn't be scheduled", "after big is done")),
                 schedule.unscheduled());
     }
 
@@ -177,7 +177,7 @@ class GreedySchedulerTest {
                 """));
 
         assertEquals(List.of(entry(TASK, "prepare", "11:00", "12:00")), schedule.entriesOn(MON));
-        assertEquals(List.of(new UnscheduledTask("present", null, "no free slot long enough after prepare ends", null)),
+        assertEquals(List.of(new UnscheduledTask("present", null, "no free slot long enough after 'prepare' ends", null)),
                 schedule.unscheduled());
     }
 

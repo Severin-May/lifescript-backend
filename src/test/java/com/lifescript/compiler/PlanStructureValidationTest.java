@@ -23,7 +23,7 @@ class PlanStructureValidationTest {
 
         List<String> errors = errors(plan);
 
-        assertTrue(errors.stream().anyMatch(e -> e.contains("missing mandatory property: tasks")));
+        assertTrue(errors.stream().anyMatch(e -> e.contains("needs a 'tasks' section")));
     }
 
     @Test
@@ -41,7 +41,7 @@ class PlanStructureValidationTest {
 
         List<String> errors = errors(plan);
 
-        assertTrue(errors.stream().anyMatch(e -> e.contains("missing mandatory property: availability")));
+        assertTrue(errors.stream().anyMatch(e -> e.contains("needs an 'availability' section")));
     }
 
     @Test
@@ -64,7 +64,7 @@ class PlanStructureValidationTest {
         List<String> errors = errors(plan);
 
         assertTrue(errors.stream().anyMatch(e -> e.contains("Duplicate section 'tasks'")));
-        assertFalse(errors.stream().anyMatch(e -> e.contains("Invalid deadline date")),
+        assertFalse(errors.stream().anyMatch(e -> e.contains("Deadline date")),
                 () -> "Contents of the duplicate section should be skipped, but got: " + errors);
     }
 

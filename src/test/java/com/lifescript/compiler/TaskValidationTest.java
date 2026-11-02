@@ -98,9 +98,9 @@ class TaskValidationTest {
         List<String> errors = errors(plan);
 
         assertEquals(List.of(
-                "Line 12: Invalid time '25:00'",
-                "Line 18: Invalid time '24:30'",
-                "Line 18: Invalid deadline date '2024-02-30'"), errors);
+                "Line 12: Time '25:00' isn't valid (hours 00-23, minutes 00-59; midnight is 00:00)",
+                "Line 18: Time '24:30' isn't valid (hours 00-23, minutes 00-59; midnight is 00:00)",
+                "Line 18: Deadline date '2024-02-30' isn't a real date"), errors);
     }
 
     @Test
@@ -150,7 +150,7 @@ class TaskValidationTest {
 
         List<String> errors = errors(plan);
 
-        assertEquals(List.of("Line 12: Task a has non-existing dependency task ghost"), errors);
+        assertEquals(List.of("Line 12: Task 'a' depends on 'ghost', which doesn't exist"), errors);
     }
 
     @Test
@@ -346,7 +346,7 @@ class TaskValidationTest {
 
         List<String> errors = errors(plan);
 
-        assertTrue(errors.stream().anyMatch(e -> e.contains("Repeating task inbox cannot have a deadline")));
+        assertTrue(errors.stream().anyMatch(e -> e.contains("Repeating task 'inbox' can't have a deadline")));
     }
 
     @Test
@@ -374,7 +374,7 @@ class TaskValidationTest {
 
         List<String> errors = errors(plan);
 
-        assertTrue(errors.stream().anyMatch(e -> e.contains("Repeating task inbox cannot have dependencies")));
+        assertTrue(errors.stream().anyMatch(e -> e.contains("Repeating task 'inbox' can't have dependencies")));
     }
 
     @Test
@@ -402,6 +402,6 @@ class TaskValidationTest {
 
         List<String> errors = errors(plan);
 
-        assertTrue(errors.stream().anyMatch(e -> e.contains("Task report cannot depend on repeating task inbox")));
+        assertTrue(errors.stream().anyMatch(e -> e.contains("Task 'report' can't depend on repeating task 'inbox'")));
     }
 }

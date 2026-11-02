@@ -31,8 +31,8 @@ class EventValidationTest {
 
         List<String> errors = errors(plan);
 
-        assertTrue(errors.stream().anyMatch(e -> e.contains("Event dentist is missing mandatory property: date")));
-        assertTrue(errors.stream().anyMatch(e -> e.contains("Event dentist is missing mandatory property: time")));
+        assertTrue(errors.stream().anyMatch(e -> e.contains("Event 'dentist' is missing mandatory property: date")));
+        assertTrue(errors.stream().anyMatch(e -> e.contains("Event 'dentist' is missing mandatory property: time")));
     }
 
     @Test
@@ -67,8 +67,8 @@ class EventValidationTest {
         List<String> errors = errors(plan);
 
         assertTrue(errors.stream().anyMatch(e ->
-                e.contains("Event date '2024-02-15' must be within the period range '2024-01-01'-'2024-01-07'")), () -> "Got: " + errors);
-        assertTrue(errors.stream().anyMatch(e -> e.contains("Invalid event date '2024-01-32'")), () -> "Got: " + errors);
+                e.contains("Event date '2024-02-15' is outside the period (2024-01-01 to 2024-01-07)")), () -> "Got: " + errors);
+        assertTrue(errors.stream().anyMatch(e -> e.contains("Event date '2024-01-32' isn't a real date")), () -> "Got: " + errors);
         assertTrue(errors.stream().anyMatch(e -> e.contains("Start time '11:00' must be before end time '10:00'")), () -> "Got: " + errors);
     }
 

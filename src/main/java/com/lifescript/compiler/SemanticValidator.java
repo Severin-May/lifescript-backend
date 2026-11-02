@@ -52,10 +52,10 @@ public class SemanticValidator extends LifeScriptParserBaseVisitor<Void> {
         }
 
         if (!hasTasks) {
-            diagnostics.error(ctx.PLAN().getSymbol(), String.format("Plan %s is missing mandatory property: tasks", planName));
+            diagnostics.error(ctx.PLAN().getSymbol(), String.format("Plan '%s' needs a 'tasks' section", planName));
         }
         if (!hasAvailability) {
-            diagnostics.error(ctx.PLAN().getSymbol(), String.format("Plan %s is missing mandatory property: availability", planName));
+            diagnostics.error(ctx.PLAN().getSymbol(), String.format("Plan '%s' needs an 'availability' section", planName));
         }
 
         return null;
@@ -91,13 +91,13 @@ public class SemanticValidator extends LifeScriptParserBaseVisitor<Void> {
         }
 
         if (!hasDuration) {
-            diagnostics.error(ctx, String.format("Task %s is missing mandatory property: duration", taskName));
+            diagnostics.error(ctx, String.format("Task '%s' is missing mandatory property: duration", taskName));
         }
         if (!hasPriority) {
-            diagnostics.error(ctx, String.format("Task %s is missing mandatory property: priority", taskName));
+            diagnostics.error(ctx, String.format("Task '%s' is missing mandatory property: priority", taskName));
         }
         if (!hasEffort) {
-            diagnostics.error(ctx, String.format("Task %s is missing mandatory property: effort", taskName));
+            diagnostics.error(ctx, String.format("Task '%s' is missing mandatory property: effort", taskName));
         }
 
         visitAll(properties);
@@ -180,20 +180,20 @@ public class SemanticValidator extends LifeScriptParserBaseVisitor<Void> {
                         if (!taskNames.contains(dep.getText())) {
                             String hint = taskNames.stream().filter(name -> name.equalsIgnoreCase(dep.getText()))
                                     .findFirst().map(name -> String.format(" (did you mean '%s'?)", name)).orElse("");
-                            diagnostics.error(prop, String.format("Task %s has non-existing dependency task %s%s",
+                            diagnostics.error(prop, String.format("Task '%s' depends on '%s', which doesn't exist%s",
                                     taskName, dep.getText(), hint));
                         }
                         if (repeatingTasks.contains(dep.getText())) {
-                            diagnostics.error(prop, String.format("Task %s cannot depend on repeating task %s", taskName, dep.getText()));
+                            diagnostics.error(prop, String.format("Task '%s' can't depend on repeating task '%s'", taskName, dep.getText()));
                         }
                         deps.add(dep.getText());
                     }
                     if (repeatingTasks.contains(taskName)) {
-                        diagnostics.error(prop, String.format("Repeating task %s cannot have dependencies", taskName));
+                        diagnostics.error(prop, String.format("Repeating task '%s' can't have dependencies", taskName));
                     }
                 }
                 if (prop.taskDeadline() != null && repeatingTasks.contains(taskName)) {
-                    diagnostics.error(prop, String.format("Repeating task %s cannot have a deadline", taskName));
+                    diagnostics.error(prop, String.format("Repeating task '%s' can't have a deadline", taskName));
                 }
             }
             visit(task);
@@ -255,13 +255,13 @@ public class SemanticValidator extends LifeScriptParserBaseVisitor<Void> {
         }
 
         if (!hasTime) {
-            diagnostics.error(ctx, String.format("Routine %s is missing mandatory property: time", routineName));
+            diagnostics.error(ctx, String.format("Routine '%s' is missing mandatory property: time", routineName));
         }
         if (!hasActivities) {
-            diagnostics.error(ctx, String.format("Routine %s is missing mandatory property: activities", routineName));
+            diagnostics.error(ctx, String.format("Routine '%s' is missing mandatory property: activities", routineName));
         }
         if (!hasRepeats) {
-            diagnostics.error(ctx, String.format("Routine %s is missing mandatory property: repeats", routineName));
+            diagnostics.error(ctx, String.format("Routine '%s' is missing mandatory property: repeats", routineName));
         }
 
         // Invalid start times and durations are reported by their own visitors.
@@ -269,7 +269,7 @@ public class SemanticValidator extends LifeScriptParserBaseVisitor<Void> {
             try {
                 LocalTime start = Literals.parseTime(startText);
                 if (start.toSecondOfDay() + total.toSeconds() > Duration.ofDays(1).toSeconds()) {
-                    diagnostics.error(ctx, String.format("Routine %s starting at %s lasts %s and would run past midnight",
+                    diagnostics.error(ctx, String.format("Routine '%s' starting at %s lasts %s and would run past midnight",
                             routineName, startText, Literals.formatDuration(total)));
                 }
             } catch (DateTimeParseException ignored) {
@@ -307,10 +307,10 @@ public class SemanticValidator extends LifeScriptParserBaseVisitor<Void> {
         }
 
         if (!hasDate) {
-            diagnostics.error(ctx, String.format("Event %s is missing mandatory property: date", eventName));
+            diagnostics.error(ctx, String.format("Event '%s' is missing mandatory property: date", eventName));
         }
         if (!hasTime) {
-            diagnostics.error(ctx, String.format("Event %s is missing mandatory property: time", eventName));
+            diagnostics.error(ctx, String.format("Event '%s' is missing mandatory property: time", eventName));
         }
 
         visitAll(properties);
@@ -325,12 +325,12 @@ public class SemanticValidator extends LifeScriptParserBaseVisitor<Void> {
         try {
             date = Literals.parseDate(text);
         } catch (DateTimeParseException e) {
-            diagnostics.error(ctx, String.format("Invalid event date '%s'", text));
+            diagnostics.error(ctx, String.format("Event date '%s' isn't a real date", text));
             return visitChildren(ctx);
         }
 
         if (period != null && !period.contains(date)) {
-            diagnostics.error(ctx, String.format("Event date '%s' must be within the period range '%s'-'%s'",
+            diagnostics.error(ctx, String.format("Event date '%s' is outside the period (%s to %s)",
                     text, period.start(), period.end()));
         }
         return visitChildren(ctx);
@@ -405,7 +405,7 @@ public class SemanticValidator extends LifeScriptParserBaseVisitor<Void> {
             }
         }
         catch (DateTimeParseException e) {
-            diagnostics.error(ctx, String.format("Invalid deadline date '%s'", dateText));
+            diagnostics.error(ctx, String.format("Deadline date '%s' isn't a real date", dateText));
         }
         return visitChildren(ctx);
     }
@@ -415,7 +415,7 @@ public class SemanticValidator extends LifeScriptParserBaseVisitor<Void> {
         try {
             return Literals.parseTime(text);
         } catch (DateTimeParseException e) {
-            diagnostics.error(entry, String.format("Invalid time '%s'", text));
+            diagnostics.error(entry, String.format("Time '%s' isn't valid (hours 00-23, minutes 00-59; midnight is 00:00)", text));
             return null;
         }
     }
@@ -447,7 +447,7 @@ public class SemanticValidator extends LifeScriptParserBaseVisitor<Void> {
         try {
             start = Literals.parseDate(ctx.DATE_VAL(0).getText());
         } catch (DateTimeParseException e) {
-            diagnostics.error(ctx, String.format("Invalid date '%s'", ctx.DATE_VAL(0).getText()));
+            diagnostics.error(ctx, String.format("Date '%s' isn't a real date", ctx.DATE_VAL(0).getText()));
             return visitChildren(ctx);
         }
 
@@ -455,12 +455,12 @@ public class SemanticValidator extends LifeScriptParserBaseVisitor<Void> {
         try {
             end = Literals.parseDate(ctx.DATE_VAL(1).getText());
         } catch (DateTimeParseException e) {
-            diagnostics.error(ctx, String.format("Invalid date '%s'", ctx.DATE_VAL(1).getText()));
+            diagnostics.error(ctx, String.format("Date '%s' isn't a real date", ctx.DATE_VAL(1).getText()));
             return visitChildren(ctx);
         }
 
         if (start.isAfter(end)) {
-            diagnostics.error(ctx, String.format("Start date '%s' must not be after end date '%s'", start, end));
+            diagnostics.error(ctx, String.format("Start date '%s' can't be after end date '%s'", start, end));
             return visitChildren(ctx);
         }
         if (start.isBefore(today)) {

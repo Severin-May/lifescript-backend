@@ -58,7 +58,7 @@ class RoutineValidationTest {
 
         List<String> errors = errors(plan);
 
-        assertTrue(errors.stream().anyMatch(e -> e.contains("Routine r is missing mandatory property: repeats")));
+        assertTrue(errors.stream().anyMatch(e -> e.contains("Routine 'r' is missing mandatory property: repeats")));
     }
 
     @Test
@@ -94,7 +94,7 @@ class RoutineValidationTest {
         List<String> errors = errors(plan);
 
         assertTrue(errors.stream().anyMatch(e ->
-                e.contains("Routine late starting at 23:30 lasts 1h5m and would run past midnight")), () -> "Got: " + errors);
+                e.contains("Routine 'late' starting at 23:30 lasts 1h5m and would run past midnight")), () -> "Got: " + errors);
         assertFalse(errors.stream().anyMatch(e -> e.contains("until_midnight")), () -> "Got: " + errors);
     }
 
@@ -123,7 +123,7 @@ class RoutineValidationTest {
 
         List<String> errors = errors(plan);
 
-        assertTrue(errors.stream().anyMatch(e -> e.contains("Invalid time '25:00'")), () -> "Got: " + errors);
+        assertTrue(errors.stream().anyMatch(e -> e.contains("Time '25:00' isn't valid (hours 00-23, minutes 00-59; midnight is 00:00)")), () -> "Got: " + errors);
         assertFalse(errors.stream().anyMatch(e -> e.contains("past midnight")));
     }
 

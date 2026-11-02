@@ -88,7 +88,7 @@ class LifeScriptCompilerTest {
         Locale.setDefault(Locale.forLanguageTag("tr-TR"));
         try {
             assertEquals(List.of(), compiler.compile(load("fullPlan.ls")).diagnostics());
-            assertEquals(List.of("Line 13: Routine a (09:00-10:00) overlaps routine b (09:30-10:30) on friday"), errors("""
+            assertEquals(List.of("Line 13: Routine 'a' (09:00-10:00) overlaps routine 'b' (09:30-10:30) on friday"), errors("""
                     plan: p
                     period: 2024-01-01 to 2024-01-07
 

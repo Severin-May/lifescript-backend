@@ -123,7 +123,7 @@ class CaseSensitivityTest {
                 dependencies: research
                 """;
 
-        assertEquals(List.of("Line 17: Task b has non-existing dependency task research (did you mean 'Research'?)"),
+        assertEquals(List.of("Line 17: Task 'b' depends on 'research', which doesn't exist (did you mean 'Research'?)"),
                 errors(plan));
     }
 }
