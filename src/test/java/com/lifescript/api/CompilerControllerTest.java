@@ -16,7 +16,7 @@ class CompilerControllerTest {
     private final MockMvc mvc = MockMvcBuilders.standaloneSetup(new CompilerController(TestPlans.compiler())).build();
 
     private static String body(String plan) {
-        return "{\"content\": \"" + plan.replace("\n", "\\n") + "\"}";
+        return "{\"content\": \"" + plan.replace("\"", "\\\"").replace("\n", "\\n") + "\"}";
     }
 
     private static final String VALID_PLAN = """
@@ -31,6 +31,7 @@ class CompilerControllerTest {
             duration: 1h
             priority: high
             effort: high
+            note: "first draft"
             """;
 
     @Test
@@ -53,9 +54,10 @@ class CompilerControllerTest {
                 .andExpect(jsonPath("$.schedule.days['2024-01-01'][0].name").value("a"))
                 .andExpect(jsonPath("$.schedule.days['2024-01-01'][0].start").value("06:00"))
                 .andExpect(jsonPath("$.schedule.days['2024-01-01'][0].end").value("07:00"))
+                .andExpect(jsonPath("$.schedule.days['2024-01-01'][0].note").value("first draft"))
                 .andExpect(jsonPath("$.schedule.days['2024-01-02']").isEmpty())
                 .andExpect(jsonPath("$.schedule.unscheduled").isEmpty())
-                .andExpect(jsonPath("$.schedule.notes").isEmpty());
+                .andExpect(jsonPath("$.schedule.warnings").isEmpty());
     }
 
     @Test

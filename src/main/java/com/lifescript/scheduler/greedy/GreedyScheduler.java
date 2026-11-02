@@ -10,7 +10,7 @@ import com.lifescript.scheduler.EntryType;
 import com.lifescript.scheduler.AvailableTime;
 import com.lifescript.scheduler.Schedule;
 import com.lifescript.scheduler.ScheduleEntry;
-import com.lifescript.scheduler.ScheduleNote;
+import com.lifescript.scheduler.ScheduleWarning;
 import com.lifescript.scheduler.Scheduler;
 import com.lifescript.scheduler.SchedulerSettings;
 import com.lifescript.scheduler.TaskOccurrence;
@@ -46,7 +46,7 @@ public class GreedyScheduler implements Scheduler {
                 AvailableTime.of(plan, settings.breakTime(), roundUpToStep(now));
         Map<LocalDate, List<ScheduleEntry>> days = fixedCommitments(plan);
         List<UnscheduledTask> unscheduled = new ArrayList<>();
-        List<ScheduleNote> notes = new ArrayList<>();
+        List<ScheduleWarning> warnings = new ArrayList<>();
 
         // Only one-off tasks can be dependencies.
         Map<String, LocalDateTime> endOf = new HashMap<>();
@@ -57,7 +57,7 @@ public class GreedyScheduler implements Scheduler {
             String failedDependency = dependencies.stream().filter(failed::contains).findFirst().orElse(null);
             if (failedDependency != null) {
                 unscheduled.add(new UnscheduledTask(occurrence.name(), occurrence.date(),
-                        "depends on " + failedDependency + ", which could not be scheduled"));
+                        "depends on " + failedDependency + ", which could not be scheduled", occurrence.task().getNote()));
                 failed.add(occurrence.name());
                 continue;
             }
@@ -73,24 +73,26 @@ public class GreedyScheduler implements Scheduler {
             }
 
             if (placement == null) {
-                unscheduled.add(new UnscheduledTask(occurrence.name(), occurrence.date(), reason(occurrence, dependencies)));
+                unscheduled.add(new UnscheduledTask(occurrence.name(), occurrence.date(), reason(occurrence, dependencies),
+                        occurrence.task().getNote()));
                 failed.add(occurrence.name());
                 continue;
             }
 
-            days.get(placement.date()).add(new ScheduleEntry(EntryType.TASK, occurrence.name(), placement.time()));
+            days.get(placement.date()).add(new ScheduleEntry(EntryType.TASK, occurrence.name(), placement.time(),
+                    occurrence.task().getNote()));
             // Padded on both sides because tasks aren't placed in time order.
             available.put(placement.date(), AvailableTime.minus(available.get(placement.date()),
                     placement.time().paddedBy(settings.breakTime())));
             endOf.put(occurrence.name(), endDateTime(placement.date(), placement.time()));
             if (withoutBuffer) {
-                notes.add(new ScheduleNote(occurrence.name(), placement.date(),
+                warnings.add(new ScheduleWarning(occurrence.name(), placement.date(),
                         "only fits by ending less than " + formatDuration(settings.deadlineBuffer())
                                 + " before its deadline"));
             }
         }
 
-        return new Schedule(days, unscheduled, notes);
+        return new Schedule(days, unscheduled, warnings);
     }
 
     private record Placement(LocalDate date, TimeRange time) {
@@ -102,12 +104,12 @@ public class GreedyScheduler implements Scheduler {
             List<ScheduleEntry> entries = new ArrayList<>();
             for (Routine routine : plan.getRoutines()) {
                 if (routine.occursOn(date)) {
-                    entries.add(new ScheduleEntry(EntryType.ROUTINE, routine.getName(), routine.getTimeRange()));
+                    entries.add(new ScheduleEntry(EntryType.ROUTINE, routine.getName(), routine.getTimeRange(), null));
                 }
             }
             for (Event event : plan.getEvents()) {
                 if (event.occursOn(date)) {
-                    entries.add(new ScheduleEntry(EntryType.EVENT, event.getName(), event.getTimeRange()));
+                    entries.add(new ScheduleEntry(EntryType.EVENT, event.getName(), event.getTimeRange(), event.getNote()));
                 }
             }
             days.put(date, entries);

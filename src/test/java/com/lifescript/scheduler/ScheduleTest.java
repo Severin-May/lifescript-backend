@@ -20,7 +20,7 @@ class ScheduleTest {
     private static final LocalDate TUESDAY = LocalDate.parse("2026-10-06");
 
     private static ScheduleEntry entry(EntryType type, String name, String start, String end) {
-        return new ScheduleEntry(type, name, new TimeRange(LocalTime.parse(start), LocalTime.parse(end)));
+        return new ScheduleEntry(type, name, new TimeRange(LocalTime.parse(start), LocalTime.parse(end)), null);
     }
 
     @Test
@@ -54,7 +54,7 @@ class ScheduleTest {
 
         Schedule schedule = new Schedule(days, unscheduled, List.of());
         monday.add(entry(EntryType.TASK, "b", "11:00", "12:00"));
-        unscheduled.add(new UnscheduledTask("c", null, "no free slot long enough"));
+        unscheduled.add(new UnscheduledTask("c", null, "no free slot long enough", null));
 
         assertEquals(1, schedule.entriesOn(MONDAY).size());
         assertTrue(schedule.unscheduled().isEmpty());

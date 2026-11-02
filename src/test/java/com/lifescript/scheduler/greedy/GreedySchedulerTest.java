@@ -4,7 +4,7 @@ import com.lifescript.model.TimeRange;
 import com.lifescript.scheduler.EntryType;
 import com.lifescript.scheduler.Schedule;
 import com.lifescript.scheduler.ScheduleEntry;
-import com.lifescript.scheduler.ScheduleNote;
+import com.lifescript.scheduler.ScheduleWarning;
 import com.lifescript.scheduler.UnscheduledTask;
 import org.junit.jupiter.api.Test;
 
@@ -35,7 +35,11 @@ class GreedySchedulerTest {
     }
 
     private static ScheduleEntry entry(EntryType type, String name, String start, String end) {
-        return new ScheduleEntry(type, name, new TimeRange(LocalTime.parse(start), LocalTime.parse(end)));
+        return entry(type, name, start, end, null);
+    }
+
+    private static ScheduleEntry entry(EntryType type, String name, String start, String end, String note) {
+        return new ScheduleEntry(type, name, new TimeRange(LocalTime.parse(start), LocalTime.parse(end)), note);
     }
 
     // 2026-10-05 is a Monday. No energy profile unless `extra` adds one, so all energy is moderate.
@@ -75,9 +79,9 @@ class GreedySchedulerTest {
                 entry(ROUTINE, "evening_walk", "19:00", "19:45")), schedule.entriesOn(MON.plusDays(1)));
         assertEquals(List.of(
                 entry(ROUTINE, "morning_routine", "07:00", "07:35"),
-                entry(TASK, "write_report", "08:00", "09:30"),
+                entry(TASK, "write_report", "08:00", "09:30", "final draft for review"),
                 entry(ROUTINE, "team_sync", "10:00", "10:30"),
-                entry(EVENT, "dentist", "14:00", "15:00"),
+                entry(EVENT, "dentist", "14:00", "15:00", "bring insurance card"),
                 entry(TASK, "inbox_zero", "18:00", "18:20"),
                 entry(ROUTINE, "evening_walk", "19:00", "19:45")), schedule.entriesOn(MON.plusDays(2)));
         // thu: only the afternoon (moderate)
@@ -88,11 +92,11 @@ class GreedySchedulerTest {
         assertEquals(List.of(entry(ROUTINE, "morning_routine", "07:00", "07:35")), schedule.entriesOn(MON.plusDays(5)));
 
         assertEquals(List.of(), schedule.unscheduled());
-        assertEquals(List.of(), schedule.notes());
+        assertEquals(List.of(), schedule.warnings());
     }
 
     @Test
-    void deadlineBufferIsSoft_taskEndingCloseToDeadline_isPlacedWithNote() {
+    void deadlineBufferIsSoft_taskEndingCloseToDeadline_isPlacedWithWarning() {
         // Due mon 11:00, so preferably done by 09:00, but availability only starts at 09:00.
         Schedule schedule = schedule(plan("monday: 09:00-12:00", "", """
                 task: submit_form
@@ -103,8 +107,8 @@ class GreedySchedulerTest {
                 """));
 
         assertEquals(List.of(entry(TASK, "submit_form", "09:00", "10:00")), schedule.entriesOn(MON));
-        assertEquals(List.of(new ScheduleNote("submit_form", MON, "only fits by ending less than 2h before its deadline")),
-                schedule.notes());
+        assertEquals(List.of(new ScheduleWarning("submit_form", MON, "only fits by ending less than 2h before its deadline")),
+                schedule.warnings());
     }
 
     @Test
@@ -123,28 +127,30 @@ class GreedySchedulerTest {
                 """));
 
         assertEquals(List.of(
-                new UnscheduledTask("due_one", null, "no free slot long enough ending by 2026-10-05 17:00"),
-                new UnscheduledTask("long_one", null, "no free slot long enough in the period")), schedule.unscheduled());
+                new UnscheduledTask("due_one", null, "no free slot long enough ending by 2026-10-05 17:00", null),
+                new UnscheduledTask("long_one", null, "no free slot long enough in the period", null)), schedule.unscheduled());
     }
 
     @Test
-    void dependencyNotScheduled_dependentIsUnscheduledToo() {
+    void dependencyNotScheduled_dependentIsUnscheduledToo_notesKept() {
         Schedule schedule = schedule(plan("monday: 09:00-11:00", "", """
                 task: big
                 duration: 3h
                 priority: high
                 effort: moderate
+                note: "split it up?"
 
                 task: after_big
                 duration: 30m
                 priority: high
                 effort: moderate
                 dependencies: big
+                note: "after big is done"
                 """));
 
         assertEquals(List.of(
-                new UnscheduledTask("big", null, "no free slot long enough in the period"),
-                new UnscheduledTask("after_big", null, "depends on big, which could not be scheduled")),
+                new UnscheduledTask("big", null, "no free slot long enough in the period", "split it up?"),
+                new UnscheduledTask("after_big", null, "depends on big, which could not be scheduled", "after big is done")),
                 schedule.unscheduled());
     }
 
@@ -171,7 +177,7 @@ class GreedySchedulerTest {
                 """));
 
         assertEquals(List.of(entry(TASK, "prepare", "11:00", "12:00")), schedule.entriesOn(MON));
-        assertEquals(List.of(new UnscheduledTask("present", null, "no free slot long enough after prepare ends")),
+        assertEquals(List.of(new UnscheduledTask("present", null, "no free slot long enough after prepare ends", null)),
                 schedule.unscheduled());
     }
 
@@ -188,7 +194,7 @@ class GreedySchedulerTest {
 
         assertEquals(List.of(entry(TASK, "stretch_break", "09:00", "09:30")), schedule.entriesOn(MON));
         assertEquals(List.of(new UnscheduledTask("stretch_break", LocalDate.parse("2026-10-11"),
-                "no free slot long enough on 2026-10-11")), schedule.unscheduled());
+                "no free slot long enough on 2026-10-11", null)), schedule.unscheduled());
     }
 
     @Test

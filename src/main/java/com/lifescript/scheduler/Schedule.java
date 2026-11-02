@@ -9,7 +9,7 @@ import java.util.Map;
 import java.util.TreeMap;
 
 public record Schedule(Map<LocalDate, List<ScheduleEntry>> days, List<UnscheduledTask> unscheduled,
-                       List<ScheduleNote> notes) {
+                       List<ScheduleWarning> warnings) {
 
     // Stored sorted and unmodifiable, whatever order entries were added in.
     public Schedule {
@@ -21,7 +21,7 @@ public record Schedule(Map<LocalDate, List<ScheduleEntry>> days, List<Unschedule
         }
         days = Collections.unmodifiableMap(sorted);
         unscheduled = List.copyOf(unscheduled);
-        notes = List.copyOf(notes);
+        warnings = List.copyOf(warnings);
     }
 
     public List<ScheduleEntry> entriesOn(LocalDate date) {
