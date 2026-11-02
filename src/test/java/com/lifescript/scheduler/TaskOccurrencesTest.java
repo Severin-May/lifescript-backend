@@ -4,6 +4,7 @@ import com.lifescript.model.Plan;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
+import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -12,6 +13,7 @@ import static com.lifescript.TestPlans.build;
 import static com.lifescript.TestPlans.load;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 
 class TaskOccurrencesTest {
 
@@ -55,6 +57,26 @@ class TaskOccurrencesTest {
         TaskOccurrence research = find(occurrences, "research");
         assertEquals(at("2026-10-07T15:00"), research.preferredEnd());
         assertEquals(at("2026-10-07T17:00"), research.hardEnd());
+    }
+
+    @Test
+    void layeredDependencies_areComputedQuickly() {
+        // Every task depends on both tasks of the previous layer: without caching, the work doubles per layer.
+        StringBuilder plan = new StringBuilder("plan: p\nperiod: 2024-01-01 to 2024-01-07\n\navailability:\nmonday: flexible\n\ntasks:\n");
+        int layers = 30;
+        for (int l = 0; l < layers; l++) {
+            String deps = l == 0 ? "" : "dependencies: t" + (l - 1) + "a, t" + (l - 1) + "b\n";
+            String deadline = l == layers - 1 ? "deadline: 2024-01-07 17:00\n" : "";
+            for (String side : List.of("a", "b")) {
+                plan.append("task: t").append(l).append(side)
+                        .append("\nduration: 15m\npriority: low\neffort: low\n").append(deps).append(deadline).append("\n");
+            }
+        }
+
+        List<TaskOccurrence> occurrences = assertTimeoutPreemptively(Duration.ofSeconds(5),
+                () -> TaskOccurrences.of(build(plan.toString()), SchedulerSettings.DEFAULTS));
+
+        assertEquals(2 * layers, occurrences.size());
     }
 
     @Test

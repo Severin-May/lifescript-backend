@@ -65,14 +65,14 @@ public final class Literals {
     }
 
     public static DayOfWeek parseDay(String text) {
-        return DayOfWeek.valueOf(text.toUpperCase());
+        return DayOfWeek.valueOf(text.toUpperCase(Locale.ROOT));
     }
 
     public static EnergyLevel parseEnergyLevel(String text) {
-        return EnergyLevel.valueOf(text.toUpperCase());
+        return EnergyLevel.valueOf(text.toUpperCase(Locale.ROOT));
     }
 
     public static Priority parsePriority(String text) {
-        return Priority.valueOf(text.toUpperCase());
+        return Priority.valueOf(text.toUpperCase(Locale.ROOT));
     }
 }

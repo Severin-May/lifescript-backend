@@ -24,12 +24,14 @@ public final class TaskOccurrences {
             }
         }
 
+        Map<String, LocalDateTime> preferredEnds = new HashMap<>();
+        Map<String, LocalDateTime> hardEnds = new HashMap<>();
         List<TaskOccurrence> occurrences = new ArrayList<>();
         for (Task task : plan.getTasks()) {
             if (task.getRepeatDays().isEmpty()) {
                 occurrences.add(new TaskOccurrence(task, null,
-                        latestEnd(task, settings.deadlineBuffer(), dependents),
-                        latestEnd(task, Duration.ZERO, dependents)));
+                        latestEnd(task, settings.deadlineBuffer(), dependents, preferredEnds),
+                        latestEnd(task, Duration.ZERO, dependents, hardEnds)));
                 continue;
             }
             for (LocalDate date : plan.getPeriod().dates()) {
@@ -43,12 +45,18 @@ public final class TaskOccurrences {
     }
 
     // A dependency must end before its dependent starts: the dependent's limit minus its duration.
-    // Terminates because SemanticValidator rejects dependency cycles.
-    private static LocalDateTime latestEnd(Task task, Duration buffer, Map<String, List<Task>> dependents) {
+    // Terminates because SemanticValidator rejects dependency cycles. `computed` keeps each task's result,
+    // otherwise layered dependencies are recomputed once per path (exponential); null is a valid result.
+    private static LocalDateTime latestEnd(Task task, Duration buffer, Map<String, List<Task>> dependents,
+                                           Map<String, LocalDateTime> computed) {
+        if (computed.containsKey(task.getName())) {
+            return computed.get(task.getName());
+        }
         LocalDateTime limit = minus(task.getDeadline(), buffer);
         for (Task dependent : dependents.getOrDefault(task.getName(), List.of())) {
-            limit = earlier(limit, minus(latestEnd(dependent, buffer, dependents), dependent.getDuration()));
+            limit = earlier(limit, minus(latestEnd(dependent, buffer, dependents, computed), dependent.getDuration()));
         }
+        computed.put(task.getName(), limit);
         return limit;
     }
 

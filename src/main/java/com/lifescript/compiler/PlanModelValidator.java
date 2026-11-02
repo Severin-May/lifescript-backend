@@ -11,6 +11,7 @@ import com.lifescript.model.TimeRange;
 import java.time.DayOfWeek;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -99,7 +100,7 @@ public class PlanModelValidator {
     }
 
     private static String levelName(EnergyLevel level) {
-        return level.name().toLowerCase();
+        return level.name().toLowerCase(Locale.ROOT);
     }
 
     private void checkRoutineOverlaps(Plan plan) {
@@ -156,6 +157,6 @@ public class PlanModelValidator {
     }
 
     private static String dayName(DayOfWeek day) {
-        return day.name().toLowerCase();
+        return day.name().toLowerCase(Locale.ROOT);
     }
 }

@@ -10,6 +10,8 @@ import org.springframework.boot.test.system.OutputCaptureExtension;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.Locale;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static com.lifescript.TestPlans.compiler;
 import static com.lifescript.TestPlans.errors;
@@ -54,6 +56,66 @@ class LifeScriptCompilerTest {
 
         assertEquals(Stage.INTERNAL, result.diagnostics().get(0).stage());
         assertNull(result.schedule());
+    }
+
+    @Test
+    void stackOverflow_isReportedAsInternalError_notThrown() throws Exception {
+        StringBuilder plan = new StringBuilder("plan: p\nperiod: 2024-01-01 to 2024-01-07\n\navailability:\nmonday: flexible\n\ntasks:\n");
+        for (int i = 0; i < 5000; i++) {
+            plan.append("task: t").append(i).append("\nduration: 15m\npriority: low\neffort: low\n")
+                    .append(i == 0 ? "" : "dependencies: t" + (i - 1) + "\n").append("\n");
+        }
+        AtomicReference<Object> outcome = new AtomicReference<>();
+        // A small stack makes the dependency recursion overflow on any machine.
+        Thread thread = new Thread(null, () -> {
+            try {
+                outcome.set(compiler.compile(plan.toString()));
+            } catch (Throwable t) {
+                outcome.set(t);
+            }
+        }, "small-stack", 256 * 1024);
+        thread.start();
+        thread.join();
+
+        assertTrue(outcome.get() instanceof CompileResult, () -> "Got: " + outcome.get());
+        assertEquals(Stage.INTERNAL, ((CompileResult) outcome.get()).diagnostics().get(0).stage());
+    }
+
+    @Test
+    void worksTheSameUnderATurkishDefaultLocale() throws IOException {
+        // In Turkish, "i".toUpperCase() is "İ", so "friday" would become "FRİDAY".
+        Locale original = Locale.getDefault();
+        Locale.setDefault(Locale.forLanguageTag("tr-TR"));
+        try {
+            assertEquals(List.of(), compiler.compile(load("fullPlan.ls")).diagnostics());
+            assertEquals(List.of("Line 13: Routine a (09:00-10:00) overlaps routine b (09:30-10:30) on friday"), errors("""
+                    plan: p
+                    period: 2024-01-01 to 2024-01-07
+
+                    availability:
+                    monday: flexible
+
+                    routines:
+                    routine: a
+                    time: 09:00
+                    repeats: friday
+                    activities:
+                    work: 1h
+                    routine: b
+                    time: 09:30
+                    repeats: friday
+                    activities:
+                    work: 1h
+
+                    tasks:
+                    task: t
+                    duration: 1h
+                    priority: high
+                    effort: high
+                    """));
+        } finally {
+            Locale.setDefault(original);
+        }
     }
 
     @Test

@@ -38,7 +38,7 @@ public class LifeScriptCompiler {
         }
         try {
             return runPipeline(content);
-        } catch (RuntimeException e) {
+        } catch (RuntimeException | StackOverflowError e) {
             return CompileResult.failed(List.of(internalError(content, e)));
         }
     }
@@ -51,7 +51,7 @@ public class LifeScriptCompiler {
             DiagnosticCollector collector = new DiagnosticCollector();
             parseWithSyntaxChecks(content, collector);
             return collector.list();
-        } catch (RuntimeException e) {
+        } catch (RuntimeException | StackOverflowError e) {
             return List.of(internalError(content, e));
         }
     }
@@ -65,7 +65,8 @@ public class LifeScriptCompiler {
     }
 
     // A crash is a compiler bug, not the user's: report it instead of failing the request.
-    private static Diagnostic internalError(String content, RuntimeException e) {
+    // StackOverflowError is caught too: very deep dependency chains overflow the recursive checks.
+    private static Diagnostic internalError(String content, Throwable e) {
         // Plans are personal data, so only their size is logged, never their text.
         log.error("Compiler crashed on a plan of {} characters, {} lines", content.length(), content.lines().count(), e);
         return Diagnostic.withoutPosition(Stage.INTERNAL,
