@@ -2,7 +2,6 @@ package com.lifescript.compiler;
 
 import com.lifescript.diagnostics.SourceLocation;
 import com.lifescript.model.EnergyEntry;
-import com.lifescript.model.EnergyLevel;
 import com.lifescript.model.Event;
 import com.lifescript.model.Plan;
 import com.lifescript.model.Routine;
@@ -11,7 +10,6 @@ import com.lifescript.model.TimeRange;
 import java.time.DayOfWeek;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -61,7 +59,7 @@ public class PlanModelValidator {
                     if (ranges.get(i).overlaps(ranges.get(j))) {
                         diagnostics.error(plan.getAvailabilityLocations().get(day.getKey()),
                                 String.format("Availability on %s: %s overlaps %s",
-                                        dayName(day.getKey()), ranges.get(i), ranges.get(j)));
+                                        Keywords.format(day.getKey()), ranges.get(i), ranges.get(j)));
                     }
                 }
             }
@@ -72,7 +70,7 @@ public class PlanModelValidator {
     private void checkEnergyOverlaps(Plan plan) {
         checkEnergyBlock("default", plan.getDefaultEnergyProfile());
         for (Map.Entry<DayOfWeek, List<EnergyEntry>> day : plan.getEnergyProfileOverrides().entrySet()) {
-            checkEnergyBlock(dayName(day.getKey()), day.getValue());
+            checkEnergyBlock(Keywords.format(day.getKey()), day.getValue());
         }
     }
 
@@ -89,18 +87,14 @@ public class PlanModelValidator {
                     TimeRange shared = a.range().intersection(b.range());
                     diagnostics.error(b.location(), String.format("Energy profile (%s): %s is %s but %s is %s, "
                                     + "so the energy level from %s to %s is unclear",
-                            blockName, a.range(), levelName(a.level()), b.range(), levelName(b.level()),
+                            blockName, a.range(), Keywords.format(a.level()), b.range(), Keywords.format(b.level()),
                             shared.startTime(), shared.endTime()));
                 } else {
                     diagnostics.error(b.location(), String.format("Energy profile (%s): %s and %s overlap (both %s); remove one of them",
-                            blockName, a.range(), b.range(), levelName(a.level())));
+                            blockName, a.range(), b.range(), Keywords.format(a.level())));
                 }
             }
         }
-    }
-
-    private static String levelName(EnergyLevel level) {
-        return level.name().toLowerCase(Locale.ROOT);
     }
 
     private void checkRoutineOverlaps(Plan plan) {
@@ -125,7 +119,7 @@ public class PlanModelValidator {
                 if (!clashDays.isEmpty()) {
                     diagnostics.error(b.getLocation(), String.format("Routine %s (%s) overlaps routine %s (%s) on %s",
                             a.getName(), a.getTimeRange(), b.getName(), b.getTimeRange(),
-                            clashDays.stream().map(PlanModelValidator::dayName).collect(Collectors.joining(", "))));
+                            clashDays.stream().map(Keywords::format).collect(Collectors.joining(", "))));
                 }
             }
         }
@@ -154,9 +148,5 @@ public class PlanModelValidator {
                 }
             }
         }
-    }
-
-    private static String dayName(DayOfWeek day) {
-        return day.name().toLowerCase(Locale.ROOT);
     }
 }

@@ -134,7 +134,7 @@ public class PlanModelBuilder {
         }
 
         for (LifeScriptParser.AvailabilityEntryContext entry : ctx.availabilityEntry()) {
-            DayOfWeek day = Literals.parseDay(entry.dayOfWeek().getText());
+            DayOfWeek day = Keywords.parseDay(entry.dayOfWeek().getText());
             availability.put(day, buildAvailabilityValue(entry.availabilityValue(), timeSettings));
         }
 
@@ -151,7 +151,7 @@ public class PlanModelBuilder {
                     timeSettings.get("evening").endTime()));
         } else if (ctx.namedPeriodList() != null) {
             for (LifeScriptParser.NamedPeriodContext period : ctx.namedPeriodList().namedPeriod()) {
-                ranges.add(timeSettings.get(Literals.parseNamedPeriod(period.getText())));
+                ranges.add(timeSettings.get(Keywords.parseNamedPeriod(period.getText())));
             }
         } else {
             for (LifeScriptParser.TimeRangeContext range : ctx.timeRangeList().timeRange()) {
@@ -178,7 +178,7 @@ public class PlanModelBuilder {
         Map<DayOfWeek, List<EnergyEntry>> overrides = new EnumMap<>(DayOfWeek.class);
         for (LifeScriptParser.EnergyProfileEntryContext entry : ctx.energyProfileEntry()) {
             if (entry.dayOfWeek() != null) {
-                overrides.put(Literals.parseDay(entry.dayOfWeek().getText()), buildEnergyEntries(entry, timeSettings));
+                overrides.put(Keywords.parseDay(entry.dayOfWeek().getText()), buildEnergyEntries(entry, timeSettings));
             }
         }
         return overrides;
@@ -189,7 +189,7 @@ public class PlanModelBuilder {
         List<EnergyEntry> entries = new ArrayList<>();
         for (LifeScriptParser.EnergyEntryContext entry : ctx.energyEntry()) {
             TimeRange range = resolveTimeRange(entry.namedPeriod(), entry.timeRange(), timeSettings);
-            entries.add(new EnergyEntry(range, Literals.parseEnergyLevel(entry.energyLevel().getText()),
+            entries.add(new EnergyEntry(range, Keywords.parseEnergyLevel(entry.energyLevel().getText()),
                     DiagnosticCollector.locationOf(entry)));
         }
         return entries;
@@ -211,9 +211,9 @@ public class PlanModelBuilder {
             if (prop.taskDuration() != null) {
                 task.setDuration(Literals.parseDuration(prop.taskDuration().DURATION_VAL().getText()));
             } else if (prop.taskPriority() != null) {
-                task.setPriority(Literals.parsePriority(prop.taskPriority().priorityLevel().getText()));
+                task.setPriority(Keywords.parsePriority(prop.taskPriority().priorityLevel().getText()));
             } else if (prop.taskEffort() != null) {
-                task.setEffort(Literals.parseEnergyLevel(prop.taskEffort().energyLevel().getText()));
+                task.setEffort(Keywords.parseEnergyLevel(prop.taskEffort().energyLevel().getText()));
             } else if (prop.taskDeadline() != null) {
                 LifeScriptParser.TaskDeadlineContext deadline = prop.taskDeadline();
                 task.setDeadline(LocalDateTime.of(Literals.parseDate(deadline.DATE_VAL().getText()),
@@ -248,7 +248,7 @@ public class PlanModelBuilder {
 
         List<DayOfWeek> days = new ArrayList<>();
         for (LifeScriptParser.DayOfWeekContext day : ctx.dayList().dayOfWeek()) {
-            days.add(Literals.parseDay(day.getText()));
+            days.add(Keywords.parseDay(day.getText()));
         }
         return days;
     }
@@ -257,7 +257,7 @@ public class PlanModelBuilder {
                                               LifeScriptParser.TimeRangeContext timeRange,
                                               Map<String, TimeRange> timeSettings) {
         return namedPeriod != null
-                ? timeSettings.get(Literals.parseNamedPeriod(namedPeriod.getText()))
+                ? timeSettings.get(Keywords.parseNamedPeriod(namedPeriod.getText()))
                 : Literals.parseTimeRange(timeRange.getText());
     }
 
@@ -267,7 +267,7 @@ public class PlanModelBuilder {
         for (LifeScriptParser.PlanSectionContext section : ctx.planSection()) {
             if (section.settings() != null) {
                 for (LifeScriptParser.SettingsEntryContext entry : section.settings().settingsEntry()) {
-                    timeSettings.put(Literals.parseNamedPeriod(entry.namedPeriod().getText()), Literals.parseTimeRange(entry.timeRange().getText()));
+                    timeSettings.put(Keywords.parseNamedPeriod(entry.namedPeriod().getText()), Literals.parseTimeRange(entry.timeRange().getText()));
                 }
             }
         }
@@ -278,7 +278,7 @@ public class PlanModelBuilder {
     private Map<String, SourceLocation> buildTimeSettingLocations(LifeScriptParser.SettingsContext ctx) {
         Map<String, SourceLocation> locations = new HashMap<>();
         for (LifeScriptParser.SettingsEntryContext entry : ctx.settingsEntry()) {
-            locations.put(Literals.parseNamedPeriod(entry.namedPeriod().getText()), DiagnosticCollector.locationOf(entry));
+            locations.put(Keywords.parseNamedPeriod(entry.namedPeriod().getText()), DiagnosticCollector.locationOf(entry));
         }
         return locations;
     }
@@ -286,7 +286,7 @@ public class PlanModelBuilder {
     private Map<DayOfWeek, SourceLocation> buildAvailabilityLocations(LifeScriptParser.AvailabilityContext ctx) {
         Map<DayOfWeek, SourceLocation> locations = new EnumMap<>(DayOfWeek.class);
         for (LifeScriptParser.AvailabilityEntryContext entry : ctx.availabilityEntry()) {
-            locations.put(Literals.parseDay(entry.dayOfWeek().getText()), DiagnosticCollector.locationOf(entry));
+            locations.put(Keywords.parseDay(entry.dayOfWeek().getText()), DiagnosticCollector.locationOf(entry));
         }
         return locations;
     }

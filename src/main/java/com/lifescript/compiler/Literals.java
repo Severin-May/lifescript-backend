@@ -1,10 +1,7 @@
 package com.lifescript.compiler;
 
-import com.lifescript.model.EnergyLevel;
-import com.lifescript.model.Priority;
 import com.lifescript.model.TimeRange;
 
-import java.time.DayOfWeek;
 import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalTime;
@@ -15,31 +12,42 @@ public final class Literals {
     private Literals() {
     }
 
+    // A duration as written: "1h30m" has hours (1) and minutes (30), "90m" has minutes only.
+    public record DurationLiteral(boolean hasHours, long hours, long minutes) {
+
+        // Throws IllegalArgumentException for values too large to represent.
+        public Duration toDuration() {
+            try {
+                return Duration.ofHours(hours).plusMinutes(minutes);
+            } catch (ArithmeticException e) {
+                throw new IllegalArgumentException("Duration too large: " + hours + "h" + minutes + "m", e);
+            }
+        }
+    }
+
+    // Throws IllegalArgumentException (NumberFormatException) for numbers too long to read.
+    public static DurationLiteral parseDurationLiteral(String text) {
+        String value = text.toLowerCase(Locale.ROOT);
+        int hIndex = value.indexOf('h');
+        if (hIndex < 0) {
+            return new DurationLiteral(false, 0, Long.parseLong(value.substring(0, value.length() - 1)));
+        }
+        String rest = value.substring(hIndex + 1);
+        long minutes = rest.isEmpty() ? 0 : Long.parseLong(rest.substring(0, rest.length() - 1));
+        return new DurationLiteral(true, Long.parseLong(value.substring(0, hIndex)), minutes);
+    }
+
     // Throws IllegalArgumentException for values too large to represent.
     public static Duration parseDuration(String text) {
-        String value = text.toLowerCase(Locale.ROOT);
-        try {
-            int hIndex = value.indexOf('h');
+        return parseDurationLiteral(text).toDuration();
+    }
 
-            if (hIndex < 0) {
-                long minutes = Long.parseLong(value.substring(0, value.length() - 1));
-                return Duration.ofMinutes(minutes);
-            }
-
-            long hours = Long.parseLong(value.substring(0, hIndex));
-            Duration duration = Duration.ofHours(hours);
-
-            String rest = value.substring(hIndex + 1);
-            if (!rest.isEmpty()) {
-                long minutes = Long.parseLong(rest.substring(0, rest.length() - 1));
-                duration = duration.plusMinutes(minutes);
-            }
-
-            return duration;
-        } catch (ArithmeticException e) {
-            // Fits in a long but overflows Duration.
-            throw new IllegalArgumentException("Duration too large: " + text, e);
-        }
+    // 95 minutes -> "1h35m", the way durations are written in LifeScript
+    public static String formatDuration(Duration duration) {
+        long hours = duration.toHours();
+        long minutes = duration.toMinutesPart();
+        if (hours == 0) return minutes + "m";
+        return minutes == 0 ? hours + "h" : hours + "h" + minutes + "m";
     }
 
     public static LocalDate parseDate(String text) {
@@ -57,22 +65,5 @@ public final class Literals {
 
     public static String parseString(String text) {
         return text.substring(1, text.length() - 1);
-    }
-
-    // "Morning" -> "morning", the key time settings are stored under
-    public static String parseNamedPeriod(String text) {
-        return text.toLowerCase(Locale.ROOT);
-    }
-
-    public static DayOfWeek parseDay(String text) {
-        return DayOfWeek.valueOf(text.toUpperCase(Locale.ROOT));
-    }
-
-    public static EnergyLevel parseEnergyLevel(String text) {
-        return EnergyLevel.valueOf(text.toUpperCase(Locale.ROOT));
-    }
-
-    public static Priority parsePriority(String text) {
-        return Priority.valueOf(text.toUpperCase(Locale.ROOT));
     }
 }

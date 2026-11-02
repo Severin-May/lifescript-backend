@@ -78,7 +78,7 @@ public class SemanticValidator extends LifeScriptParserBaseVisitor<Void> {
 
         // A property's first token is its keyword.
         List<LifeScriptParser.TaskPropertyContext> properties =
-                checkDuplicateKeys(ctx.taskProperty(), p -> keyword(p.getStart().getText()), "task property");
+                checkDuplicateKeys(ctx.taskProperty(), p -> Keywords.normalize(p.getStart().getText()), "task property");
 
         boolean hasDuration = false;
         boolean hasPriority = false;
@@ -226,7 +226,7 @@ public class SemanticValidator extends LifeScriptParserBaseVisitor<Void> {
         String routineName = ctx.IDENTIFIER().getText();
 
         List<LifeScriptParser.RoutinePropertyContext> properties =
-                checkDuplicateKeys(ctx.routineProperty(), p -> keyword(p.getStart().getText()), "routine property");
+                checkDuplicateKeys(ctx.routineProperty(), p -> Keywords.normalize(p.getStart().getText()), "routine property");
 
         boolean hasTime = false;
         boolean hasActivities = false;
@@ -270,7 +270,7 @@ public class SemanticValidator extends LifeScriptParserBaseVisitor<Void> {
                 LocalTime start = Literals.parseTime(startText);
                 if (start.toSecondOfDay() + total.toSeconds() > Duration.ofDays(1).toSeconds()) {
                     diagnostics.error(ctx, String.format("Routine %s starting at %s lasts %s and would run past midnight",
-                            routineName, startText, formatDuration(total)));
+                            routineName, startText, Literals.formatDuration(total)));
                 }
             } catch (DateTimeParseException ignored) {
             }
@@ -282,7 +282,7 @@ public class SemanticValidator extends LifeScriptParserBaseVisitor<Void> {
 
     @Override
     public Void visitDayList(LifeScriptParser.DayListContext ctx) {
-        checkDuplicateKeys(ctx.dayOfWeek(), d -> keyword(d.getText()), "day in repeats");
+        checkDuplicateKeys(ctx.dayOfWeek(), d -> Keywords.normalize(d.getText()), "day in repeats");
         return null;
     }
 
@@ -297,7 +297,7 @@ public class SemanticValidator extends LifeScriptParserBaseVisitor<Void> {
         String eventName = ctx.IDENTIFIER().getText();
 
         List<LifeScriptParser.EventPropertyContext> properties =
-                checkDuplicateKeys(ctx.eventProperty(), p -> keyword(p.getStart().getText()), "event property");
+                checkDuplicateKeys(ctx.eventProperty(), p -> Keywords.normalize(p.getStart().getText()), "event property");
 
         boolean hasDate = false;
         boolean hasTime = false;
@@ -366,13 +366,10 @@ public class SemanticValidator extends LifeScriptParserBaseVisitor<Void> {
         }
 
         // Minutes after hours (1h75m) must stay under 60; minutes alone (90m) are fine.
-        int hIndex = text.toLowerCase(Locale.ROOT).indexOf('h');
-        if (hIndex >= 0 && hIndex < text.length() - 1) {
-            long minutes = Long.parseLong(text.substring(hIndex + 1, text.length() - 1));
-            if (minutes > 59) {
-                diagnostics.error(entry, String.format("Minutes in '%s' must be at most 59 (write %s)",
-                        text, formatDuration(duration)));
-            }
+        Literals.DurationLiteral literal = Literals.parseDurationLiteral(text);
+        if (literal.hasHours() && literal.minutes() > 59) {
+            diagnostics.error(entry, String.format("Minutes in '%s' must be at most 59 (write %s)",
+                    text, Literals.formatDuration(duration)));
         }
     }
 
@@ -384,13 +381,6 @@ public class SemanticValidator extends LifeScriptParserBaseVisitor<Void> {
         } catch (IllegalArgumentException e) {
             return null;
         }
-    }
-
-    private static String formatDuration(Duration duration) {
-        long hours = duration.toHours();
-        long minutes = duration.toMinutesPart();
-        if (hours == 0) return minutes + "m";
-        return minutes == 0 ? hours + "h" : hours + "h" + minutes + "m";
     }
 
     @Override
@@ -490,32 +480,27 @@ public class SemanticValidator extends LifeScriptParserBaseVisitor<Void> {
 
     @Override
     public Void visitSettings(LifeScriptParser.SettingsContext ctx) {
-        visitAll(checkDuplicateKeys(ctx.settingsEntry(), e -> keyword(e.namedPeriod().getText()), "settings entry"));
+        visitAll(checkDuplicateKeys(ctx.settingsEntry(), e -> Keywords.normalize(e.namedPeriod().getText()), "settings entry"));
         return null;
     }
 
     @Override
     public Void visitAvailability(LifeScriptParser.AvailabilityContext ctx) {
-        visitAll(checkDuplicateKeys(ctx.availabilityEntry(), e -> keyword(e.dayOfWeek().getText()), "availability day"));
+        visitAll(checkDuplicateKeys(ctx.availabilityEntry(), e -> Keywords.normalize(e.dayOfWeek().getText()), "availability day"));
         return null;
     }
 
     @Override
     public Void visitEnergyProfile(LifeScriptParser.EnergyProfileContext ctx) {
         visitAll(checkDuplicateKeys(ctx.energyProfileEntry(),
-                e -> e.DEFAULT() != null ? "default" : keyword(e.dayOfWeek().getText()), "energy profile entry"));
+                e -> e.DEFAULT() != null ? "default" : Keywords.normalize(e.dayOfWeek().getText()), "energy profile entry"));
         return null;
     }
 
     @Override
     public Void visitEnergyProfileEntry(LifeScriptParser.EnergyProfileEntryContext ctx) {
         visitAll(checkDuplicateKeys(ctx.energyEntry(),
-                e -> e.namedPeriod() != null ? keyword(e.namedPeriod().getText()) : e.timeRange().getText(), "energy entry"));
+                e -> e.namedPeriod() != null ? Keywords.normalize(e.namedPeriod().getText()) : e.timeRange().getText(), "energy entry"));
         return null;
-    }
-
-    // Keywords match in any case, so keys made of keyword text are compared lowercased; names are not.
-    private static String keyword(String text) {
-        return text.toLowerCase(Locale.ROOT);
     }
 }
