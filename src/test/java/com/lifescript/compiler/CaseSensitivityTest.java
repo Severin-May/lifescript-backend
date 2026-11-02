@@ -7,13 +7,12 @@ import org.junit.jupiter.api.Test;
 
 import java.util.List;
 
-import static com.lifescript.TestPlans.compiler;
+import static com.lifescript.TestPlans.compile;
 import static com.lifescript.TestPlans.errors;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 class CaseSensitivityTest {
 
-    private final LifeScriptCompiler compiler = compiler();
 
     @Test
     void keywordsInAnyCase_namesKeepTheirSpelling() {
@@ -58,7 +57,7 @@ class CaseSensitivityTest {
                 Time: Afternoon
                 """;
 
-        CompileResult result = compiler.compile(plan);
+        CompileResult result = compile(plan);
 
         assertEquals(List.of(), result.diagnostics());
         assertEquals(List.of("Research", "Write_Report"), result.plan().tasks().stream().map(Task::name).toList());

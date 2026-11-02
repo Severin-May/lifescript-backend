@@ -22,7 +22,7 @@ public class PlanningConfig {
     }
 
     @Bean
-    public LifeScriptCompiler lifeScriptCompiler(Clock clock) {
-        return new LifeScriptCompiler(clock);
+    public LifeScriptCompiler lifeScriptCompiler() {
+        return new LifeScriptCompiler();
     }
 }

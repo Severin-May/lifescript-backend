@@ -6,7 +6,7 @@ import org.junit.jupiter.api.Test;
 
 import java.util.List;
 
-import static com.lifescript.TestPlans.compiler;
+import static com.lifescript.TestPlans.compile;
 import static com.lifescript.TestPlans.errors;
 import static com.lifescript.TestPlans.syntaxErrors;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -15,7 +15,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class SyntaxErrorTest {
 
-    private final LifeScriptCompiler compiler = compiler();
 
     @Test
     void syntaxError_isADiagnosticMarkingExactlyTheOffendingToken() {
@@ -33,7 +32,7 @@ class SyntaxErrorTest {
                 effort: high
                 """;
 
-        Diagnostic first = compiler.compile(plan).diagnostics().get(0);
+        Diagnostic first = compile(plan).diagnostics().get(0);
 
         // line 9, columns 10-11 ("1h"); the end column is exclusive
         assertEquals(Stage.SYNTAX, first.stage());
@@ -85,7 +84,7 @@ class SyntaxErrorTest {
                 time: morning
                 """;
 
-        Diagnostic first = compiler.compile(plan).diagnostics().get(0);
+        Diagnostic first = compile(plan).diagnostics().get(0);
 
         assertEquals("'low' is a reserved word and can't be used as a name", first.message());
         // line 8, columns 7-9 ("low")
@@ -126,7 +125,7 @@ class SyntaxErrorTest {
                 effort: high
                 """;
 
-        Diagnostic first = compiler.compile(plan).diagnostics().get(0);
+        Diagnostic first = compile(plan).diagnostics().get(0);
 
         // the "time" of "time: 30m" on line 13
         assertEquals(List.of(13, 1, 13, 5),

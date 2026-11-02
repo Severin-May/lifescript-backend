@@ -6,7 +6,7 @@ import org.junit.jupiter.api.Test;
 
 import java.util.List;
 
-import static com.lifescript.TestPlans.compiler;
+import static com.lifescript.TestPlans.compile;
 import static com.lifescript.TestPlans.errors;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
@@ -38,7 +38,7 @@ class UnicodeNamesTest {
         String source = plan(task("házifeladat", "") + task("встреча", "dependencies: házifeladat")
                 + task("नमस्ते", "dependencies: встреча") + "Task: Ebéd\nDuration: 30m\nPriority: Low\nEffort: Low\n");
 
-        CompileResult result = compiler().compile(source);
+        CompileResult result = compile(source);
 
         assertEquals(List.of(), result.diagnostics());
         assertEquals(List.of("házifeladat", "встреча", "नमस्ते", "Ebéd"),
@@ -49,7 +49,7 @@ class UnicodeNamesTest {
     void bothWaysOfWritingAnAccent_areTheSameName() {
         String source = plan(task("caf" + E_ONE_CHAR, "") + task("report", "dependencies: caf" + E_TWO_CHARS));
 
-        CompileResult result = compiler().compile(source);
+        CompileResult result = compile(source);
 
         assertEquals(List.of(), result.diagnostics());
         assertEquals(List.of("caf" + E_ONE_CHAR), result.plan().tasks().get(1).dependencies());
@@ -64,7 +64,7 @@ class UnicodeNamesTest {
     @Test
     void positionsAfterATwoCharacterAccent_matchTheEditorText() {
         // In the editor, "café" written with a combining accent is 5 characters long, so 'low' starts at column 22.
-        List<Diagnostic> diagnostics = compiler().compile(
+        List<Diagnostic> diagnostics = compile(
                 plan(task("a", "dependencies: caf" + E_TWO_CHARS + ", low"))).diagnostics();
 
         Diagnostic reserved = diagnostics.get(0);

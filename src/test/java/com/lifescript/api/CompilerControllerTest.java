@@ -19,6 +19,24 @@ class CompilerControllerTest {
         return "{\"content\": \"" + plan.replace("\"", "\\\"").replace("\n", "\\n") + "\"}";
     }
 
+    private static String body(String plan, String timeZone) {
+        return body(plan).replace("}", ", \"timeZone\": \"" + timeZone + "\"}");
+    }
+
+    @Test
+    void compile_withTimeZone_usesTheUsersNow() throws Exception {
+        // The test clock is 2024-01-01 00:00 UTC, which is already 09:00 in Tokyo.
+        mvc.perform(post("/api/compile").contentType(MediaType.APPLICATION_JSON).content(body(VALID_PLAN, "Asia/Tokyo")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.schedule.days['2024-01-01'][0].start").value("09:00"));
+    }
+
+    @Test
+    void compile_unknownTimeZone_isABadRequest() throws Exception {
+        mvc.perform(post("/api/compile").contentType(MediaType.APPLICATION_JSON).content(body(VALID_PLAN, "Mars/Olympus")))
+                .andExpect(status().isBadRequest());
+    }
+
     private static final String VALID_PLAN = """
             plan: p
             period: 2024-01-01 to 2024-01-07

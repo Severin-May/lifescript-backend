@@ -1,5 +1,6 @@
 package com.lifescript;
 
+import com.lifescript.compiler.CompileResult;
 import com.lifescript.compiler.LifeScriptCompiler;
 import com.lifescript.compiler.PlanModelBuilder;
 import com.lifescript.diagnostics.Diagnostic;
@@ -33,7 +34,11 @@ public final class TestPlans {
     public static final Clock CLOCK = Clock.fixed(TODAY.atStartOfDay(ZoneOffset.UTC).toInstant(), ZoneOffset.UTC);
 
     public static LifeScriptCompiler compiler() {
-        return new LifeScriptCompiler(CLOCK);
+        return new LifeScriptCompiler();
+    }
+
+    public static CompileResult compile(String source) {
+        return compiler().compile(source, TODAY);
     }
 
     public static PlanningService planning() {
@@ -54,7 +59,7 @@ public final class TestPlans {
 
     // e.g. "Line 9: Duration '0m' must be greater than zero"
     public static List<String> errors(String source) {
-        return format(compiler().compile(source).diagnostics());
+        return format(compile(source).diagnostics());
     }
 
     public static List<String> syntaxErrors(String source) {

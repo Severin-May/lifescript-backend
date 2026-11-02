@@ -13,7 +13,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.atomic.AtomicReference;
 
-import static com.lifescript.TestPlans.compiler;
+import static com.lifescript.TestPlans.compile;
 import static com.lifescript.TestPlans.errors;
 import static com.lifescript.TestPlans.load;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -23,7 +23,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class LifeScriptCompilerTest {
 
-    private final LifeScriptCompiler compiler = compiler();
 
     @Test
     void validPlan_hasNoErrors() throws IOException {
@@ -34,7 +33,7 @@ class LifeScriptCompilerTest {
 
     @Test
     void validPlan_hasThePlan() throws IOException {
-        CompileResult result = compiler.compile(load("fullPlan.ls"));
+        CompileResult result = compile(load("fullPlan.ls"));
 
         assertEquals(List.of(), result.diagnostics());
         assertEquals("my_week", result.plan().name());
@@ -42,7 +41,7 @@ class LifeScriptCompilerTest {
 
     @Test
     void invalidPlan_hasNoPlan() {
-        CompileResult result = compiler.compile("plan: p\n");
+        CompileResult result = compile("plan: p\n");
 
         assertFalse(result.diagnostics().isEmpty());
         assertNull(result.plan());
@@ -60,7 +59,7 @@ class LifeScriptCompilerTest {
         // A small stack makes the dependency recursion overflow on any machine.
         Thread thread = new Thread(null, () -> {
             try {
-                outcome.set(compiler.compile(plan.toString()));
+                outcome.set(compile(plan.toString()));
             } catch (Throwable t) {
                 outcome.set(t);
             }
@@ -80,7 +79,7 @@ class LifeScriptCompilerTest {
         Locale original = Locale.getDefault();
         Locale.setDefault(Locale.forLanguageTag("tr-TR"));
         try {
-            assertEquals(List.of(), compiler.compile(load("fullPlan.ls")).diagnostics());
+            assertEquals(List.of(), compile(load("fullPlan.ls")).diagnostics());
             assertEquals(List.of("Line 13: Routine 'a' (09:00-10:00) overlaps routine 'b' (09:30-10:30) on friday"), errors("""
                     plan: p
                     period: 2024-01-01 to 2024-01-07
@@ -167,7 +166,7 @@ class LifeScriptCompilerTest {
                 dependencies: a
                 """;
 
-        List<Diagnostic> diagnostics = compiler.compile(plan).diagnostics();
+        List<Diagnostic> diagnostics = compile(plan).diagnostics();
 
         // "duration: 0m" on line 9 (12 characters, so end column 13)
         assertEquals(new Diagnostic(Stage.VALIDATION, Severity.ERROR, "Duration '0m' must be greater than zero",
