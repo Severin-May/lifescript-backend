@@ -33,33 +33,24 @@ class LifeScriptCompilerTest {
     }
 
     @Test
-    void validPlan_isScheduled() throws IOException {
+    void validPlan_hasThePlan() throws IOException {
         CompileResult result = compiler.compile(load("fullPlan.ls"));
 
         assertEquals(List.of(), result.diagnostics());
-        assertEquals(7, result.schedule().days().size());
+        assertEquals("my_week", result.plan().name());
     }
 
     @Test
-    void invalidPlan_hasNoSchedule() {
+    void invalidPlan_hasNoPlan() {
         CompileResult result = compiler.compile("plan: p\n");
 
         assertFalse(result.diagnostics().isEmpty());
-        assertNull(result.schedule());
+        assertNull(result.plan());
     }
 
     @Test
-    void schedulerCrash_isReportedAsInternalError() throws IOException {
-        LifeScriptCompiler crashing = compiler((plan, now) -> { throw new IllegalStateException("boom"); });
-
-        CompileResult result = crashing.compile(load("fullPlan.ls"));
-
-        assertEquals(Stage.INTERNAL, result.diagnostics().get(0).stage());
-        assertNull(result.schedule());
-    }
-
-    @Test
-    void stackOverflow_isReportedAsInternalError_notThrown() throws Exception {
+    @ExtendWith(OutputCaptureExtension.class)
+    void stackOverflow_isReportedAsInternalError_andLoggedWithoutThePlansContents(CapturedOutput output) throws Exception {
         StringBuilder plan = new StringBuilder("plan: p\nperiod: 2024-01-01 to 2024-01-07\n\navailability:\nmonday: flexible\n\ntasks:\n");
         for (int i = 0; i < 5000; i++) {
             plan.append("task: t").append(i).append("\nduration: 15m\npriority: low\neffort: low\n")
@@ -79,6 +70,8 @@ class LifeScriptCompilerTest {
 
         assertTrue(outcome.get() instanceof CompileResult, () -> "Got: " + outcome.get());
         assertEquals(Stage.INTERNAL, ((CompileResult) outcome.get()).diagnostics().get(0).stage());
+        assertTrue(output.getOut().contains("Compiler crashed"), output::getOut);
+        assertFalse(output.getOut().contains("duration: 15m"), output::getOut);
     }
 
     @Test
@@ -116,18 +109,6 @@ class LifeScriptCompilerTest {
         } finally {
             Locale.setDefault(original);
         }
-    }
-
-    @Test
-    @ExtendWith(OutputCaptureExtension.class)
-    void schedulerCrash_isLoggedWithoutThePlansContents(CapturedOutput output) throws IOException {
-        LifeScriptCompiler crashing = compiler((plan, now) -> { throw new IllegalStateException("boom"); });
-
-        crashing.compile(load("fullPlan.ls"));
-
-        assertTrue(output.getOut().contains("Compiler crashed"), output::getOut);
-        assertTrue(output.getOut().contains("boom"), output::getOut);
-        assertFalse(output.getOut().contains("bring insurance card"), output::getOut);
     }
 
     @Test

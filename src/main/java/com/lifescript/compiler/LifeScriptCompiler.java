@@ -5,30 +5,22 @@ import com.lifescript.diagnostics.Stage;
 import com.lifescript.grammar.LifeScriptLexer;
 import com.lifescript.grammar.LifeScriptParser;
 import com.lifescript.model.Plan;
-import com.lifescript.scheduler.Scheduler;
-import com.lifescript.scheduler.greedy.GreedyScheduler;
 import org.antlr.v4.runtime.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.time.Clock;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.util.List;
 
 public class LifeScriptCompiler {
 
     private static final Logger log = LoggerFactory.getLogger(LifeScriptCompiler.class);
 
-    private final Scheduler scheduler;
+    // Gives "today", which period dates are checked against.
     private final Clock clock;
 
-    public LifeScriptCompiler() {
-        this(new GreedyScheduler(), Clock.systemDefaultZone());
-    }
-
-    public LifeScriptCompiler(Scheduler scheduler, Clock clock) {
-        this.scheduler = scheduler;
+    public LifeScriptCompiler(Clock clock) {
         this.clock = clock;
     }
 
@@ -92,7 +84,7 @@ public class LifeScriptCompiler {
             return CompileResult.failed(collector.list());
         }
 
-        return new CompileResult(List.of(), scheduler.schedule(plan, LocalDateTime.now(clock)));
+        return new CompileResult(List.of(), plan);
     }
 
     private LifeScriptParser.PlanContext parseWithSyntaxChecks(String content, DiagnosticCollector collector) {

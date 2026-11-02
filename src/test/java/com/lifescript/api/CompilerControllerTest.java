@@ -13,7 +13,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 class CompilerControllerTest {
 
-    private final MockMvc mvc = MockMvcBuilders.standaloneSetup(new CompilerController(TestPlans.compiler())).build();
+    private final MockMvc mvc = MockMvcBuilders.standaloneSetup(new CompilerController(TestPlans.planning())).build();
 
     private static String body(String plan) {
         return "{\"content\": \"" + plan.replace("\"", "\\\"").replace("\n", "\\n") + "\"}";
@@ -100,6 +100,26 @@ class CompilerControllerTest {
                 .andExpect(jsonPath("$.diagnostics[0].startLineNumber").value(8))
                 .andExpect(jsonPath("$.diagnostics[0].startColumn").value(7))
                 .andExpect(jsonPath("$.diagnostics[0].endColumn").value(10));
+    }
+
+    @Test
+    void validate_validPlan_isValid_withoutASchedule() throws Exception {
+        mvc.perform(post("/api/validate").contentType(MediaType.APPLICATION_JSON).content(body(VALID_PLAN)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.valid").value(true))
+                .andExpect(jsonPath("$.diagnostics").isEmpty())
+                .andExpect(jsonPath("$.schedule").value(nullValue()));
+    }
+
+    @Test
+    void validate_reportsValidationErrors_notJustSyntax() throws Exception {
+        String plan = VALID_PLAN.replace("effort: high", "effort: high\ndependencies: ghost");
+
+        mvc.perform(post("/api/validate").contentType(MediaType.APPLICATION_JSON).content(body(plan)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.valid").value(false))
+                .andExpect(jsonPath("$.diagnostics[0].stage").value("VALIDATION"))
+                .andExpect(jsonPath("$.diagnostics[0].message").value("Task 'a' depends on 'ghost', which doesn't exist"));
     }
 
     @Test

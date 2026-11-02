@@ -1,5 +1,8 @@
 package com.lifescript.compiler;
 
+import com.lifescript.model.Event;
+import com.lifescript.model.Routine;
+import com.lifescript.model.Task;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -58,9 +61,9 @@ class CaseSensitivityTest {
         CompileResult result = compiler.compile(plan);
 
         assertEquals(List.of(), result.diagnostics());
-        List<String> names = result.schedule().days().values().stream()
-                .flatMap(List::stream).map(entry -> entry.name()).distinct().sorted().toList();
-        assertEquals(List.of("Dentist", "Research", "Walk", "Write_Report"), names);
+        assertEquals(List.of("Research", "Write_Report"), result.plan().tasks().stream().map(Task::name).toList());
+        assertEquals(List.of("Walk"), result.plan().routines().stream().map(Routine::name).toList());
+        assertEquals(List.of("Dentist"), result.plan().events().stream().map(Event::name).toList());
     }
 
     @Test

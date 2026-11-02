@@ -6,6 +6,7 @@ import com.lifescript.diagnostics.Diagnostic;
 import com.lifescript.grammar.LifeScriptLexer;
 import com.lifescript.grammar.LifeScriptParser;
 import com.lifescript.model.Plan;
+import com.lifescript.planning.PlanningService;
 import com.lifescript.scheduler.Scheduler;
 import com.lifescript.scheduler.greedy.GreedyScheduler;
 import org.antlr.v4.runtime.CharStreams;
@@ -29,12 +30,18 @@ public final class TestPlans {
     private TestPlans() {
     }
 
+    public static final Clock CLOCK = Clock.fixed(TODAY.atStartOfDay(ZoneOffset.UTC).toInstant(), ZoneOffset.UTC);
+
     public static LifeScriptCompiler compiler() {
-        return compiler(new GreedyScheduler());
+        return new LifeScriptCompiler(CLOCK);
     }
 
-    public static LifeScriptCompiler compiler(Scheduler scheduler) {
-        return new LifeScriptCompiler(scheduler, Clock.fixed(TODAY.atStartOfDay(ZoneOffset.UTC).toInstant(), ZoneOffset.UTC));
+    public static PlanningService planning() {
+        return planning(new GreedyScheduler());
+    }
+
+    public static PlanningService planning(Scheduler scheduler) {
+        return new PlanningService(compiler(), scheduler, CLOCK);
     }
 
     // From src/test/resources/lifescript/.
