@@ -42,6 +42,7 @@ public class PlanModelBuilder {
         Map<String, TimeRange> timeSettings = resolveTimeSettings(ctx);
 
         Map<String, SourceLocation> timeSettingLocations = Map.of();
+        Duration breakTime = Duration.ZERO;
         Map<DayOfWeek, List<TimeRange>> availability = Map.of();
         Map<DayOfWeek, SourceLocation> availabilityLocations = Map.of();
         List<EnergyEntry> defaultEnergyProfile = List.of();
@@ -54,7 +55,10 @@ public class PlanModelBuilder {
             switch (SectionKind.of(section)) {
                 case ROUTINES -> routines = buildRoutines(section.routines());
                 case TASKS -> tasks = buildTasks(section.tasks());
-                case SETTINGS -> timeSettingLocations = buildTimeSettingLocations(section.settings());
+                case SETTINGS -> {
+                    timeSettingLocations = buildTimeSettingLocations(section.settings());
+                    breakTime = buildBreakTime(section.settings());
+                }
                 case AVAILABILITY -> {
                     availability = buildAvailability(section.availability(), timeSettings);
                     availabilityLocations = buildAvailabilityLocations(section.availability());
@@ -68,7 +72,7 @@ public class PlanModelBuilder {
             }
         }
 
-        return new Plan(ctx.IDENTIFIER().getText(), period, timeSettings, timeSettingLocations, availability,
+        return new Plan(ctx.IDENTIFIER().getText(), period, timeSettings, timeSettingLocations, breakTime, availability,
                 availabilityLocations, defaultEnergyProfile, energyProfileOverrides, tasks, routines, events);
     }
 
@@ -221,6 +225,7 @@ public class PlanModelBuilder {
         List<DayOfWeek> repeatDays = List.of();
         List<String> dependencies = List.of();
         String note = null;
+        Duration breakTime = null;
 
         for (LifeScriptParser.TaskPropertyContext prop : ctx.taskProperty()) {
             if (prop.taskDuration() != null) {
@@ -239,10 +244,12 @@ public class PlanModelBuilder {
                 dependencies = prop.taskDependencies().IDENTIFIER().stream().map(TerminalNode::getText).toList();
             } else if (prop.taskNote() != null) {
                 note = Literals.parseString(prop.taskNote().STRING().getText());
+            } else if (prop.taskBreak() != null) {
+                breakTime = Literals.parseDuration(prop.taskBreak().DURATION_VAL().getText());
             }
         }
 
-        return new Task(ctx.IDENTIFIER().getText(), duration, priority, effort, deadline, repeatDays, dependencies, note);
+        return new Task(ctx.IDENTIFIER().getText(), duration, priority, effort, deadline, repeatDays, dependencies, note, breakTime);
     }
 
     private List<DayOfWeek> buildRepeatDays(LifeScriptParser.RepeatPatternContext ctx) {
@@ -278,6 +285,7 @@ public class PlanModelBuilder {
         for (LifeScriptParser.PlanSectionContext section : ctx.planSection()) {
             if (SectionKind.of(section) == SectionKind.SETTINGS) {
                 for (LifeScriptParser.SettingsEntryContext entry : section.settings().settingsEntry()) {
+                    if (entry.namedPeriod() == null) continue;
                     timeSettings.put(Keywords.parseNamedPeriod(entry.namedPeriod().getText()), Literals.parseTimeRange(entry.timeRange().getText()));
                 }
             }
@@ -289,9 +297,16 @@ public class PlanModelBuilder {
     private Map<String, SourceLocation> buildTimeSettingLocations(LifeScriptParser.SettingsContext ctx) {
         Map<String, SourceLocation> locations = new HashMap<>();
         for (LifeScriptParser.SettingsEntryContext entry : ctx.settingsEntry()) {
+            if (entry.namedPeriod() == null) continue;
             locations.put(Keywords.parseNamedPeriod(entry.namedPeriod().getText()), DiagnosticCollector.locationOf(entry));
         }
         return locations;
+    }
+
+    // No break unless one is written.
+    private Duration buildBreakTime(LifeScriptParser.SettingsContext ctx) {
+        return ctx.settingsEntry().stream().filter(entry -> entry.BREAK() != null).findFirst()
+                .map(entry -> Literals.parseDuration(entry.DURATION_VAL().getText())).orElse(Duration.ZERO);
     }
 
     private Map<DayOfWeek, SourceLocation> buildAvailabilityLocations(LifeScriptParser.AvailabilityContext ctx) {

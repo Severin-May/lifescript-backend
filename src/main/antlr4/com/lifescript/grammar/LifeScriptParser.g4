@@ -29,6 +29,7 @@ settings
 
 settingsEntry
     : namedPeriod COLON timeRange eol
+    | BREAK COLON DURATION_VAL eol
     ;
 
 // Availability
@@ -137,6 +138,7 @@ taskProperty
     | repeats
     | taskDependencies
     | taskNote
+    | taskBreak
     ;
 
 taskDuration
@@ -167,6 +169,10 @@ taskDependencies
 
 taskNote
     : NOTE COLON STRING eol
+    ;
+
+taskBreak
+    : BREAK COLON DURATION_VAL eol
     ;
 
 // Events: one-off, at a fixed date and time

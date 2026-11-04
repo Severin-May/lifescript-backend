@@ -26,6 +26,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.stream.Collectors;
@@ -45,7 +46,7 @@ public class GreedyScheduler implements Scheduler {
     @Override
     public Schedule schedule(Plan plan, LocalDateTime now) {
         Map<LocalDate, List<TimeRange>> available =
-                AvailableTime.of(plan, settings.breakTime(), roundUpToStep(now));
+                AvailableTime.of(plan, roundUpToStep(now));
         Map<LocalDate, List<ScheduleEntry>> days = fixedCommitments(plan);
         List<UnscheduledTask> unscheduled = new ArrayList<>();
         List<ScheduleWarning> warnings = new ArrayList<>();
@@ -66,16 +67,19 @@ public class GreedyScheduler implements Scheduler {
 
             LocalDateTime earliestStart = dependencies.stream().map(endOf::get)
                     .max(LocalDateTime::compareTo).orElse(null);
+            Duration rest = restAfter(occurrence, plan);
+            // A task's own break must fit in free time too; the plan's break may run into unavailable time.
+            int strictRest = occurrence.task().breakTime() != null ? (int) rest.toSeconds() : 0;
 
-            Placement placement = bestPlacement(plan, available, occurrence, earliestStart, occurrence.preferredEnd());
+            Placement placement = bestPlacement(plan, available, occurrence, earliestStart, occurrence.preferredEnd(), strictRest);
             boolean withoutBuffer = false;
             if (placement == null && occurrence.hardEnd() != null && !occurrence.hardEnd().equals(occurrence.preferredEnd())) {
-                placement = bestPlacement(plan, available, occurrence, earliestStart, occurrence.hardEnd());
+                placement = bestPlacement(plan, available, occurrence, earliestStart, occurrence.hardEnd(), strictRest);
                 withoutBuffer = placement != null;
             }
 
             if (placement == null) {
-                unscheduled.add(new UnscheduledTask(occurrence.name(), occurrence.date(), reason(occurrence, dependencies),
+                unscheduled.add(new UnscheduledTask(occurrence.name(), occurrence.date(), reason(occurrence, dependencies, strictRest),
                         occurrence.task().note()));
                 failed.add(occurrence.name());
                 continue;
@@ -83,9 +87,13 @@ public class GreedyScheduler implements Scheduler {
 
             days.get(placement.date()).add(new ScheduleEntry(EntryType.TASK, occurrence.name(), placement.time(),
                     occurrence.task().note()));
-            // Padded on both sides because tasks aren't placed in time order.
+            Optional<TimeRange> restTime = breakAfter(placement.time(), rest);
+            if (restTime.isPresent()) {
+                days.get(placement.date()).add(new ScheduleEntry(EntryType.BREAK, occurrence.name(), restTime.get(), null));
+            }
+            // The plan's break before it too, because tasks aren't placed in time order.
             available.put(placement.date(), AvailableTime.minus(available.get(placement.date()),
-                    placement.time().paddedBy(settings.breakTime())));
+                    reserved(placement.time(), plan.breakTime(), rest)));
             endOf.put(occurrence.name(), placement.time().endOn(placement.date()));
             if (withoutBuffer) {
                 warnings.add(new ScheduleWarning(occurrence.name(), placement.date(),
@@ -97,6 +105,24 @@ public class GreedyScheduler implements Scheduler {
     }
 
     private record Placement(LocalDate date, TimeRange time) {
+    }
+
+    private static Duration restAfter(TaskOccurrence occurrence, Plan plan) {
+        Duration own = occurrence.task().breakTime();
+        return own != null ? own : plan.breakTime();
+    }
+
+    private static TimeRange reserved(TimeRange task, Duration before, Duration after) {
+        int start = (int) Math.max(0, task.startTime().toSecondOfDay() - before.toSeconds());
+        int end = (int) Math.min(TimeRange.SECONDS_PER_DAY, task.endSecondOfDay() + after.toSeconds());
+        return TimeRange.ofSeconds(start, end);
+    }
+
+    // Empty without a break, or when the task ends at midnight.
+    private static Optional<TimeRange> breakAfter(TimeRange task, Duration breakTime) {
+        int start = task.endSecondOfDay();
+        int end = (int) Math.min(TimeRange.SECONDS_PER_DAY, start + breakTime.toSeconds());
+        return end > start ? Optional.of(TimeRange.ofSeconds(start, end)) : Optional.empty();
     }
 
     private static Map<LocalDate, List<ScheduleEntry>> fixedCommitments(Plan plan) {
@@ -119,8 +145,9 @@ public class GreedyScheduler implements Scheduler {
     }
 
     // Candidates come in time order, so of equally good fits the earliest is kept.
+    // strictRest: seconds after the task that must be free as well; the deadline and energy only see the task.
     private Placement bestPlacement(Plan plan, Map<LocalDate, List<TimeRange>> available, TaskOccurrence occurrence,
-                                    LocalDateTime earliestStart, LocalDateTime latestEnd) {
+                                    LocalDateTime earliestStart, LocalDateTime latestEnd, int strictRest) {
         int duration = (int) occurrence.task().duration().toSeconds();
         int step = (int) settings.startStep().toSeconds();
         List<LocalDate> dates = occurrence.date() != null ? List.of(occurrence.date()) : List.copyOf(available.keySet());
@@ -129,7 +156,7 @@ public class GreedyScheduler implements Scheduler {
         EnergyFit bestFit = null;
         for (LocalDate date : dates) {
             for (TimeRange range : available.get(date)) {
-                for (int start : candidateStarts(range, duration, step)) {
+                for (int start : candidateStarts(range, duration + strictRest, step)) {
                     int end = start + duration;
                     TimeRange time = TimeRange.ofSeconds(start, end);
                     if (earliestStart != null && date.atTime(time.startTime()).isBefore(earliestStart)) {
@@ -185,8 +212,11 @@ public class GreedyScheduler implements Scheduler {
                 : ends + ", only " + Durations.format(gap) + " before its deadline at " + deadlineText;
     }
 
-    private static String reason(TaskOccurrence occurrence, List<String> dependencies) {
+    private static String reason(TaskOccurrence occurrence, List<String> dependencies, int strictRest) {
         StringBuilder reason = new StringBuilder("no free slot long enough");
+        if (strictRest > 0) {
+            reason.append(" for it and its ").append(Durations.format(Duration.ofSeconds(strictRest))).append(" break");
+        }
         if (occurrence.date() != null) {
             return reason.append(" on ").append(occurrence.date()).toString();
         }

@@ -8,6 +8,9 @@ LifeScript plan, reports any mistakes with their exact position, and schedules t
 plan: my_week
 period: 2026-11-09 to 2026-11-15
 
+settings:
+  break: 10m
+
 availability:
   monday: 09:00-12:00, 14:00-18:00
   tuesday: flexible
@@ -37,6 +40,7 @@ tasks:
     effort: moderate
     dependencies: research
     note: "final draft"
+    break: 30m
 
 events:
   event: dentist
@@ -81,7 +85,7 @@ Response:
   "diagnostics": [
     { "stage": "VALIDATION", "severity": "ERROR",
       "message": "Task 'write_report' depends on 'reserch', which doesn't exist",
-      "startLineNumber": 31, "startColumn": 5, "endLineNumber": 31, "endColumn": 26 }
+      "startLineNumber": 34, "startColumn": 5, "endLineNumber": 34, "endColumn": 26 }
   ],
   "schedule": null
 }
@@ -91,8 +95,10 @@ Response:
   tied to a place (e.g. "Plan is empty") has all positions 0. `stage` is `SYNTAX`, `VALIDATION` or `INTERNAL`
   (a bug in LifeScript, not in the plan).
 - **Schedule:** `days` maps each date to its entries `{ type, name, start, end, note }`, where `type` is
-  `ROUTINE`, `EVENT` or `TASK` and times are `"HH:MM"`; an `end` of `"00:00"` means midnight at the end of the
-  day. `unscheduled` lists tasks that didn't fit, with the reason. `warnings` lists placed tasks worth
+  `ROUTINE`, `EVENT`, `TASK` or `BREAK` and times are `"HH:MM"`; an `end` of `"00:00"` means midnight at the end
+  of the day. A `BREAK` entry is the rest right after a task (its `name` is the task's). The plan's
+  `break:` in `settings:` applies around everything; a task's own `break:` replaces it after that task and,
+  unlike the plan's, must fit in free time. Without either, there are no breaks. `unscheduled` lists tasks that didn't fit, with the reason. `warnings` lists placed tasks worth
   checking, e.g. one that ends shortly before its deadline.
 
 ## Configuration

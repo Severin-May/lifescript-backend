@@ -22,6 +22,7 @@ public class SemanticValidator extends LifeScriptParserBaseVisitor<Void> {
     private final LocalDate today;
 
     private static final Duration MAX_DURATION = Duration.ofHours(24);
+    private static final Duration MAX_BREAK = Duration.ofHours(2);
     private static final int MAX_PERIOD_DAYS = 7;
 
     public SemanticValidator(DiagnosticCollector diagnostics, LocalDate today) {
@@ -279,7 +280,21 @@ public class SemanticValidator extends LifeScriptParserBaseVisitor<Void> {
             return;
         }
 
-        // Minutes after hours (1h75m) must stay under 60; minutes alone (90m) are fine.
+        checkMinutes(text, duration, entry);
+    }
+
+    // Unlike a task's duration, a break may be zero.
+    private void checkBreak(String text, ParserRuleContext entry) {
+        Duration duration = parseDurationWithinLimit(text);
+        if (duration == null || duration.compareTo(MAX_BREAK) > 0) {
+            diagnostics.error(entry, String.format("Break '%s' is too long (at most %s)", text, Durations.format(MAX_BREAK)));
+            return;
+        }
+        checkMinutes(text, duration, entry);
+    }
+
+    // Minutes after hours (1h75m) must stay under 60; minutes alone (90m) are fine.
+    private void checkMinutes(String text, Duration duration, ParserRuleContext entry) {
         Literals.DurationLiteral literal = Literals.parseDurationLiteral(text);
         if (literal.hasHours() && literal.minutes() > 59) {
             diagnostics.error(entry, String.format("Minutes in '%s' must be at most 59 (write %s)",
@@ -400,8 +415,23 @@ public class SemanticValidator extends LifeScriptParserBaseVisitor<Void> {
 
     @Override
     public Void visitSettings(LifeScriptParser.SettingsContext ctx) {
-        visitAll(checkDuplicateKeys(ctx.settingsEntry(), e -> Keywords.normalize(e.namedPeriod().getText()), "settings entry"));
+        visitAll(checkDuplicateKeys(ctx.settingsEntry(),
+                e -> e.BREAK() != null ? "break" : Keywords.normalize(e.namedPeriod().getText()), "settings entry"));
         return null;
+    }
+
+    @Override
+    public Void visitTaskBreak(LifeScriptParser.TaskBreakContext ctx) {
+        checkBreak(ctx.DURATION_VAL().getText(), ctx);
+        return visitChildren(ctx);
+    }
+
+    @Override
+    public Void visitSettingsEntry(LifeScriptParser.SettingsEntryContext ctx) {
+        if (ctx.BREAK() != null) {
+            checkBreak(ctx.DURATION_VAL().getText(), ctx);
+        }
+        return visitChildren(ctx);
     }
 
     @Override

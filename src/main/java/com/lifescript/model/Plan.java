@@ -3,6 +3,7 @@ package com.lifescript.model;
 import com.lifescript.diagnostics.SourceLocation;
 
 import java.time.DayOfWeek;
+import java.time.Duration;
 import java.time.LocalTime;
 import java.util.Collections;
 import java.util.EnumMap;
@@ -11,8 +12,9 @@ import java.util.List;
 import java.util.Map;
 
 // timeSettingLocations: only entries written in the file. availabilityLocations: only days listed in the file.
+// breakTime: kept free around everything scheduled; zero if not set.
 public record Plan(String name, PlanPeriod period,
-                   Map<String, TimeRange> timeSettings, Map<String, SourceLocation> timeSettingLocations,
+                   Map<String, TimeRange> timeSettings, Map<String, SourceLocation> timeSettingLocations, Duration breakTime,
                    Map<DayOfWeek, List<TimeRange>> availability, Map<DayOfWeek, SourceLocation> availabilityLocations,
                    List<EnergyEntry> defaultEnergyProfile, Map<DayOfWeek, List<EnergyEntry>> energyProfileOverrides,
                    List<Task> tasks, List<Routine> routines, List<Event> events) {

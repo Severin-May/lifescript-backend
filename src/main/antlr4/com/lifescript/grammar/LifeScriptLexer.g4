@@ -17,6 +17,7 @@ PERIOD          : 'period' ;
 TO              : 'to' ;
 
 SETTINGS        : 'settings' ;
+BREAK           : 'break' ;
 MORNING         : 'morning' ;
 AFTERNOON       : 'afternoon' ;
 EVENING         : 'evening' ;

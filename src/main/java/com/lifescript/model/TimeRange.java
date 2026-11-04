@@ -9,7 +9,7 @@ import java.util.List;
 
 public record TimeRange(LocalTime startTime, LocalTime endTime) {
 
-    private static final int SECONDS_PER_DAY = 24 * 60 * 60;
+    public static final int SECONDS_PER_DAY = 24 * 60 * 60;
 
     // An end of 00:00 means midnight at the end of the day.
     public boolean endsAtMidnight() {

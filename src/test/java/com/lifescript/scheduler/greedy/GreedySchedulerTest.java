@@ -16,6 +16,7 @@ import java.util.List;
 
 import static com.lifescript.TestPlans.build;
 import static com.lifescript.TestPlans.load;
+import static com.lifescript.scheduler.EntryType.BREAK;
 import static com.lifescript.scheduler.EntryType.EVENT;
 import static com.lifescript.scheduler.EntryType.ROUTINE;
 import static com.lifescript.scheduler.EntryType.TASK;
@@ -25,6 +26,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class GreedySchedulerTest {
 
     private static final LocalDate MON = LocalDate.parse("2026-10-05");
+    private static final String BREAK_10M = "settings:\nbreak: 10m\n";
 
     private static Schedule schedule(String source) {
         return schedule(source, MON.atStartOfDay());
@@ -69,20 +71,25 @@ class GreedySchedulerTest {
                 entry(ROUTINE, "morning_routine", "07:00", "07:35"),
                 entry(ROUTINE, "team_sync", "10:00", "10:30"),
                 entry(TASK, "inbox_zero", "18:00", "18:20"),
+                entry(BREAK, "inbox_zero", "18:20", "18:30"),
                 entry(ROUTINE, "evening_walk", "19:00", "19:45")), schedule.entriesOn(MON));
 
         // tue: available 09-12 (high), 14-18 (moderate); inbox_zero has no low energy, so the first moderate slot
         assertEquals(List.of(
                 entry(ROUTINE, "morning_routine", "07:00", "07:35"),
                 entry(TASK, "research", "09:00", "11:00"),
+                entry(BREAK, "research", "11:00", "11:10"),
                 entry(TASK, "inbox_zero", "14:00", "14:20"),
+                entry(BREAK, "inbox_zero", "14:20", "14:30"),
                 entry(ROUTINE, "evening_walk", "19:00", "19:45")), schedule.entriesOn(MON.plusDays(1)));
         assertEquals(List.of(
                 entry(ROUTINE, "morning_routine", "07:00", "07:35"),
                 entry(TASK, "write_report", "08:00", "09:30", "final draft for review"),
+                entry(BREAK, "write_report", "09:30", "09:45"),
                 entry(ROUTINE, "team_sync", "10:00", "10:30"),
                 entry(EVENT, "dentist", "14:00", "15:00", "bring insurance card"),
                 entry(TASK, "inbox_zero", "18:00", "18:20"),
+                entry(BREAK, "inbox_zero", "18:20", "18:30"),
                 entry(ROUTINE, "evening_walk", "19:00", "19:45")), schedule.entriesOn(MON.plusDays(2)));
         // thu: only the afternoon (moderate)
         assertTrue(schedule.entriesOn(MON.plusDays(3)).contains(entry(TASK, "inbox_zero", "13:00", "13:20")));
@@ -128,7 +135,7 @@ class GreedySchedulerTest {
     @Test
     void deadlinePassedDownFromDependent_warningNamesTheDependent() {
         // write_report is due mon 12:00, so research must end by 11:30 (09:30 with the buffer).
-        Schedule schedule = schedule(plan("monday: 09:00-12:00", "", """
+        Schedule schedule = schedule(plan("monday: 09:00-12:00", BREAK_10M, """
                 task: research
                 duration: 1h
                 priority: high
@@ -261,7 +268,7 @@ class GreedySchedulerTest {
     void taskStartsRightAfterACommitmentAndBreak_offTheQuarterHour() {
         // warmup ends 09:33, plus the break: available from 09:43, the only start that fits before 11:33
         // (09:45 would end at 11:35).
-        Schedule schedule = schedule(plan("monday: 09:00-11:33", """
+        Schedule schedule = schedule(plan("monday: 09:00-11:33", BREAK_10M + """
                 routines:
                 routine: warmup
                 time: 09:00
@@ -295,9 +302,8 @@ class GreedySchedulerTest {
     }
 
     @Test
-    void tasksKeepABreakBetweenThem() {
-        // Two 1h tasks in 09:00-11:10: the second can't start before 10:10 (10 minutes after the first).
-        Schedule schedule = schedule(plan("monday: 09:00-11:10", "", """
+    void withoutABreakSetting_tasksFollowEachOtherDirectly() {
+        Schedule schedule = schedule(plan("monday: 09:00-11:00", "", """
                 task: first
                 duration: 1h
                 priority: high
@@ -309,7 +315,104 @@ class GreedySchedulerTest {
                 effort: moderate
                 """));
 
-        assertEquals(List.of(entry(TASK, "first", "09:00", "10:00"), entry(TASK, "second", "10:10", "11:10")),
+        assertEquals(List.of(entry(TASK, "first", "09:00", "10:00"), entry(TASK, "second", "10:00", "11:00")),
+                schedule.entriesOn(MON));
+    }
+
+    @Test
+    void ownBreak_replacesThePlansBreakAfterTheTask() {
+        Schedule schedule = schedule(plan("monday: 09:00-11:40", BREAK_10M, """
+                task: first
+                duration: 1h
+                priority: high
+                effort: moderate
+                break: 30m
+
+                task: second
+                duration: 1h
+                priority: low
+                effort: moderate
+                """));
+
+        assertEquals(List.of(entry(TASK, "first", "09:00", "10:00"), entry(BREAK, "first", "10:00", "10:30"),
+                entry(TASK, "second", "10:30", "11:30"), entry(BREAK, "second", "11:30", "11:40")),
+                schedule.entriesOn(MON));
+    }
+
+    @Test
+    void ownBreakOfZero_letsTheNextTaskFollowDirectly() {
+        Schedule schedule = schedule(plan("monday: 09:00-11:00", BREAK_10M, """
+                task: first
+                duration: 1h
+                priority: high
+                effort: moderate
+                break: 0m
+
+                task: second
+                duration: 1h
+                priority: low
+                effort: moderate
+                """));
+
+        assertEquals(List.of(entry(TASK, "first", "09:00", "10:00"),
+                entry(TASK, "second", "10:00", "11:00"), entry(BREAK, "second", "11:00", "11:10")),
+                schedule.entriesOn(MON));
+    }
+
+    @Test
+    void ownBreak_mustFitInFreeTime_unlikeThePlansBreak() {
+        String task = """
+                task: deep_work
+                duration: 1h
+                priority: high
+                effort: moderate
+                """;
+
+        Schedule strict = schedule(plan("monday: 09:00-10:00", "", task + "break: 30m\n"));
+        assertEquals(List.of(), strict.entriesOn(MON));
+        assertEquals(List.of(new UnscheduledTask("deep_work", null,
+                "no free slot long enough for it and its 30m break in the period", null)), strict.unscheduled());
+
+        Schedule lenient = schedule(plan("monday: 09:00-10:00", "settings:\nbreak: 30m\n", task));
+        assertEquals(List.of(entry(TASK, "deep_work", "09:00", "10:00"), entry(BREAK, "deep_work", "10:00", "10:30")),
+                lenient.entriesOn(MON));
+    }
+
+    @Test
+    void ownBreak_isNotPartOfTheDeadline() {
+        // The work ends right at the deadline; the rest after it may go past the deadline.
+        Schedule schedule = schedule(plan("monday: 09:00-11:00", "", """
+                task: submit
+                duration: 1h
+                priority: high
+                effort: moderate
+                deadline: 2026-10-05 10:00
+                break: 30m
+                """));
+
+        assertEquals(List.of(entry(TASK, "submit", "09:00", "10:00"), entry(BREAK, "submit", "10:00", "10:30")),
+                schedule.entriesOn(MON));
+        assertEquals(List.of(new ScheduleWarning("submit", MON, "ends right at its deadline at 10:00")),
+                schedule.warnings());
+    }
+
+    @Test
+    void tasksKeepABreakBetweenThem() {
+        // Two 1h tasks in 09:00-11:10: the second can't start before 10:10 (10 minutes after the first).
+        Schedule schedule = schedule(plan("monday: 09:00-11:10", BREAK_10M, """
+                task: first
+                duration: 1h
+                priority: high
+                effort: moderate
+
+                task: second
+                duration: 1h
+                priority: low
+                effort: moderate
+                """));
+
+        assertEquals(List.of(entry(TASK, "first", "09:00", "10:00"), entry(BREAK, "first", "10:00", "10:10"),
+                entry(TASK, "second", "10:10", "11:10"), entry(BREAK, "second", "11:10", "11:20")),
                 schedule.entriesOn(MON));
     }
 }

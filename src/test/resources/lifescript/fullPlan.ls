@@ -6,6 +6,7 @@ period: 2026-10-05 to 2026-10-11
 settings:
   morning: 08:00-12:00
   afternoon: 13:00-17:00
+  break: 10m
 
 availability:
   monday: flexible
@@ -56,6 +57,7 @@ tasks:
     deadline: 2026-10-09 17:00
     dependencies: research
     note: "final draft for review"
+    break: 15m
 
   task: inbox_zero
     duration: 20m

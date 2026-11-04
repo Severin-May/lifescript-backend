@@ -34,9 +34,9 @@ class AvailableTimeTest {
         // evening 18:00-22:00. Routines: morning_routine 07:00-07:35 daily (outside all availability),
         // evening_walk 19:00-19:45 weekdays, team_sync 10:00-10:30 mon+wed.
         // Events: dentist wed 14:00-15:00 (outside availability), team_offsite fri 13:00-17:00.
-        Plan plan = build(load("fullPlan.ls"));
+        Plan plan = build(load("fullPlan.ls").replaceAll("  break: 10m\\R", ""));
 
-        Map<LocalDate, List<TimeRange>> available = AvailableTime.of(plan, Duration.ZERO, PERIOD_START);
+        Map<LocalDate, List<TimeRange>> available = AvailableTime.of(plan, PERIOD_START);
 
         assertEquals(List.of(range("08:00", "10:00"), range("10:30", "19:00"), range("19:45", "22:00")),
                 available.get(date("2026-10-05")));   // mon: flexible minus team_sync and evening_walk
@@ -55,10 +55,10 @@ class AvailableTimeTest {
     }
 
     @Test
-    void fullPlan_withBreaks_routinesAndEventsTakeTenMinutesOnEachSide() throws IOException {
+    void fullPlan_withItsTenMinuteBreak_routinesAndEventsTakeTenMinutesOnEachSide() throws IOException {
         Plan plan = build(load("fullPlan.ls"));
 
-        Map<LocalDate, List<TimeRange>> available = AvailableTime.of(plan, Duration.ofMinutes(10), PERIOD_START);
+        Map<LocalDate, List<TimeRange>> available = AvailableTime.of(plan, PERIOD_START);
 
         // mon: team_sync 10:00-10:30 takes 09:50-10:40, evening_walk 19:00-19:45 takes 18:50-19:55
         assertEquals(List.of(range("08:00", "09:50"), range("10:40", "18:50"), range("19:55", "22:00")),
@@ -74,7 +74,7 @@ class AvailableTimeTest {
         Plan plan = build(load("fullPlan.ls"));
 
         Map<LocalDate, List<TimeRange>> available =
-                AvailableTime.of(plan, Duration.ofMinutes(10), LocalDateTime.parse("2026-10-05T15:00"));
+                AvailableTime.of(plan, LocalDateTime.parse("2026-10-05T15:00"));
 
         // mon from 15:00: of 10:40-18:50 only 15:00-18:50 is left; tue is untouched
         assertEquals(List.of(range("15:00", "18:50"), range("19:55", "22:00")), available.get(date("2026-10-05")));
