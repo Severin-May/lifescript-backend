@@ -122,12 +122,12 @@ class PlanModelBuilderTest {
 
         // Locations: fullPlan.ls lines 19-21 and 23, indented 4 spaces.
         assertEquals(List.of(
-                new EnergyEntry(range("08:00", "12:00"), EnergyLevel.HIGH, new SourceLocation(20, 5, 18)),       // morning: high
-                new EnergyEntry(range("13:00", "17:00"), EnergyLevel.MODERATE, new SourceLocation(21, 5, 24)),   // afternoon: moderate
-                new EnergyEntry(range("18:00", "22:00"), EnergyLevel.LOW, new SourceLocation(22, 5, 17))),       // evening: low
+                new EnergyEntry(range("08:00", "12:00"), EnergyLevel.HIGH, new SourceLocation(20, 9, 22)),       // morning: high
+                new EnergyEntry(range("13:00", "17:00"), EnergyLevel.MODERATE, new SourceLocation(21, 9, 28)),   // afternoon: moderate
+                new EnergyEntry(range("18:00", "22:00"), EnergyLevel.LOW, new SourceLocation(22, 9, 25))),       // 18:00-22:00: low
                 plan.defaultEnergyProfile());
         assertEquals(Map.of(FRIDAY, List.of(
-                        new EnergyEntry(range("13:00", "17:00"), EnergyLevel.LOW, new SourceLocation(24, 5, 19)))), // afternoon: low
+                        new EnergyEntry(range("13:00", "17:00"), EnergyLevel.LOW, new SourceLocation(24, 9, 23)))), // afternoon: low
                 plan.energyProfileOverrides());
     }
 

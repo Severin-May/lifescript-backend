@@ -34,7 +34,7 @@ class AvailableTimeTest {
         // evening 18:00-22:00. Routines: morning_routine 07:00-07:35 daily (outside all availability),
         // evening_walk 19:00-19:45 weekdays, team_sync 10:00-10:30 mon+wed.
         // Events: dentist wed 14:00-15:00 (outside availability), team_offsite fri 13:00-17:00.
-        Plan plan = build(load("fullPlan.ls").replaceAll("  break: 10m\\R", ""));
+        Plan plan = build(load("fullPlan.ls").replaceAll(" *break: 10m.*\\R", ""));
 
         Map<LocalDate, List<TimeRange>> available = AvailableTime.of(plan, PERIOD_START);
 

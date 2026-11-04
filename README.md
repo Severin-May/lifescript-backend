@@ -4,52 +4,102 @@ LifeScript is a small language for describing a week: when you're available, how
 the day, your fixed routines and appointments, and the tasks you need to get done. This backend compiles a
 LifeScript plan, reports any mistakes with their exact position, and schedules the tasks into your free time.
 
+## The language
+
+A complete plan, using every section, property and kind of value:
+
 ```
+# Comments start with # and run to the end of the line.
 plan: my_week
-period: 2026-11-09 to 2026-11-15
+period: 2026-11-09 to 2026-11-15            # 1 to 7 days, not starting in the past
 
-settings:
-  break: 10m
+settings:                                   # optional
+    morning: 07:00-12:00                    # change a named period (defaults below)
+    evening: 18:00-21:00
+    break: 10m                              # rest kept free around everything scheduled; none if not set
 
-availability:
-  monday: 09:00-12:00, 14:00-18:00
-  tuesday: flexible
+availability:                               # required; a day that isn't listed is off
+    monday: flexible                        # from the start of morning to the end of evening
+    tuesday: 09:00-12:00, 14:00-18:00       # time ranges
+    wednesday: morning, evening             # named periods
+    thursday: afternoon
+    friday: 09:00-17:00
 
-energy profile:
-  default:
-    morning: high
-    evening: low
+energy profile:                             # optional; time it doesn't cover counts as moderate
+    default:                                # every day
+        morning: high
+        afternoon: moderate
+        19:00-21:00: low                    # a time range works too
+    friday:                                 # replaces the default where it says something
+        afternoon: low
 
-routines:
-  routine: morning_routine
-    time: 07:00
-    repeats: daily
-    activities:
-      stretch: 15m
+routines:                                   # fixed and recurring; availability doesn't apply to them
+    routine: morning_routine
+        time: 06:30                         # start time; it lasts as long as its activities add up to
+        repeats: daily
+        activities:
+            stretch: 15m
+            shower: 20m
+    routine: evening_walk
+        time: 19:00
+        repeats: weekdays                   # daily, weekdays, weekends, or days: monday, thursday
+        activities:
+            walk: 45m
 
-tasks:
-  task: research
-    duration: 2h
-    priority: high
-    effort: high
-    deadline: 2026-11-10 17:00
+tasks:                                      # required; the scheduler chooses when they happen
+    task: research
+        duration: 2h                        # 1h30m and 90m work too; at most 24h
+        priority: high                      # critical, high, medium or low
+        effort: high                        # high, moderate or low; matched against your energy
+        deadline: 2026-11-11 17:00          # date and time
+    task: write_report
+        duration: 1h30m
+        priority: critical
+        effort: moderate
+        deadline: 2026-11-13 12:00
+        dependencies: research              # starts only after these tasks end
+        note: "final draft for review"
+        break: 30m                          # rest after this task, instead of the plan's break
+    task: inbox_zero
+        duration: 20m
+        priority: low
+        effort: low
+        repeats: monday, wednesday, friday  # one copy on each of these days
 
-  task: write_report
-    duration: 1h30m
-    priority: critical
-    effort: moderate
-    dependencies: research
-    note: "final draft"
-    break: 30m
-
-events:
-  event: dentist
-    date: 2026-11-10
-    time: 14:00-15:00
+events:                                     # one-off, at a fixed date and time
+    event: dentist
+        date: 2026-11-11
+        time: 14:00-15:00
+        note: "bring insurance card"
+    event: team_offsite
+        date: 2026-11-13
+        time: afternoon                     # a named period works too
 ```
 
-A period is 1 to 7 days and can't start in the past, so adjust the dates when trying this out.
-[`fullPlan.ls`](src/test/resources/lifescript/fullPlan.ls) uses every section and property.
+A period can't start in the past, so adjust the dates when trying this out.
+
+| Element | Value | Required |
+|---|---|---|
+| `plan:` | a name | yes, first |
+| `period:` | `YYYY-MM-DD to YYYY-MM-DD`, 1–7 days, from today on | yes, second |
+| **`settings:`** | | no |
+| `morning:` `afternoon:` `evening:` | a time range; in this order during the day. Defaults: 06:00–12:00, 12:00–18:00, 18:00–22:00 | no |
+| `break:` | a duration, 0m–2h. Not set = no breaks | no |
+| **`availability:`** | `<day>: flexible` \| named periods \| time ranges, comma-separated | yes |
+| **`energy profile:`** | `default:` and/or `<day>:`, each with `<named period or time range>: high \| moderate \| low` | no |
+| **`routine:`** in `routines:` | `time:` start time, `repeats:`, `activities:` (`<name>: <duration>` lines) | all three |
+| **`task:`** in `tasks:` | `duration:`, `priority:`, `effort:` | these three |
+| | `deadline:` date and time · `dependencies:` task names · `repeats:` · `note:` `"text"` · `break:` 0m–2h | no |
+| **`event:`** in `events:` | `date:` within the period, `time:` a time range or named period | both |
+| | `note:` `"text"` | no |
+
+**General rules**
+- Keywords can be written in any case (`Task:`, `MONDAY`, `High`, `1H30M`). Names are case-sensitive and can't be
+  keywords; they may use letters of any language, digits and `_` (`research`, `házifeladat`, `deep_work_2`).
+- Times are `HH:MM`; a range is `HH:MM-HH:MM` and can't cross midnight (end at `00:00` and continue the next
+  day). Durations are `2h`, `45m` or `1h30m`. Dates are `YYYY-MM-DD`.
+- A repeating task can't have a deadline or dependencies, and nothing can depend on it.
+- Indentation doesn't matter to the compiler; 4 spaces per level is the convention.
 
 ## Running it
 
@@ -85,7 +135,7 @@ Response:
   "diagnostics": [
     { "stage": "VALIDATION", "severity": "ERROR",
       "message": "Task 'write_report' depends on 'reserch', which doesn't exist",
-      "startLineNumber": 34, "startColumn": 5, "endLineNumber": 34, "endColumn": 26 }
+      "startLineNumber": 49, "startColumn": 9, "endLineNumber": 49, "endColumn": 79 }
   ],
   "schedule": null
 }
