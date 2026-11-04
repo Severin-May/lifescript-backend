@@ -1,0 +1,18 @@
+# Local development database. Start: docker compose up -d   Stop: docker compose stop
+# The data lives in the "lifescript-data" volume, so it survives removing the container;
+# only "docker compose down -v" deletes it.
+services:
+  db:
+    image: postgres:17
+    environment:
+      POSTGRES_DB: lifescript
+      POSTGRES_USER: lifescript
+      # Fine for a local database; a shared server needs a real secret.
+      POSTGRES_PASSWORD: lifescript
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - lifescript-data:/var/lib/postgresql/data
+
+volumes:
+  lifescript-data:

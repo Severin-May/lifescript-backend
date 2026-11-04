@@ -1,9 +1,11 @@
 package com.lifescript.api;
 
+import com.lifescript.TestDatabase;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.context.annotation.Import;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
@@ -14,6 +16,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 // Runs the real app so CorsConfig applies; the origins list is overridden as a deployment would.
+@Import(TestDatabase.class)
 @SpringBootTest(properties = "lifescript.cors.allowed-origins=http://localhost:5173,http://app.example")
 class CorsTest {
 
