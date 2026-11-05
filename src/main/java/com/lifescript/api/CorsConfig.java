@@ -21,7 +21,9 @@ public class CorsConfig implements WebMvcConfigurer {
         registry.addMapping("/api/**")
                 .allowedOrigins(properties.allowedOrigins().toArray(String[]::new))
                 .allowedMethods("GET", "POST", "PUT", "DELETE")
+                // The session cookie, and the CSRF token header that goes with it.
+                .allowCredentials(true)
                 .exposedHeaders("Location")
-                .allowedHeaders("Content-Type");
+                .allowedHeaders("Content-Type", "X-XSRF-TOKEN");
     }
 }

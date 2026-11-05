@@ -1,10 +1,13 @@
 package com.lifescript.api;
 
+import com.lifescript.account.EmailTakenException;
+import com.lifescript.account.InvalidAccountException;
 import com.lifescript.storage.InvalidPlanException;
 import com.lifescript.storage.PlanConflictException;
 import com.lifescript.storage.PlanNotFoundException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
@@ -22,8 +25,19 @@ public class ApiExceptionHandler {
         return ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, e.getMessage());
     }
 
-    @ExceptionHandler(InvalidPlanException.class)
-    public ProblemDetail invalid(InvalidPlanException e) {
+    @ExceptionHandler({InvalidPlanException.class, InvalidAccountException.class})
+    public ProblemDetail invalid(RuntimeException e) {
         return ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, e.getMessage());
+    }
+
+    @ExceptionHandler(EmailTakenException.class)
+    public ProblemDetail emailTaken(EmailTakenException e) {
+        return ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, e.getMessage());
+    }
+
+    // The same for an unknown email and a wrong password, so nobody can find out which emails have accounts.
+    @ExceptionHandler(AuthenticationException.class)
+    public ProblemDetail loginFailed(AuthenticationException e) {
+        return ProblemDetail.forStatusAndDetail(HttpStatus.UNAUTHORIZED, "Wrong email or password");
     }
 }

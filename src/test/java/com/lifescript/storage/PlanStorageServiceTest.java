@@ -1,6 +1,8 @@
 package com.lifescript.storage;
 
 import com.lifescript.TestDatabase;
+import com.lifescript.account.AccountService;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -41,8 +43,20 @@ class PlanStorageServiceTest {
     @Autowired
     private SavedPlanVersionRepository versions;
 
+    @Autowired
+    private AccountService accounts;
+
     // Each test has its own owner, so tests sharing the database don't see each other's plans.
-    private final String owner = UUID.randomUUID().toString();
+    private UUID owner;
+
+    @BeforeEach
+    void setUp() {
+        owner = newAccount();
+    }
+
+    private UUID newAccount() {
+        return accounts.register(UUID.randomUUID() + "@test.example", "correct horse").id();
+    }
 
     @Test
     void create_thenGet_returnsThePlan_atVersionZero() {
@@ -92,7 +106,7 @@ class PlanStorageServiceTest {
     @Test
     void anotherOwner_cantSeeChangeOrDeleteThePlan() {
         UUID id = storage.create(owner, "mine", VALID, ZONE).getId();
-        String stranger = UUID.randomUUID().toString();
+        UUID stranger = newAccount();
 
         assertThrows(PlanNotFoundException.class, () -> storage.get(stranger, id));
         assertThrows(PlanNotFoundException.class, () -> storage.update(stranger, id, 0, "theirs", DRAFT, ZONE));
@@ -109,7 +123,7 @@ class PlanStorageServiceTest {
         SavedPlan second = storage.create(owner, "second", VALID, ZONE);
         Thread.sleep(5);
         storage.update(owner, first.getId(), 0, "first, edited", VALID, ZONE);
-        storage.create(UUID.randomUUID().toString(), "someone else's", VALID, ZONE);
+        storage.create(newAccount(), "someone else's", VALID, ZONE);
 
         assertEquals(List.of(first.getId(), second.getId()),
                 storage.list(owner).stream().map(SavedPlan::getId).toList());

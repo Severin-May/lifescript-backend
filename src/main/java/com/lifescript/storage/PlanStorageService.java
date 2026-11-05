@@ -33,7 +33,7 @@ public class PlanStorageService {
     }
 
     // zone: the user's, so "valid" means what /api/validate would say for them.
-    public SavedPlan create(String ownerId, String name, String content, ZoneId zone) {
+    public SavedPlan create(UUID ownerId, String name, String content, ZoneId zone) {
         checkInput(name, content);
         SavedPlan plan = plans.saveAndFlush(new SavedPlan(UUID.randomUUID(), ownerId, name, content,
                 isValid(content, zone), now()));
@@ -42,17 +42,17 @@ public class PlanStorageService {
     }
 
     @Transactional(readOnly = true)
-    public SavedPlan get(String ownerId, UUID id) {
+    public SavedPlan get(UUID ownerId, UUID id) {
         return plans.findByIdAndOwnerId(id, ownerId).orElseThrow(() -> new PlanNotFoundException(id));
     }
 
     @Transactional(readOnly = true)
-    public List<SavedPlan> list(String ownerId) {
+    public List<SavedPlan> list(UUID ownerId) {
         return plans.findByOwnerIdOrderByUpdatedAtDesc(ownerId);
     }
 
     // expectedVersion: the version the client loaded; anything saved since makes this fail.
-    public SavedPlan update(String ownerId, UUID id, long expectedVersion, String name, String content, ZoneId zone) {
+    public SavedPlan update(UUID ownerId, UUID id, long expectedVersion, String name, String content, ZoneId zone) {
         checkInput(name, content);
         SavedPlan plan = get(ownerId, id);
         if (plan.getVersion() != expectedVersion) {
@@ -69,13 +69,13 @@ public class PlanStorageService {
         return plan;
     }
 
-    public void delete(String ownerId, UUID id) {
+    public void delete(UUID ownerId, UUID id) {
         plans.delete(get(ownerId, id));
     }
 
     // Newest first.
     @Transactional(readOnly = true)
-    public List<SavedPlanVersion> history(String ownerId, UUID id) {
+    public List<SavedPlanVersion> history(UUID ownerId, UUID id) {
         get(ownerId, id);
         return versions.findByPlanIdOrderByVersionDesc(id);
     }

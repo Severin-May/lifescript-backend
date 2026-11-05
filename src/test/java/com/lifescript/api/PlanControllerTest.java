@@ -2,6 +2,8 @@ package com.lifescript.api;
 
 import com.jayway.jsonpath.JsonPath;
 import com.lifescript.TestDatabase;
+import com.lifescript.account.AccountPrincipal;
+import com.lifescript.account.AccountService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -10,6 +12,7 @@ import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
+import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.context.WebApplicationContext;
 import tools.jackson.databind.ObjectMapper;
@@ -19,6 +22,9 @@ import java.util.UUID;
 
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.hasItem;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
+import static org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers.springSecurity;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -50,11 +56,25 @@ class PlanControllerTest {
     @Autowired
     private WebApplicationContext context;
 
+    @Autowired
+    private AccountService accounts;
+
     private MockMvc mvc;
+    private AccountPrincipal me;
 
     @BeforeEach
     void setUp() {
-        mvc = MockMvcBuilders.webAppContextSetup(context).build();
+        mvc = MockMvcBuilders.webAppContextSetup(context).apply(springSecurity()).build();
+        me = newAccount();
+    }
+
+    private AccountPrincipal newAccount() {
+        return accounts.register(UUID.randomUUID() + "@test.example", "correct horse");
+    }
+
+    // Logged in as `me`, with the CSRF token the browser would send.
+    private ResultActions send(MockHttpServletRequestBuilder request) throws Exception {
+        return mvc.perform(request.with(user(me)).with(csrf()));
     }
 
     private String body(Map<String, Object> fields) {
@@ -62,7 +82,7 @@ class PlanControllerTest {
     }
 
     private String create(String name) throws Exception {
-        String response = mvc.perform(post("/api/plans").contentType(MediaType.APPLICATION_JSON)
+        String response = send(post("/api/plans").contentType(MediaType.APPLICATION_JSON)
                         .content(body(Map.of("name", name, "content", VALID, "timeZone", "Europe/Budapest"))))
                 .andExpect(status().isCreated())
                 .andReturn().getResponse().getContentAsString();
@@ -70,13 +90,13 @@ class PlanControllerTest {
     }
 
     private ResultActions update(String id, long version, String name) throws Exception {
-        return mvc.perform(put("/api/plans/" + id).contentType(MediaType.APPLICATION_JSON)
+        return send(put("/api/plans/" + id).contentType(MediaType.APPLICATION_JSON)
                 .content(body(Map.of("name", name, "content", VALID, "version", version))));
     }
 
     @Test
     void create_is201_withTheNewPlansAddress() throws Exception {
-        mvc.perform(post("/api/plans").contentType(MediaType.APPLICATION_JSON)
+        send(post("/api/plans").contentType(MediaType.APPLICATION_JSON)
                         .content(body(Map.of("name", "my week", "content", VALID))))
                 .andExpect(status().isCreated())
                 .andExpect(header().string("Location", containsString("/api/plans/")))
@@ -91,11 +111,11 @@ class PlanControllerTest {
     void savedPlan_canBeLoaded_listed_andItsHistoryRead() throws Exception {
         String id = create("my week");
 
-        mvc.perform(get("/api/plans/" + id)).andExpect(status().isOk())
+        send(get("/api/plans/" + id)).andExpect(status().isOk())
                 .andExpect(jsonPath("$.content").value(VALID));
-        mvc.perform(get("/api/plans")).andExpect(status().isOk())
+        send(get("/api/plans")).andExpect(status().isOk())
                 .andExpect(jsonPath("$[*].id", hasItem(id)));
-        mvc.perform(get("/api/plans/" + id + "/history")).andExpect(status().isOk())
+        send(get("/api/plans/" + id + "/history")).andExpect(status().isOk())
                 .andExpect(jsonPath("$.length()").value(1))
                 .andExpect(jsonPath("$[0].version").value(0));
     }
@@ -121,7 +141,7 @@ class PlanControllerTest {
 
     @Test
     void unknownPlan_is404() throws Exception {
-        mvc.perform(get("/api/plans/" + UUID.randomUUID())).andExpect(status().isNotFound())
+        send(get("/api/plans/" + UUID.randomUUID())).andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.title").value("Not Found"));
     }
 
@@ -129,19 +149,19 @@ class PlanControllerTest {
     void delete_is204_andThePlanIsGone() throws Exception {
         String id = create("my week");
 
-        mvc.perform(delete("/api/plans/" + id)).andExpect(status().isNoContent());
-        mvc.perform(get("/api/plans/" + id)).andExpect(status().isNotFound());
+        send(delete("/api/plans/" + id)).andExpect(status().isNoContent());
+        send(get("/api/plans/" + id)).andExpect(status().isNotFound());
     }
 
     @Test
     void missingName_orMissingVersion_is400() throws Exception {
-        mvc.perform(post("/api/plans").contentType(MediaType.APPLICATION_JSON)
+        send(post("/api/plans").contentType(MediaType.APPLICATION_JSON)
                         .content(body(Map.of("name", " ", "content", VALID))))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.detail").value(containsString("needs a name")));
 
         String id = create("my week");
-        mvc.perform(put("/api/plans/" + id).contentType(MediaType.APPLICATION_JSON)
+        send(put("/api/plans/" + id).contentType(MediaType.APPLICATION_JSON)
                         .content(body(Map.of("name", "my week", "content", VALID))))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.detail").value(containsString("version")));

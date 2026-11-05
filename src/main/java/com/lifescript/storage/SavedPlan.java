@@ -18,7 +18,7 @@ public class SavedPlan {
     private UUID id;
 
     @Column(name = "owner_id")
-    private String ownerId;
+    private UUID ownerId;
 
     private String name;
     private String content;
@@ -37,7 +37,7 @@ public class SavedPlan {
     protected SavedPlan() {
     }
 
-    SavedPlan(UUID id, String ownerId, String name, String content, boolean valid, Instant now) {
+    SavedPlan(UUID id, UUID ownerId, String name, String content, boolean valid, Instant now) {
         this.id = id;
         this.ownerId = ownerId;
         this.name = name;
@@ -58,7 +58,7 @@ public class SavedPlan {
         return id;
     }
 
-    public String getOwnerId() {
+    public UUID getOwnerId() {
         return ownerId;
     }
 

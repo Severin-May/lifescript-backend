@@ -8,7 +8,7 @@ import java.util.UUID;
 
 interface SavedPlanRepository extends JpaRepository<SavedPlan, UUID> {
 
-    List<SavedPlan> findByOwnerIdOrderByUpdatedAtDesc(String ownerId);
+    List<SavedPlan> findByOwnerIdOrderByUpdatedAtDesc(UUID ownerId);
 
-    Optional<SavedPlan> findByIdAndOwnerId(UUID id, String ownerId);
+    Optional<SavedPlan> findByIdAndOwnerId(UUID id, UUID ownerId);
 }
