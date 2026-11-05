@@ -103,14 +103,23 @@ A period can't start in the past, so adjust the dates when trying this out.
 
 ## Running it
 
-Requires JDK 17 or newer. Maven doesn't need to be installed: the wrapper downloads it.
+Requires JDK 17 or newer and Docker (Docker Desktop must be running). Maven doesn't need to be installed: the
+wrapper downloads it. On Windows, use `mvnw.cmd` instead of `./mvnw`.
 
 ```
-./mvnw test              # run the tests (mvnw.cmd on Windows)
-./mvnw spring-boot:run   # start the API on http://localhost:8080
+docker compose up -d     # start the database (PostgreSQL 17); its data survives restarts
+./mvnw spring-boot:run   # start the API on http://localhost:8080; creates or updates the tables
+./mvnw test              # run the tests; some start their own throwaway PostgreSQL, so Docker must run
+docker compose stop      # stop the database (docker compose down -v would also DELETE its data)
 ```
+
+The database keeps its data in the Docker volume `lifescript-data`. Its tables are created and changed only by
+the numbered scripts in [`db/migration`](src/main/resources/db/migration): add a new script for every change,
+and never edit one that has already run.
 
 ## API
+
+### Compiling
 
 Both endpoints take the same JSON body:
 
@@ -148,8 +157,41 @@ Response:
   `ROUTINE`, `EVENT`, `TASK` or `BREAK` and times are `"HH:MM"`; an `end` of `"00:00"` means midnight at the end
   of the day. A `BREAK` entry is the rest right after a task (its `name` is the task's). The plan's
   `break:` in `settings:` applies around everything; a task's own `break:` replaces it after that task and,
-  unlike the plan's, must fit in free time. Without either, there are no breaks. `unscheduled` lists tasks that didn't fit, with the reason. `warnings` lists placed tasks worth
-  checking, e.g. one that ends shortly before its deadline.
+  unlike the plan's, must fit in free time. Without either, there are no breaks. `unscheduled` lists tasks
+  that didn't fit, with the reason. `warnings` lists placed tasks worth checking, e.g. one that ends shortly
+  before its deadline.
+
+### Saved plans
+
+A plan is saved as its LifeScript text; its schedule is computed again when needed. Plans with errors can be
+saved too (`valid` says whether it compiled when saved). Every save is kept in the plan's history.
+
+| Endpoint | Body | Answer |
+|---|---|---|
+| `GET /api/plans` | | `[{ id, name, valid, version, updatedAt }]`, most recently changed first |
+| `GET /api/plans/{id}` | | `{ id, name, content, valid, version, createdAt, updatedAt }` |
+| `POST /api/plans` | `{ name, content, timeZone }` | `201 Created`, the plan, and its address in `Location` |
+| `PUT /api/plans/{id}` | `{ name, content, version, timeZone }` | the plan with its new `version` |
+| `DELETE /api/plans/{id}` | | `204 No Content` |
+| `GET /api/plans/{id}/history` | | `[{ version, name, content, valid, savedAt }]`, newest first |
+
+**Saving uses optimistic locking.** `version` in a `PUT` is the version the client loaded. If the plan was
+saved elsewhere since (another tab, another device), the save is refused with `409 Conflict` instead of
+overwriting those changes; the client should reload the plan.
+
+There are no accounts yet: every request acts as one local user. A plan that doesn't exist, or that belongs to
+someone else, is `404 Not Found`. A blank or too long name (more than 200 characters) or a `PUT` without
+`version` is `400 Bad Request`.
+
+### Errors
+
+Requests that fail answer with the standard ProblemDetail JSON:
+
+```json
+{ "status": 409, "title": "Conflict", "detail": "Plan 9d28… was changed since version 0", "instance": "/api/plans/9d28…" }
+```
+
+Mistakes in a plan's text are never errors like this: they come back as `diagnostics` with status `200`.
 
 ## Configuration
 
@@ -159,6 +201,9 @@ environment variable (Spring drops dashes and turns dots into `_`):
 | Property | Environment variable | Default |
 |---|---|---|
 | `lifescript.cors.allowed-origins` | `LIFESCRIPT_CORS_ALLOWEDORIGINS` | `http://localhost:5173` |
+| `spring.datasource.url` | `SPRING_DATASOURCE_URL` | `jdbc:postgresql://localhost:5432/lifescript` |
+| `spring.datasource.username` | `SPRING_DATASOURCE_USERNAME` | `lifescript` |
+| `spring.datasource.password` | `SPRING_DATASOURCE_PASSWORD` | `lifescript` (local only; a server needs a real secret) |
 
 CORS is only needed when the frontend calls the API from another address. With a proxy in front (like the
 Vite dev server's), both are on the same address and this setting doesn't matter.
@@ -176,12 +221,19 @@ PlanningService (planning)      runs the steps, passes results along; holds no p
         │
         └── Scheduler (scheduler)            Plan → Schedule
                 GreedyScheduler today; the interface leaves room for other algorithms (e.g. CSP)
+
+PlanController (api)            saved plans over HTTP; who is calling comes from CurrentUser
+        │
+PlanStorageService (storage)    save, open, list, delete, history; always for one owner; checks versions
+        │                       uses PlanningService.validate to record whether a plan is valid
+        └── Spring Data repositories → PostgreSQL (tables from Flyway scripts)
 ```
 
 | Package | Contents |
 |---|---|
-| `api` | controller, request/response types, CORS |
+| `api` | controllers, request/response types, error responses, CORS, `CurrentUser` |
 | `planning` | `PlanningService`, and `PlanningConfig`, which picks the compiler, scheduler and clock |
+| `storage` | saved plans and their history (JPA entities, repositories), `PlanStorageService` |
 | `compiler` | the pipeline stages, plus `Literals`/`Keywords` for reading values and keywords |
 | `grammar` | generated by ANTLR from `src/main/antlr4` (lexer and parser grammars) |
 | `diagnostics` | `Diagnostic` and its position and stage types |
