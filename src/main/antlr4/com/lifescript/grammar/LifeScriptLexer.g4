@@ -86,3 +86,8 @@ DURATION_VAL    : DIGIT+ 'h' (DIGIT+ 'm')? | DIGIT+ 'm' ;
 NEWLINE         : '\r'? '\n' ;
 WS              : [ \t]+ -> skip ;
 COMMENT         : '#' ~[\r\n]* -> skip;
+
+// Anything else becomes one whole word, so the parser can explain a mistake instead of the lexer
+// dropping characters. Last, so on a tie of length every rule above wins.
+UNCLOSED_STRING : '"' ~["\r\n]* ;
+UNKNOWN_WORD    : ~[ \t\r\n:,\-#"]+ ;

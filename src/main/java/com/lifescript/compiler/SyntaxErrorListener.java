@@ -3,12 +3,14 @@ package com.lifescript.compiler;
 import com.lifescript.grammar.LifeScriptLexer;
 import com.lifescript.grammar.LifeScriptParser;
 import org.antlr.v4.runtime.BaseErrorListener;
+import org.antlr.v4.runtime.LexerNoViableAltException;
 import org.antlr.v4.runtime.Parser;
 import org.antlr.v4.runtime.ParserRuleContext;
 import org.antlr.v4.runtime.RecognitionException;
 import org.antlr.v4.runtime.Recognizer;
 import org.antlr.v4.runtime.Token;
 import org.antlr.v4.runtime.TokenStream;
+import org.antlr.v4.runtime.misc.Interval;
 
 import java.util.List;
 
@@ -34,9 +36,18 @@ class SyntaxErrorListener extends BaseErrorListener {
                     misusedKeyword.getCharPositionInLine(), reservedWord(misusedKeyword));
         } else if (isKeywordWhereNameExpected(recognizer, offending)) {
             collector.syntaxError(offending, line, charPositionInLine, reservedWord(offending));
+        } else if (e instanceof LexerNoViableAltException lexerError) {
+            collector.syntaxError(null, line, charPositionInLine, unexpectedCharacter(lexerError));
         } else {
             collector.syntaxError(offending, line, charPositionInLine, msg);
         }
+    }
+
+    // Nearly every text is a token now (see UNKNOWN_WORD); what's left are characters like a lone carriage return.
+    private static String unexpectedCharacter(LexerNoViableAltException e) {
+        int c = e.getInputStream().getText(Interval.of(e.getStartIndex(), e.getStartIndex())).codePointAt(0);
+        return Character.isISOControl(c) ? String.format("Unexpected invisible character (U+%04X)", c)
+                : String.format("Unexpected character '%s'", Character.toString(c));
     }
 
     private static String reservedWord(Token keyword) {

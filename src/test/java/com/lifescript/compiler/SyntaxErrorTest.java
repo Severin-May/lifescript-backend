@@ -205,7 +205,8 @@ class SyntaxErrorTest {
                 start: 10:00
                 """;
 
-        assertEquals(List.of("Line 12: 'start' is not a valid section. "
-                + "Use 'settings', 'availability', 'energy profile', 'routines', 'tasks' or 'events'"), syntaxErrors(plan));
+        assertEquals(List.of("Line 12: 'start' is not a valid task property. "
+                + "Use 'duration', 'priority', 'effort', 'deadline', 'dependencies', 'repeats', 'break' or 'note'"),
+                syntaxErrors(plan));
     }
 }
