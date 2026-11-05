@@ -35,7 +35,7 @@ class SyntaxErrorListener extends BaseErrorListener {
         } else if (isKeywordWhereNameExpected(recognizer, offending)) {
             collector.syntaxError(offending, line, charPositionInLine, reservedWord(offending));
         } else {
-            collector.syntaxError(offending, line, charPositionInLine, "Syntax error - " + msg);
+            collector.syntaxError(offending, line, charPositionInLine, msg);
         }
     }
 

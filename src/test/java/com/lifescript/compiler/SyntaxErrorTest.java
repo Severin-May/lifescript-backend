@@ -38,7 +38,7 @@ class SyntaxErrorTest {
         assertEquals(Stage.SYNTAX, first.stage());
         assertEquals(List.of(9, 10, 9, 12),
                 List.of(first.startLineNumber(), first.startColumn(), first.endLineNumber(), first.endColumn()));
-        assertTrue(errors(plan).get(0).startsWith("Line 9: Syntax error - "), () -> errors(plan).get(0));
+        assertEquals("Line 9: Missing ':' after 'duration'", errors(plan).get(0));
     }
 
     @Test
@@ -56,7 +56,7 @@ class SyntaxErrorTest {
 
         List<String> syntaxErrors = syntaxErrors(plan);
         assertFalse(syntaxErrors.isEmpty());
-        assertTrue(syntaxErrors.stream().anyMatch(e -> e.contains("Syntax error")));
+        assertEquals(List.of("Line 1: Missing ':' after 'plan'"), syntaxErrors);
 
         List<String> compileErrors = errors(plan);
         assertEquals(syntaxErrors, compileErrors,
@@ -156,7 +156,8 @@ class SyntaxErrorTest {
                 effort: high
                 """;
 
-        assertTrue(errors(plan).get(0).startsWith("Line 10: Syntax error - "), () -> errors(plan).get(0));
+        assertEquals("Line 10: Expected 'morning', 'afternoon', 'evening' or a time (like 09:00), but found '30m'",
+                errors(plan).get(0));
     }
 
     @Test
@@ -183,9 +184,7 @@ class SyntaxErrorTest {
                 effort: high
                 """;
 
-        List<String> errors = syntaxErrors(plan);
-
-        assertTrue(errors.stream().anyMatch(e -> e.contains("Syntax error")), () -> "Got: " + errors);
+        assertEquals(List.of("Line 9: Expected a time (like 09:00), but found 'morning'"), syntaxErrors(plan));
     }
 
     @Test
@@ -206,8 +205,7 @@ class SyntaxErrorTest {
                 start: 10:00
                 """;
 
-        List<String> errors = syntaxErrors(plan);
-
-        assertTrue(errors.stream().anyMatch(e -> e.contains("Syntax error")), () -> "Got: " + errors);
+        assertEquals(List.of("Line 12: 'start' is not a valid section. "
+                + "Use 'settings', 'availability', 'energy profile', 'routines', 'tasks' or 'events'"), syntaxErrors(plan));
     }
 }

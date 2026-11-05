@@ -92,6 +92,7 @@ public class LifeScriptCompiler {
         SyntaxErrorListener syntaxErrorListener = new SyntaxErrorListener(collector, tokens);
         lexer.addErrorListener(syntaxErrorListener);
         parser.addErrorListener(syntaxErrorListener);
+        parser.setErrorHandler(new SyntaxErrorStrategy());
 
         return parser.plan();
     }

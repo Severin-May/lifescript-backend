@@ -1,9 +1,11 @@
 package com.lifescript.compiler;
 
+import com.lifescript.diagnostics.Stage;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
 
+import static com.lifescript.TestPlans.compile;
 import static com.lifescript.TestPlans.errors;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -54,7 +56,7 @@ class TimeAndDateValidationTest {
         assertTrue(errors.stream().anyMatch(e -> e.contains("Time '25:00' isn't valid (hours 00-23, minutes 00-59; midnight is 00:00)")));
         assertTrue(errors.stream().anyMatch(e -> e.contains("Time '09:61' isn't valid (hours 00-23, minutes 00-59; midnight is 00:00)")));
         assertTrue(errors.stream().anyMatch(e -> e.contains("Time '24:00' isn't valid (hours 00-23, minutes 00-59; midnight is 00:00)")));
-        assertFalse(errors.stream().anyMatch(e -> e.contains("Syntax error")));
+        assertTrue(compile(plan).diagnostics().stream().allMatch(d -> d.stage() == Stage.VALIDATION));
     }
 
     @Test

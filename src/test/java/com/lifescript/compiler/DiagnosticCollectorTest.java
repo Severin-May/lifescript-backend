@@ -53,12 +53,12 @@ class DiagnosticCollectorTest {
         Token low = first(tokens, LifeScriptLexer.LOW);
         DiagnosticCollector collector = new DiagnosticCollector();
 
-        collector.syntaxError(low, low.getLine(), low.getCharPositionInLine(), "Syntax error - mismatched input 'low'");
-        collector.syntaxError(null, 2, 0, "Syntax error - missing NEWLINE at '<EOF>'");
+        collector.syntaxError(low, low.getLine(), low.getCharPositionInLine(), "Expected a name, but found 'low'");
+        collector.syntaxError(null, 2, 0, "Missing the end of the line");
 
-        assertEquals(new Diagnostic(Stage.SYNTAX, Severity.ERROR, "Syntax error - mismatched input 'low'", 1, 7, 1, 10),
+        assertEquals(new Diagnostic(Stage.SYNTAX, Severity.ERROR, "Expected a name, but found 'low'", 1, 7, 1, 10),
                 collector.list().get(0));
-        assertEquals(new Diagnostic(Stage.SYNTAX, Severity.ERROR, "Syntax error - missing NEWLINE at '<EOF>'", 2, 1, 2, 2),
+        assertEquals(new Diagnostic(Stage.SYNTAX, Severity.ERROR, "Missing the end of the line", 2, 1, 2, 2),
                 collector.list().get(1));
     }
 
