@@ -47,9 +47,10 @@ class CorsTest {
     }
 
     @Test
-    void otherMethods_areRejected() throws Exception {
-        preflight("http://localhost:5173", "PUT").andExpect(status().isForbidden());
-        preflight("http://localhost:5173", "DELETE").andExpect(status().isForbidden());
+    void methodsTheApiUses_areAllowed_othersRejected() throws Exception {
+        preflight("http://localhost:5173", "PUT").andExpect(status().isOk());
+        preflight("http://localhost:5173", "DELETE").andExpect(status().isOk());
+        preflight("http://localhost:5173", "PATCH").andExpect(status().isForbidden());
     }
 
     @Test

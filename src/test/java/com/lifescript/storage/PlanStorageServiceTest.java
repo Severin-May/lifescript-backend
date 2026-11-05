@@ -53,6 +53,7 @@ class PlanStorageServiceTest {
         assertEquals(VALID, loaded.getContent());
         assertTrue(loaded.isValid());
         assertEquals(0L, loaded.getVersion());
+        assertEquals(created.getCreatedAt(), loaded.getCreatedAt());
     }
 
     @Test
@@ -127,7 +128,7 @@ class PlanStorageServiceTest {
 
     @Test
     void nameMustBeGiven_andNotTooLong() {
-        assertThrows(IllegalArgumentException.class, () -> storage.create(owner, " ", VALID, ZONE));
-        assertThrows(IllegalArgumentException.class, () -> storage.create(owner, "x".repeat(201), VALID, ZONE));
+        assertThrows(InvalidPlanException.class, () -> storage.create(owner, " ", VALID, ZONE));
+        assertThrows(InvalidPlanException.class, () -> storage.create(owner, "x".repeat(201), VALID, ZONE));
     }
 }

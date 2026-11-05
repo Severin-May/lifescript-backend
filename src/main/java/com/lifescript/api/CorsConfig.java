@@ -15,12 +15,13 @@ public class CorsConfig implements WebMvcConfigurer {
         this.properties = properties;
     }
 
-    // Only what the API uses: POST with a JSON body.
+    // Only what the API uses: JSON bodies and these methods.
     @Override
     public void addCorsMappings(CorsRegistry registry) {
         registry.addMapping("/api/**")
                 .allowedOrigins(properties.allowedOrigins().toArray(String[]::new))
-                .allowedMethods("POST")
+                .allowedMethods("GET", "POST", "PUT", "DELETE")
+                .exposedHeaders("Location")
                 .allowedHeaders("Content-Type");
     }
 }

@@ -6,7 +6,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Clock;
+import java.time.Instant;
 import java.time.ZoneId;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.UUID;
 
@@ -34,7 +36,7 @@ public class PlanStorageService {
     public SavedPlan create(String ownerId, String name, String content, ZoneId zone) {
         checkInput(name, content);
         SavedPlan plan = plans.saveAndFlush(new SavedPlan(UUID.randomUUID(), ownerId, name, content,
-                isValid(content, zone), clock.instant()));
+                isValid(content, zone), now()));
         versions.save(new SavedPlanVersion(plan));
         return plan;
     }
@@ -56,7 +58,7 @@ public class PlanStorageService {
         if (plan.getVersion() != expectedVersion) {
             throw new PlanConflictException(id, expectedVersion);
         }
-        plan.change(name, content, isValid(content, zone), clock.instant());
+        plan.change(name, content, isValid(content, zone), now());
         try {
             plans.saveAndFlush(plan);
         } catch (OptimisticLockingFailureException e) {
@@ -78,16 +80,21 @@ public class PlanStorageService {
         return versions.findByPlanIdOrderByVersionDesc(id);
     }
 
+    // PostgreSQL keeps microseconds; rounding here makes a saved plan's times equal to the ones loaded later.
+    private Instant now() {
+        return clock.instant().truncatedTo(ChronoUnit.MICROS);
+    }
+
     private boolean isValid(String content, ZoneId zone) {
         return planning.validate(content, zone).diagnostics().isEmpty();
     }
 
     private static void checkInput(String name, String content) {
         if (name == null || name.isBlank() || name.length() > MAX_NAME_LENGTH) {
-            throw new IllegalArgumentException("A plan needs a name of 1 to " + MAX_NAME_LENGTH + " characters");
+            throw new InvalidPlanException("A plan needs a name of 1 to " + MAX_NAME_LENGTH + " characters");
         }
         if (content == null) {
-            throw new IllegalArgumentException("A plan needs content");
+            throw new InvalidPlanException("A plan needs content");
         }
     }
 }
