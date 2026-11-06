@@ -5,6 +5,7 @@ import org.antlr.v4.runtime.BufferedTokenStream;
 import org.antlr.v4.runtime.Parser;
 import org.antlr.v4.runtime.Token;
 import org.antlr.v4.runtime.TokenStream;
+import org.antlr.v4.runtime.misc.Interval;
 import org.antlr.v4.runtime.misc.IntervalSet;
 
 import java.util.ArrayList;
@@ -25,19 +26,20 @@ final class ContextHints {
     private ContextHints() {
     }
 
-    static Optional<String> explain(Parser parser, Token found, IntervalSet expected) {
+    static Optional<SyntaxProblem> explain(Parser parser, Token found, IntervalSet expected) {
         TokenStream tokens = parser.getInputStream();
         // The parser reads tokens only as far as it needs; the hints look further ahead on the line.
         if (tokens instanceof BufferedTokenStream buffered) {
             buffered.fill();
         }
         return nameWithSpaces(tokens, found, expected)
+                .or(() -> noteWithoutQuotes(tokens, found, expected))
                 .or(() -> propertyLine(tokens, found))
-                .or(() -> planStart(found, expected));
+                .or(() -> planStart(found, expected).map(SyntaxProblem::of));
     }
 
     // "task: write report" or "write-report": the name continues where the line should end.
-    private static Optional<String> nameWithSpaces(TokenStream tokens, Token found, IntervalSet expected) {
+    private static Optional<SyntaxProblem> nameWithSpaces(TokenStream tokens, Token found, IntervalSet expected) {
         int index = found.getTokenIndex();
         if (index < 1 || !(expected.contains(NEWLINE) || expected.contains(COLON) || expected.contains(COMMA))) {
             return Optional.empty();
@@ -49,11 +51,13 @@ final class ContextHints {
         }
         List<String> words = new ArrayList<>();
         boolean dash = false;
+        Token last = name;
         for (int i = index - 1; i < tokens.size(); i++) {
             Token token = tokens.get(i);
             if (token.getLine() != name.getLine() || !(isWord(token) || token.getType() == DASH)) {
                 break;
             }
+            last = token;
             if (token.getType() == DASH) {
                 dash = true;
             } else {
@@ -63,12 +67,38 @@ final class ContextHints {
         if (words.size() < 2) {
             return Optional.empty();
         }
-        return Optional.of(String.format("Names can't contain %s: write '%s'",
-                dash ? "'-'" : "spaces", String.join("_", words)));
+        String fixed = String.join("_", words);
+        String message = String.format("Names can't contain %s: write '%s'", dash ? "'-'" : "spaces", fixed);
+        return Optional.of(SyntaxProblem.withFix(message, SyntaxProblem.replace(name, last, fixed)));
+    }
+
+    // "note: bring a laptop": the rest of the line, put in quotes.
+    private static Optional<SyntaxProblem> noteWithoutQuotes(TokenStream tokens, Token found, IntervalSet expected) {
+        IntervalSet options = new IntervalSet(expected);
+        options.remove(NEWLINE);
+        if (!options.equals(IntervalSet.of(STRING)) || found.getType() == NEWLINE || found.getType() == Token.EOF
+                || found.getType() == UNCLOSED_STRING) {
+            return Optional.empty();
+        }
+        Token last = found;
+        for (int i = found.getTokenIndex() + 1; i < tokens.size(); i++) {
+            Token token = tokens.get(i);
+            if (token.getType() == NEWLINE || token.getType() == Token.EOF || token.getLine() != found.getLine()) {
+                break;
+            }
+            last = token;
+        }
+        String text = found.getInputStream().getText(Interval.of(found.getStartIndex(), last.getStopIndex()));
+        String quoted = "\"" + text + "\"";
+        String message = String.format("A note must be in quotes: write %s", quoted);
+        if (text.contains("\"")) {
+            return Optional.of(SyntaxProblem.of("A note must be in quotes, like \"bring a laptop\""));
+        }
+        return Optional.of(SyntaxProblem.withFix(message, SyntaxProblem.replace(found, last, quoted, "Put the note in quotes")));
     }
 
     // A "word:" line inside a task, routine or event that isn't one of its properties.
-    private static Optional<String> propertyLine(TokenStream tokens, Token found) {
+    private static Optional<SyntaxProblem> propertyLine(TokenStream tokens, Token found) {
         int index = found.getTokenIndex();
         Entry entry = sectionBefore(tokens, index);
         if (entry == null || !isWord(found) || index < 1 || index + 1 >= tokens.size()
@@ -81,17 +111,16 @@ final class ContextHints {
         }
         String word = found.getText();
         if (ALL_PROPERTIES.contains(found.getType())) {
-            return Optional.of(String.format("'%s' can't be used in %s %s. Use %s",
-                    word, entry.name().equals("event") ? "an" : "a", entry.name(), describe(entry.properties())));
+            return Optional.of(SyntaxProblem.of(String.format("'%s' can't be used in %s %s. Use %s",
+                    word, entry.name().equals("event") ? "an" : "a", entry.name(), describe(entry.properties()))));
         }
         IntervalSet candidates = entry.properties().or(SECTIONS).or(IntervalSet.of(entry.keyword()));
         Optional<Integer> suggestion = closestKeyword(word, candidates);
         if (suggestion.isPresent()) {
-            return Optional.of(String.format("'%s' is not a valid %s property. Did you mean %s?",
-                    word, entry.name(), describe(suggestion.get())));
+            return Optional.of(didYouMean(found, "is not a valid " + entry.name() + " property", suggestion.get()));
         }
-        return Optional.of(String.format("'%s' is not a valid %s property. Use %s",
-                word, entry.name(), describe(entry.properties())));
+        return Optional.of(SyntaxProblem.of(String.format("'%s' is not a valid %s property. Use %s",
+                word, entry.name(), describe(entry.properties()))));
     }
 
     // The parser may already have left the entry when it notices the mistake, so look back at the text instead.

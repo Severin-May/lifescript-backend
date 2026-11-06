@@ -1,6 +1,7 @@
 package com.lifescript.compiler;
 
 import com.lifescript.diagnostics.Diagnostic;
+import com.lifescript.diagnostics.Fix;
 import com.lifescript.diagnostics.Severity;
 import com.lifescript.diagnostics.SourceLocation;
 import com.lifescript.diagnostics.Stage;
@@ -18,12 +19,16 @@ public class DiagnosticCollector {
     private final List<Diagnostic> diagnostics = new ArrayList<>();
 
     public void syntaxError(Token offending, int line, int charPositionInLine, String message) {
+        syntaxError(offending, line, charPositionInLine, message, List.of());
+    }
+
+    public void syntaxError(Token offending, int line, int charPositionInLine, String message, List<Fix> fixes) {
         int startColumn = charPositionInLine + 1;
         // From the positions, not getText(): a name's text is normalized and can be shorter than in the editor.
         int length = offending == null || offending.getType() == Token.EOF || offending.getStartIndex() < 0
                 ? 1 : Math.max(1, offending.getStopIndex() - offending.getStartIndex() + 1);
         diagnostics.add(new Diagnostic(Stage.SYNTAX, Severity.ERROR, message,
-                line, startColumn, line, startColumn + length));
+                line, startColumn, line, startColumn + length, fixes));
     }
 
     public void error(ParserRuleContext entry, String message) {

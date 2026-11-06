@@ -73,8 +73,6 @@ class SyntaxMessageTest {
     @Test
     void endOfLineAndEndOfPlan_areNamedInWords() {
         assertEquals(List.of("Line 8: Expected 'task', but found the end of the plan"), errorsInTasks(""));
-        assertEquals(List.of("Line 12: Expected a note in quotes (like \"bring a laptop\"), but found 'hello'"),
-                errorsInTasks("task: a\nduration: 1h\npriority: high\neffort: high\nnote: hello\n"));
     }
 
     private static List<String> errorsInTask(String line) {
@@ -94,6 +92,8 @@ class SyntaxMessageTest {
                 errorsInTask("deadline: 2030-01-10 9:00"));
         assertEquals(List.of("Line 12: The note is missing its closing \" (a note must end on the same line)"),
                 errorsInTask("note: \"bring a laptop"));
+        assertEquals(List.of("Line 12: A note must be in quotes: write \"bring a laptop\""),
+                errorsInTask("note: bring a laptop"));
         assertEquals(List.of("Line 10: Unexpected character '!'"),
                 errorsInTasks("task: a\nduration: 1h\npriority: high!\neffort: high\n"));
     }

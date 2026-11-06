@@ -99,7 +99,7 @@ class CompilerControllerTest {
     }
 
     @Test
-    void compile_invalidPlan_diagnosticHasExactlyTheMonacoMarkerFields() throws Exception {
+    void compile_invalidPlan_diagnosticHasExactlyTheMonacoMarkerFields_andFixes() throws Exception {
         String plan = VALID_PLAN.replace("duration: 1h", "duration: 0m");
 
         mvc.perform(post("/api/compile").contentType(MediaType.APPLICATION_JSON).content(body(plan)))
@@ -113,8 +113,11 @@ class CompilerControllerTest {
                 .andExpect(jsonPath("$.diagnostics[0].startColumn").value(1))
                 .andExpect(jsonPath("$.diagnostics[0].endLineNumber").value(9))
                 .andExpect(jsonPath("$.diagnostics[0].endColumn").value(13))
+                // always present, so the frontend needn't check for a missing field
+                .andExpect(jsonPath("$.diagnostics[0].fixes").isArray())
+                .andExpect(jsonPath("$.diagnostics[0].fixes").isEmpty())
                 // nothing else in the JSON, e.g. hasPosition()
-                .andExpect(jsonPath("$.diagnostics[0].length()").value(7));
+                .andExpect(jsonPath("$.diagnostics[0].length()").value(8));
     }
 
     @Test

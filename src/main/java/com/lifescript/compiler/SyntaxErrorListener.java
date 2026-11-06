@@ -1,5 +1,6 @@
 package com.lifescript.compiler;
 
+import com.lifescript.diagnostics.Fix;
 import com.lifescript.grammar.LifeScriptLexer;
 import com.lifescript.grammar.LifeScriptParser;
 import org.antlr.v4.runtime.BaseErrorListener;
@@ -19,16 +20,24 @@ class SyntaxErrorListener extends BaseErrorListener {
 
     private final DiagnosticCollector collector;
     private final TokenStream tokens;
+    private List<Fix> nextFixes = List.of();
 
     SyntaxErrorListener(DiagnosticCollector collector, TokenStream tokens) {
         this.collector = collector;
         this.tokens = tokens;
     }
 
+    // ANTLR passes only a message on, so the error strategy hands over the fixes for its next report here.
+    void attachFixes(List<Fix> fixes) {
+        nextFixes = fixes;
+    }
+
     // Lexer errors have no token (offendingSymbol is null).
     @Override
     public void syntaxError(Recognizer<?, ?> recognizer, Object offendingSymbol,
                             int line, int charPositionInLine, String msg, RecognitionException e) {
+        List<Fix> fixes = nextFixes;
+        nextFixes = List.of();
         Token offending = offendingSymbol instanceof Token token ? token : null;
         Token misusedKeyword = findKeywordUsedAsActivityName(recognizer, offending, tokens);
         if (misusedKeyword != null) {
@@ -39,7 +48,7 @@ class SyntaxErrorListener extends BaseErrorListener {
         } else if (e instanceof LexerNoViableAltException lexerError) {
             collector.syntaxError(null, line, charPositionInLine, unexpectedCharacter(lexerError));
         } else {
-            collector.syntaxError(offending, line, charPositionInLine, msg);
+            collector.syntaxError(offending, line, charPositionInLine, msg, fixes);
         }
     }
 

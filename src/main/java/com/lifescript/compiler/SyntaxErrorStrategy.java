@@ -1,5 +1,7 @@
 package com.lifescript.compiler;
 
+import com.lifescript.diagnostics.Fix;
+import com.lifescript.diagnostics.TextEdit;
 import com.lifescript.grammar.LifeScriptLexer;
 import org.antlr.v4.runtime.DefaultErrorStrategy;
 import org.antlr.v4.runtime.InputMismatchException;
@@ -40,6 +42,12 @@ class SyntaxErrorStrategy extends DefaultErrorStrategy {
     private static final List<Integer> ORDER = List.of(CRITICAL, HIGH, MODERATE, MEDIUM, LOW,
             DURATION, PRIORITY, EFFORT, DEADLINE, DEPENDENCIES, DATE, TIME, REPEATS, ACTIVITIES, BREAK, NOTE);
 
+    private final SyntaxErrorListener listener;
+
+    SyntaxErrorStrategy(SyntaxErrorListener listener) {
+        this.listener = listener;
+    }
+
     // ANTLR remembers where a line could have ended and reports a later mismatch with that spot's options;
     // forgetting it after each matched word keeps it for mistakes right after a line end only.
     @Override
@@ -55,10 +63,22 @@ class SyntaxErrorStrategy extends DefaultErrorStrategy {
         }
         beginErrorCondition(parser);
         Token current = parser.getCurrentToken();
+        IntervalSet expected = getExpectedTokens(parser);
         String before = textBefore(parser);
-        String message = "Missing " + describe(getExpectedTokens(parser))
-                + (before == null ? "" : " after " + before);
-        parser.notifyErrorListeners(current, message, null);
+        String message = "Missing " + describe(expected) + (before == null ? "" : " after " + before);
+        notify(parser, current, missingColon(parser, expected)
+                .map(fix -> SyntaxProblem.withFix(message, fix))
+                .orElse(SyntaxProblem.of(message)), null);
+    }
+
+    // "duration 1h": the only missing piece the fix can know for sure is the ':', right after the word.
+    private static Optional<Fix> missingColon(Parser parser, IntervalSet expected) {
+        Token previous = parser.getInputStream().LT(-1);
+        if (!expected.contains(COLON) || previous == null || previous.getType() == NEWLINE) {
+            return Optional.empty();
+        }
+        int end = previous.getCharPositionInLine() + 1 + previous.getStopIndex() - previous.getStartIndex() + 1;
+        return Optional.of(new Fix("Insert ':'", List.of(new TextEdit(previous.getLine(), end, previous.getLine(), end, ":"))));
     }
 
     @Override
@@ -80,29 +100,46 @@ class SyntaxErrorStrategy extends DefaultErrorStrategy {
         report(parser, e.getOffendingToken(), parser.getExpectedTokens(), e);
     }
 
-    private static void report(Parser parser, Token found, IntervalSet expected, RecognitionException e) {
-        Optional<String> hint = ContextHints.explain(parser, found, expected);
+    private void report(Parser parser, Token found, IntervalSet expected, RecognitionException e) {
+        Optional<SyntaxProblem> hint = ContextHints.explain(parser, found, expected);
         if (hint.isPresent()) {
-            parser.notifyErrorListeners(found, hint.get(), e);
+            notify(parser, found, hint.get(), e);
         } else if (UnknownWords.isUnknown(found)) {
-            parser.notifyErrorListeners(UnknownWords.wholeWord(found), UnknownWords.explain(found, expected), e);
+            notify(parser, UnknownWords.wholeWord(found), UnknownWords.explain(found, expected), e);
         } else {
-            parser.notifyErrorListeners(found, unexpected(found, expected), e);
+            notify(parser, found, unexpected(found, expected), e);
         }
     }
 
-    private static String unexpected(Token found, IntervalSet expected) {
+    private void notify(Parser parser, Token token, SyntaxProblem problem, RecognitionException e) {
+        listener.attachFixes(problem.fixes());
+        parser.notifyErrorListeners(token, problem.message(), e);
+    }
+
+    private static SyntaxProblem unexpected(Token found, IntervalSet expected) {
         IntervalSet options = withoutLineAndPlanEnd(expected);
         String kind = KINDS.get(options);
         Optional<Integer> suggestion = isWord(found) ? closestKeyword(found.getText(), options) : Optional.empty();
         if (suggestion.isPresent()) {
             String what = kind != null ? "is not a valid " + kind : "is not valid here";
-            return String.format("'%s' %s. Did you mean %s?", found.getText(), what, describe(suggestion.get()));
+            return didYouMean(found, what, suggestion.get());
         }
         if (kind != null && isWord(found)) {
-            return String.format("'%s' is not a valid %s. Use %s", found.getText(), kind, describe(options));
+            return SyntaxProblem.of(String.format("'%s' is not a valid %s. Use %s", found.getText(), kind, describe(options)));
         }
-        return "Expected " + describe(options) + ", but found " + describeFound(found);
+        return SyntaxProblem.of("Expected " + describe(options) + ", but found " + describeFound(found));
+    }
+
+    // e.g. "'hgh' is not a valid priority. Did you mean 'high'?", with the fix that writes 'high'.
+    static SyntaxProblem didYouMean(Token found, String what, int suggestion) {
+        String message = String.format("'%s' %s. Did you mean %s?", found.getText(), what, describe(suggestion));
+        return SyntaxProblem.withFix(message, SyntaxProblem.replace(found, found, keyword(suggestion)));
+    }
+
+    // The word as typed in a plan, e.g. "duration" for DURATION.
+    static String keyword(int type) {
+        String literal = LifeScriptLexer.VOCABULARY.getLiteralName(type);
+        return literal.substring(1, literal.length() - 1);
     }
 
     // Returns the token type of the keyword allowed here that the word is most likely a typo of.
@@ -111,7 +148,7 @@ class SyntaxErrorStrategy extends DefaultErrorStrategy {
         for (int type : options.toList()) {
             String literal = LifeScriptLexer.VOCABULARY.getLiteralName(type);
             if (literal != null && literal.matches("'[a-z]+'")) {
-                keywords.put(literal.substring(1, literal.length() - 1), type);
+                keywords.put(keyword(type), type);
             }
         }
         return Spelling.closest(word, keywords.keySet()).map(keywords::get);
