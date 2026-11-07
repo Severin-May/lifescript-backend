@@ -1,4 +1,4 @@
-package com.lifescript.api;
+package com.lifescript.api.auth;
 
 import com.lifescript.TestDatabase;
 import org.junit.jupiter.api.BeforeEach;

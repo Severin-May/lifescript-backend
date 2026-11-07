@@ -1,6 +1,6 @@
 package com.lifescript;
 
-import com.lifescript.api.CompilerController;
+import com.lifescript.api.compiling.CompilerController;
 import com.lifescript.planning.PlanningService;
 import com.lifescript.scheduler.Scheduler;
 import com.lifescript.scheduler.greedy.GreedyScheduler;

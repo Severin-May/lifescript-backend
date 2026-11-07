@@ -6,13 +6,13 @@ import org.springframework.web.server.ResponseStatusException;
 import java.time.DateTimeException;
 import java.time.ZoneId;
 
-final class TimeZones {
+public final class TimeZones {
 
     private TimeZones() {
     }
 
     // null/blank = the server's zone. A bad zone is the client's bug, not the user's plan, so it's a 400.
-    static ZoneId parse(String timeZone) {
+    public static ZoneId parse(String timeZone) {
         if (timeZone == null || timeZone.isBlank()) {
             return null;
         }

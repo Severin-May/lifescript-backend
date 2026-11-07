@@ -1,4 +1,4 @@
-package com.lifescript.api;
+package com.lifescript.api.plans;
 
 import com.jayway.jsonpath.JsonPath;
 import com.lifescript.TestDatabase;

@@ -1,5 +1,6 @@
-package com.lifescript.api;
+package com.lifescript.api.compiling;
 
+import com.lifescript.api.TimeZones;
 import com.lifescript.planning.PlanningService;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;

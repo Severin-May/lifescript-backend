@@ -1,4 +1,4 @@
-package com.lifescript.api;
+package com.lifescript.api.auth;
 
 import com.lifescript.account.AccountPrincipal;
 

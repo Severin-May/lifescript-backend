@@ -1,6 +1,7 @@
-package com.lifescript.api;
+package com.lifescript.api.plans;
 
 import com.lifescript.account.AccountPrincipal;
+import com.lifescript.api.TimeZones;
 import com.lifescript.storage.InvalidPlanException;
 import com.lifescript.storage.PlanStorageService;
 import com.lifescript.storage.SavedPlan;

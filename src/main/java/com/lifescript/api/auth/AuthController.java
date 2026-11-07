@@ -1,16 +1,12 @@
-package com.lifescript.api;
+package com.lifescript.api.auth;
 
 import com.lifescript.account.AccountPrincipal;
 import com.lifescript.account.AccountService;
+import com.lifescript.account.LoginSessions;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.http.HttpStatus;
-import org.springframework.security.authentication.AuthenticationManager;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.security.core.context.SecurityContext;
-import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.security.web.context.SecurityContextRepository;
 import org.springframework.security.web.csrf.CsrfToken;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -25,14 +21,11 @@ import org.springframework.web.bind.annotation.RestController;
 public class AuthController {
 
     private final AccountService accounts;
-    private final AuthenticationManager authenticationManager;
-    private final SecurityContextRepository securityContextRepository;
+    private final LoginSessions sessions;
 
-    public AuthController(AccountService accounts, AuthenticationManager authenticationManager,
-                          SecurityContextRepository securityContextRepository) {
+    public AuthController(AccountService accounts, LoginSessions sessions) {
         this.accounts = accounts;
-        this.authenticationManager = authenticationManager;
-        this.securityContextRepository = securityContextRepository;
+        this.sessions = sessions;
     }
 
     // Asking for the token makes the XSRF-TOKEN cookie be set; the frontend calls this once at startup.
@@ -46,35 +39,18 @@ public class AuthController {
     public AccountResponse register(@RequestBody CredentialsRequest credentials,
                                     HttpServletRequest request, HttpServletResponse response) {
         AccountPrincipal account = accounts.register(credentials.email(), credentials.password());
-        return logIn(account, request, response);
+        return AccountResponse.from(sessions.start(account, request, response));
     }
 
     // A wrong email and a wrong password give the same answer (see ApiExceptionHandler).
     @PostMapping("/login")
     public AccountResponse login(@RequestBody CredentialsRequest credentials,
                                  HttpServletRequest request, HttpServletResponse response) {
-        AccountPrincipal account = (AccountPrincipal) authenticationManager.authenticate(
-                UsernamePasswordAuthenticationToken.unauthenticated(credentials.email(), credentials.password()))
-                .getPrincipal();
-        return logIn(account, request, response);
+        return AccountResponse.from(sessions.logIn(credentials.email(), credentials.password(), request, response));
     }
 
     @GetMapping("/me")
     public AccountResponse me(@AuthenticationPrincipal AccountPrincipal account) {
         return AccountResponse.from(account);
-    }
-
-    private AccountResponse logIn(AccountPrincipal account, HttpServletRequest request, HttpServletResponse response) {
-        // A new session id on login, so an id someone planted before can't be used to take over the session.
-        if (request.getSession(false) != null) {
-            request.changeSessionId();
-        }
-        AccountPrincipal sessionPrincipal = account.withoutPassword();
-        SecurityContext context = SecurityContextHolder.createEmptyContext();
-        context.setAuthentication(UsernamePasswordAuthenticationToken.authenticated(sessionPrincipal, null,
-                sessionPrincipal.getAuthorities()));
-        SecurityContextHolder.setContext(context);
-        securityContextRepository.saveContext(context, request, response);
-        return AccountResponse.from(sessionPrincipal);
     }
 }

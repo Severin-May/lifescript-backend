@@ -1,4 +1,4 @@
-package com.lifescript.api;
+package com.lifescript.api.compiling;
 
 import com.lifescript.scheduler.EntryType;
 import com.lifescript.scheduler.Schedule;
