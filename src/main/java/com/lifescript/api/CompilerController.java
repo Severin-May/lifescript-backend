@@ -17,11 +17,11 @@ public class CompilerController {
 
     @PostMapping("/validate")
     public CompileResponse validate(@RequestBody CompileRequest request) {
-        return CompileResponse.of(planning.validate(request.getContent(), TimeZones.parse(request.getTimeZone())));
+        return CompileResponse.of(planning.validate(request.content(), TimeZones.parse(request.timeZone())));
     }
 
     @PostMapping("/compile")
     public CompileResponse compile(@RequestBody CompileRequest request) {
-        return CompileResponse.of(planning.schedule(request.getContent(), TimeZones.parse(request.getTimeZone())));
+        return CompileResponse.of(planning.schedule(request.content(), TimeZones.parse(request.timeZone())));
     }
 }

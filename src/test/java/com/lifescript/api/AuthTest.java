@@ -119,6 +119,15 @@ class AuthTest {
     }
 
     @Test
+    void csrf_tellsWhichHeaderCarriesTheToken() throws Exception {
+        mvc.perform(get("/api/auth/csrf"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.headerName").value("X-XSRF-TOKEN"))
+                .andExpect(jsonPath("$.token").isNotEmpty())
+                .andExpect(jsonPath("$.length()").value(2));
+    }
+
+    @Test
     void savedPlans_needLogin() throws Exception {
         mvc.perform(get("/api/plans")).andExpect(status().isUnauthorized());
         mvc.perform(get("/api/auth/me")).andExpect(status().isUnauthorized());

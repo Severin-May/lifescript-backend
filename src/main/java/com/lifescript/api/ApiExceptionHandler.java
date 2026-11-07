@@ -11,7 +11,7 @@ import org.springframework.security.core.AuthenticationException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
-// Turns the storage exceptions into HTTP statuses, with the standard ProblemDetail JSON body.
+// Turns the plan, account and login exceptions into HTTP statuses, with the standard ProblemDetail JSON body.
 @RestControllerAdvice
 public class ApiExceptionHandler {
 

@@ -19,8 +19,6 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.util.Map;
-
 // Logging out is POST /api/auth/logout, handled by Spring Security (see SecurityConfig).
 @RestController
 @RequestMapping("/api/auth")
@@ -39,8 +37,8 @@ public class AuthController {
 
     // Asking for the token makes the XSRF-TOKEN cookie be set; the frontend calls this once at startup.
     @GetMapping("/csrf")
-    public Map<String, String> csrf(CsrfToken token) {
-        return Map.of("headerName", token.getHeaderName(), "token", token.getToken());
+    public CsrfResponse csrf(CsrfToken token) {
+        return CsrfResponse.from(token);
     }
 
     @PostMapping("/register")
