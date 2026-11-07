@@ -261,7 +261,7 @@ PlanningService (planning)      runs the steps, passes results along; holds no p
 Spring Security (account)       before every request: session cookie → logged-in account, CSRF check,
         │                       401 for saved plans without login
         │
-PlanController (api)            saved plans over HTTP; who is calling comes from CurrentUser
+PlanController (api)            saved plans over HTTP; who is calling is the logged-in account
         │
 PlanStorageService (storage)    save, open, list, delete, history; always for one owner; checks versions
         │                       uses PlanningService.validate to record whether a plan is valid
@@ -272,7 +272,7 @@ AuthController (api) → AccountService (account)    register, log in, who am I;
 
 | Package | Contents |
 |---|---|
-| `api` | controllers, request/response types, error responses, CORS, `CurrentUser` |
+| `api` | controllers, request/response types, error responses, CORS |
 | `planning` | `PlanningService`, and `PlanningConfig`, which picks the compiler, scheduler and clock |
 | `storage` | saved plans and their history (JPA entities, repositories), `PlanStorageService` |
 | `account` | accounts (table `users`), `AccountService`, and `SecurityConfig`: login, sessions, CSRF, passwords |

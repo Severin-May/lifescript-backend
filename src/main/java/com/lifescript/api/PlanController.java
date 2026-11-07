@@ -1,9 +1,11 @@
 package com.lifescript.api;
 
+import com.lifescript.account.AccountPrincipal;
 import com.lifescript.storage.InvalidPlanException;
 import com.lifescript.storage.PlanStorageService;
 import com.lifescript.storage.SavedPlan;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -22,48 +24,49 @@ import java.util.UUID;
 public class PlanController {
 
     private final PlanStorageService storage;
-    private final CurrentUser currentUser;
 
-    public PlanController(PlanStorageService storage, CurrentUser currentUser) {
+    public PlanController(PlanStorageService storage) {
         this.storage = storage;
-        this.currentUser = currentUser;
     }
 
+    // Every endpoint here requires login (SecurityConfig), so there's always an account.
     @GetMapping
-    public List<PlanSummaryResponse> list() {
-        return storage.list(currentUser.id()).stream().map(PlanSummaryResponse::from).toList();
+    public List<PlanSummaryResponse> list(@AuthenticationPrincipal AccountPrincipal account) {
+        return storage.list(account.id()).stream().map(PlanSummaryResponse::from).toList();
     }
 
     @GetMapping("/{id}")
-    public PlanResponse get(@PathVariable UUID id) {
-        return PlanResponse.from(storage.get(currentUser.id(), id));
+    public PlanResponse get(@AuthenticationPrincipal AccountPrincipal account, @PathVariable UUID id) {
+        return PlanResponse.from(storage.get(account.id(), id));
     }
 
     @PostMapping
-    public ResponseEntity<PlanResponse> create(@RequestBody CreatePlanRequest request) {
-        SavedPlan plan = storage.create(currentUser.id(), request.name(), request.content(),
+    public ResponseEntity<PlanResponse> create(@AuthenticationPrincipal AccountPrincipal account,
+                                               @RequestBody CreatePlanRequest request) {
+        SavedPlan plan = storage.create(account.id(), request.name(), request.content(),
                 TimeZones.parse(request.timeZone()));
         return ResponseEntity.created(URI.create("/api/plans/" + plan.getId())).body(PlanResponse.from(plan));
     }
 
     @PutMapping("/{id}")
-    public PlanResponse update(@PathVariable UUID id, @RequestBody UpdatePlanRequest request) {
+    public PlanResponse update(@AuthenticationPrincipal AccountPrincipal account, @PathVariable UUID id,
+                               @RequestBody UpdatePlanRequest request) {
         if (request.version() == null) {
             throw new InvalidPlanException("Saving needs the version the plan was loaded at");
         }
-        return PlanResponse.from(storage.update(currentUser.id(), id, request.version(), request.name(),
+        return PlanResponse.from(storage.update(account.id(), id, request.version(), request.name(),
                 request.content(), TimeZones.parse(request.timeZone())));
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> delete(@PathVariable UUID id) {
-        storage.delete(currentUser.id(), id);
+    public ResponseEntity<Void> delete(@AuthenticationPrincipal AccountPrincipal account, @PathVariable UUID id) {
+        storage.delete(account.id(), id);
         return ResponseEntity.noContent().build();
     }
 
     // Newest first.
     @GetMapping("/{id}/history")
-    public List<PlanVersionResponse> history(@PathVariable UUID id) {
-        return storage.history(currentUser.id(), id).stream().map(PlanVersionResponse::from).toList();
+    public List<PlanVersionResponse> history(@AuthenticationPrincipal AccountPrincipal account, @PathVariable UUID id) {
+        return storage.history(account.id(), id).stream().map(PlanVersionResponse::from).toList();
     }
 }
