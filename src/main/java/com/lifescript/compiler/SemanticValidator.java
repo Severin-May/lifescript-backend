@@ -6,6 +6,8 @@ import com.lifescript.model.Durations;
 import com.lifescript.model.PlanPeriod;
 import com.lifescript.model.TimeRange;
 import org.antlr.v4.runtime.ParserRuleContext;
+import org.antlr.v4.runtime.Token;
+import org.antlr.v4.runtime.misc.Interval;
 
 import java.time.Duration;
 import java.time.LocalDate;
@@ -76,17 +78,33 @@ public class SemanticValidator extends LifeScriptParserBaseVisitor<Void> {
         }
 
         if (!hasDuration) {
-            diagnostics.error(ctx, String.format("Task '%s' is missing mandatory property: duration", taskName));
+            reportMissingProperty(ctx, taskName, "duration: 1h");
         }
         if (!hasPriority) {
-            diagnostics.error(ctx, String.format("Task '%s' is missing mandatory property: priority", taskName));
+            reportMissingProperty(ctx, taskName, "priority: medium");
         }
         if (!hasEffort) {
-            diagnostics.error(ctx, String.format("Task '%s' is missing mandatory property: effort", taskName));
+            reportMissingProperty(ctx, taskName, "effort: moderate");
         }
 
         visitAll(properties);
         return null;
+    }
+
+    // The fix adds the property with a middle value right below "task: ...", indented like the task's other lines;
+    // the user then changes the value.
+    private void reportMissingProperty(LifeScriptParser.TaskContext task, String taskName, String line) {
+        String property = line.substring(0, line.indexOf(':'));
+        Token indentFrom = task.taskProperty().isEmpty() ? task.getStart() : task.taskProperty(0).getStart();
+        diagnostics.error(task, String.format("Task '%s' is missing mandatory property: %s", taskName, property),
+                List.of(Fixes.insertLineBelow(task.getStart().getLine(), indentation(indentFrom) + line,
+                        String.format("Add '%s'", line))));
+    }
+
+    // The spaces or tabs before the token on its line.
+    private static String indentation(Token token) {
+        int column = token.getCharPositionInLine();
+        return column == 0 ? "" : token.getInputStream().getText(Interval.of(token.getStartIndex() - column, token.getStartIndex() - 1));
     }
 
     // Reports repeated keys and returns only the first of each: a duplicate is not validated further.
@@ -259,17 +277,18 @@ public class SemanticValidator extends LifeScriptParserBaseVisitor<Void> {
 
     @Override
     public Void visitTaskDuration(LifeScriptParser.TaskDurationContext ctx) {
-        checkDuration(ctx.DURATION_VAL().getText(), ctx);
+        checkDuration(ctx.DURATION_VAL().getSymbol(), ctx);
         return visitChildren(ctx);
     }
 
     @Override
     public Void visitActivityEntry(LifeScriptParser.ActivityEntryContext ctx) {
-        checkDuration(ctx.DURATION_VAL().getText(), ctx);
+        checkDuration(ctx.DURATION_VAL().getSymbol(), ctx);
         return visitChildren(ctx);
     }
 
-    private void checkDuration(String text, ParserRuleContext entry) {
+    private void checkDuration(Token value, ParserRuleContext entry) {
+        String text = value.getText();
         Duration duration = parseDurationWithinLimit(text);
         if (duration == null) {
             diagnostics.error(entry, String.format("Duration '%s' is too long (at most 24h)", text));
@@ -280,25 +299,27 @@ public class SemanticValidator extends LifeScriptParserBaseVisitor<Void> {
             return;
         }
 
-        checkMinutes(text, duration, entry);
+        checkMinutes(value, duration, entry);
     }
 
     // Unlike a task's duration, a break may be zero.
-    private void checkBreak(String text, ParserRuleContext entry) {
+    private void checkBreak(Token value, ParserRuleContext entry) {
+        String text = value.getText();
         Duration duration = parseDurationWithinLimit(text);
         if (duration == null || duration.compareTo(MAX_BREAK) > 0) {
             diagnostics.error(entry, String.format("Break '%s' is too long (at most %s)", text, Durations.format(MAX_BREAK)));
             return;
         }
-        checkMinutes(text, duration, entry);
+        checkMinutes(value, duration, entry);
     }
 
     // Minutes after hours (1h75m) must stay under 60; minutes alone (90m) are fine.
-    private void checkMinutes(String text, Duration duration, ParserRuleContext entry) {
-        Literals.DurationLiteral literal = Literals.parseDurationLiteral(text);
+    private void checkMinutes(Token value, Duration duration, ParserRuleContext entry) {
+        Literals.DurationLiteral literal = Literals.parseDurationLiteral(value.getText());
         if (literal.hasHours() && literal.minutes() > 59) {
-            diagnostics.error(entry, String.format("Minutes in '%s' must be at most 59 (write %s)",
-                    text, Durations.format(duration)));
+            String fixed = Durations.format(duration);
+            diagnostics.error(entry, String.format("Minutes in '%s' must be at most 59 (write %s)", value.getText(), fixed),
+                    List.of(Fixes.replace(value, value, fixed)));
         }
     }
 
@@ -312,6 +333,11 @@ public class SemanticValidator extends LifeScriptParserBaseVisitor<Void> {
         }
     }
 
+    private static int repeatsLine(LifeScriptParser.TaskContext task) {
+        return task.taskProperty().stream().filter(p -> p.repeats() != null).findFirst().orElseThrow()
+                .getStart().getLine();
+    }
+
     @Override
     public Void visitTaskDeadline(LifeScriptParser.TaskDeadlineContext ctx) {
         String dateText = ctx.DATE_VAL().getText();
@@ -319,12 +345,15 @@ public class SemanticValidator extends LifeScriptParserBaseVisitor<Void> {
         // A deadline's parent is a task property, whose parent is the task.
         LifeScriptParser.TaskContext task = (LifeScriptParser.TaskContext) ctx.getParent().getParent();
         if (DependencyChecker.isRepeating(task)) {
-            diagnostics.error(ctx, String.format("Repeating task '%s' can't have a deadline", task.IDENTIFIER().getText()));
+            diagnostics.error(ctx, String.format("Repeating task '%s' can't have a deadline", task.IDENTIFIER().getText()),
+                    List.of(Fixes.removeLine(ctx.getStart().getLine(), "Remove the deadline"),
+                            Fixes.removeLine(repeatsLine(task), "Remove 'repeats' (make it a one-time task)")));
         }
 
         // The grammar allows a missing time only so this can explain it better than a syntax error.
         if (ctx.TIME_VAL() == null) {
-            diagnostics.error(ctx, String.format("Deadline needs a time, e.g. 'deadline: %s 17:00'", dateText));
+            diagnostics.error(ctx, String.format("Deadline needs a time, e.g. 'deadline: %s 17:00'", dateText),
+                    List.of(Fixes.insertAfter(ctx.DATE_VAL().getSymbol(), " 17:00", "Add the time 17:00")));
             return visitChildren(ctx);
         }
         String timeText = ctx.TIME_VAL().getText();
@@ -422,14 +451,14 @@ public class SemanticValidator extends LifeScriptParserBaseVisitor<Void> {
 
     @Override
     public Void visitTaskBreak(LifeScriptParser.TaskBreakContext ctx) {
-        checkBreak(ctx.DURATION_VAL().getText(), ctx);
+        checkBreak(ctx.DURATION_VAL().getSymbol(), ctx);
         return visitChildren(ctx);
     }
 
     @Override
     public Void visitSettingsEntry(LifeScriptParser.SettingsEntryContext ctx) {
         if (ctx.BREAK() != null) {
-            checkBreak(ctx.DURATION_VAL().getText(), ctx);
+            checkBreak(ctx.DURATION_VAL().getSymbol(), ctx);
         }
         return visitChildren(ctx);
     }

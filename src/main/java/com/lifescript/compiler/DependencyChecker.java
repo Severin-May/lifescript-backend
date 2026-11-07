@@ -1,7 +1,9 @@
 package com.lifescript.compiler;
 
+import com.lifescript.diagnostics.Fix;
 import com.lifescript.grammar.LifeScriptParser;
 import org.antlr.v4.runtime.ParserRuleContext;
+import org.antlr.v4.runtime.Token;
 import org.antlr.v4.runtime.tree.TerminalNode;
 
 import java.util.ArrayList;
@@ -9,6 +11,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 
 // The rules between tasks: unknown, duplicate or repeating dependencies, and dependency cycles.
@@ -49,28 +52,46 @@ class DependencyChecker {
                 continue;
             }
             dependencyLines.put(taskName, prop);
+            int line = prop.getStart().getLine();
+            List<Token> items = prop.taskDependencies().IDENTIFIER().stream().map(TerminalNode::getSymbol).toList();
             Set<String> seenDeps = new HashSet<>();
-            for (TerminalNode dep : prop.taskDependencies().IDENTIFIER()) {
+            for (int i = 0; i < items.size(); i++) {
+                Token dep = items.get(i);
                 if (!seenDeps.add(dep.getText())) {
-                    diagnostics.error(prop, String.format("Duplicate dependency '%s'", dep.getText()));
+                    diagnostics.error(prop, String.format("Duplicate dependency '%s'", dep.getText()),
+                            List.of(Fixes.removeListItem(items, i, String.format("Remove the second '%s'", dep.getText()))));
                     continue;
                 }
                 if (!taskNames.contains(dep.getText())) {
-                    String hint = taskNames.stream().filter(name -> name.equalsIgnoreCase(dep.getText()))
-                            .findFirst().map(name -> String.format(" (did you mean '%s'?)", name)).orElse("");
-                    diagnostics.error(prop, String.format("Task '%s' depends on '%s', which doesn't exist%s",
-                            taskName, dep.getText(), hint));
+                    reportUnknown(prop, taskName, dep);
                 }
                 if (repeatingTasks.contains(dep.getText())) {
-                    diagnostics.error(prop, String.format("Task '%s' can't depend on repeating task '%s'", taskName, dep.getText()));
+                    diagnostics.error(prop, String.format("Task '%s' can't depend on repeating task '%s'", taskName, dep.getText()),
+                            List.of(removeDependency(items, i, line)));
                 }
                 deps.add(dep.getText());
             }
             if (repeatingTasks.contains(taskName)) {
-                diagnostics.error(prop, String.format("Repeating task '%s' can't have dependencies", taskName));
+                diagnostics.error(prop, String.format("Repeating task '%s' can't have dependencies", taskName),
+                        List.of(Fixes.removeLine(line, "Remove the dependencies")));
             }
         }
         dependencyGraph.put(taskName, deps);
+    }
+
+    // Close in spelling or only in case, e.g. 'reserch' or 'Research' for 'research'; never the task itself.
+    private void reportUnknown(ParserRuleContext prop, String taskName, Token dep) {
+        Optional<String> suggestion = Spelling.closest(dep.getText(),
+                taskNames.stream().filter(name -> !name.equals(taskName)).toList());
+        String message = String.format("Task '%s' depends on '%s', which doesn't exist%s", taskName, dep.getText(),
+                suggestion.map(name -> String.format(" (did you mean '%s'?)", name)).orElse(""));
+        diagnostics.error(prop, message, suggestion.map(name -> List.of(Fixes.replace(dep, dep, name))).orElse(List.of()));
+    }
+
+    // The only dependency takes the whole line with it: "dependencies:" alone isn't valid.
+    private static Fix removeDependency(List<Token> items, int index, int line) {
+        String title = String.format("Remove '%s' from the dependencies", items.get(index).getText());
+        return items.size() == 1 ? Fixes.removeLine(line, title) : Fixes.removeListItem(items, index, title);
     }
 
     void checkCycles() {

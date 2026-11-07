@@ -154,7 +154,7 @@ Response:
 - **Diagnostics** use Monaco editor marker positions: 1-based, `endColumn` exclusive. A diagnostic that isn't
   tied to a place (e.g. "Plan is empty") has all positions 0. `stage` is `SYNTAX`, `VALIDATION` or `INTERNAL`
   (a bug in LifeScript, not in the plan).
-- **Fixes:** a syntax error may come with quick fixes the editor can offer in one click. Each fix is a `title`
+- **Fixes:** an error may come with quick fixes the editor can offer in one click. Each fix is a `title`
   and the `edits` to apply, in the same positions (an empty range inserts):
   ```json
   "message": "'hgh' is not a valid priority. Did you mean 'high'?",
@@ -162,10 +162,14 @@ Response:
                "edits": [ { "startLineNumber": 12, "startColumn": 11, "endLineNumber": 12, "endColumn": 14,
                             "text": "high" } ] } ]
   ```
-  There are fixes for misspelled keywords, names with spaces or dashes, wrongly written durations, dates and
-  times (`90` → `90m`, `1.5h` → `1h30m`, `2030/01/10` → `2030-01-10`, `9:00` → `09:00`), notes without quotes
-  or without the closing quote, and a missing `:`. None is offered when the right text would be a guess
-  (`17:5`, `10/01/2030`). `fixes` is always there, and empty when there's none.
+  Syntax errors have fixes for misspelled keywords, names with spaces or dashes, wrongly written durations,
+  dates and times (`90` → `90m`, `1.5h` → `1h30m`, `2030/01/10` → `2030-01-10`, `9:00` → `09:00`), notes without
+  quotes or without the closing quote, and a missing `:`. Validation errors have fixes for misspelled
+  dependencies, duplicate dependencies or ones on a repeating task, minutes over 59 (`1h75m` → `2h15m`), a
+  repeating task with a deadline (remove either), a missing `duration`, `priority` or `effort` (added with a
+  middle value to change), and a deadline without a time (`17:00`). None is offered when the right text would be
+  a guess (`17:5`, `10/01/2030`, which of two overlapping routines to move). `fixes` is always there, and empty
+  when there's none.
 - **Schedule:** `days` maps each date to its entries `{ type, name, start, end, note }`, where `type` is
   `ROUTINE`, `EVENT`, `TASK` or `BREAK` and times are `"HH:MM"`; an `end` of `"00:00"` means midnight at the end
   of the day. A `BREAK` entry is the rest right after a task (its `name` is the task's). The plan's

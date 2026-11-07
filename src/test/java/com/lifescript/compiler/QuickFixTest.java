@@ -5,9 +5,9 @@ import com.lifescript.diagnostics.Fix;
 import com.lifescript.diagnostics.TextEdit;
 import org.junit.jupiter.api.Test;
 
-import java.util.ArrayList;
 import java.util.List;
 
+import static com.lifescript.TestPlans.applyFix;
 import static com.lifescript.TestPlans.compile;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
@@ -30,16 +30,6 @@ class QuickFixTest {
 
     private static List<Fix> fixesOf(String plan) {
         return firstError(plan).fixes();
-    }
-
-    // Applies a one-line edit the way the editor would.
-    private static String apply(String plan, Fix fix) {
-        TextEdit edit = fix.edits().get(0);
-        List<String> lines = new ArrayList<>(List.of(plan.split("\n", -1)));
-        String line = lines.get(edit.startLineNumber() - 1);
-        lines.set(edit.startLineNumber() - 1,
-                line.substring(0, edit.startColumn() - 1) + edit.text() + line.substring(edit.endColumn() - 1));
-        return String.join("\n", lines);
     }
 
     @Test
@@ -68,7 +58,7 @@ class QuickFixTest {
                 HEAD + TASK + "deadlin: 2030-01-10 17:00\n",
                 HEAD + "task: write my report\nduration: 1h\npriority: high\neffort: high\n",
                 "plan: p\nperiod: 2030-01-07 to 2030-01-13\n\navailability:\nmondy: flexible\n\ntasks:\n" + TASK)) {
-            String fixed = apply(broken, fixesOf(broken).get(0));
+            String fixed = applyFix(broken, fixesOf(broken).get(0));
 
             assertEquals(List.of(), compile(fixed).diagnostics(), () -> "Still broken after the fix:\n" + fixed);
         }
@@ -113,7 +103,7 @@ class QuickFixTest {
                 "deadline: 2030/01/10 17:00", "deadline: 2030-1-9 17:00", "deadline: 2030-01-10 9:00",
                 "note: \"bring a laptop", "note: bring a laptop")) {
             String broken = HEAD + TASK + line + "\n";
-            String fixed = apply(broken, fixesOf(broken).get(0));
+            String fixed = applyFix(broken, fixesOf(broken).get(0));
 
             assertEquals(List.of(), compile(fixed).diagnostics(), () -> "Still broken after the fix:\n" + fixed);
         }
