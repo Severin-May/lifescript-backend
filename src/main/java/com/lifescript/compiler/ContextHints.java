@@ -69,7 +69,7 @@ final class ContextHints {
         }
         String fixed = String.join("_", words);
         String message = String.format("Names can't contain %s: write '%s'", dash ? "'-'" : "spaces", fixed);
-        return Optional.of(SyntaxProblem.withFix(message, SyntaxProblem.replace(name, last, fixed)));
+        return Optional.of(SyntaxProblem.withFix(message, Fixes.replace(name, last, fixed)));
     }
 
     // "note: bring a laptop": the rest of the line, put in quotes.
@@ -94,7 +94,7 @@ final class ContextHints {
         if (text.contains("\"")) {
             return Optional.of(SyntaxProblem.of("A note must be in quotes, like \"bring a laptop\""));
         }
-        return Optional.of(SyntaxProblem.withFix(message, SyntaxProblem.replace(found, last, quoted, "Put the note in quotes")));
+        return Optional.of(SyntaxProblem.withFix(message, Fixes.replace(found, last, quoted, "Put the note in quotes")));
     }
 
     // A "word:" line inside a task, routine or event that isn't one of its properties.

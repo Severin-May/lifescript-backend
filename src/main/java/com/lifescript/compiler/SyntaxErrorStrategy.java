@@ -133,7 +133,7 @@ class SyntaxErrorStrategy extends DefaultErrorStrategy {
     // e.g. "'hgh' is not a valid priority. Did you mean 'high'?", with the fix that writes 'high'.
     static SyntaxProblem didYouMean(Token found, String what, int suggestion) {
         String message = String.format("'%s' %s. Did you mean %s?", found.getText(), what, describe(suggestion));
-        return SyntaxProblem.withFix(message, SyntaxProblem.replace(found, found, keyword(suggestion)));
+        return SyntaxProblem.withFix(message, Fixes.replace(found, found, keyword(suggestion)));
     }
 
     // The word as typed in a plan, e.g. "duration" for DURATION.

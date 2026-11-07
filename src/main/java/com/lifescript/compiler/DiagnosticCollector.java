@@ -32,7 +32,11 @@ public class DiagnosticCollector {
     }
 
     public void error(ParserRuleContext entry, String message) {
-        error(entry.getStart(), message);
+        error(entry, message, List.of());
+    }
+
+    public void error(ParserRuleContext entry, String message, List<Fix> fixes) {
+        error(locationOf(entry.getStart()), message, fixes);
     }
 
     public void error(Token start, String message) {
@@ -40,8 +44,12 @@ public class DiagnosticCollector {
     }
 
     public void error(SourceLocation location, String message) {
+        error(location, message, List.of());
+    }
+
+    public void error(SourceLocation location, String message, List<Fix> fixes) {
         diagnostics.add(new Diagnostic(Stage.VALIDATION, Severity.ERROR, message,
-                location.line(), location.startColumn(), location.line(), location.endColumn()));
+                location.line(), location.startColumn(), location.line(), location.endColumn(), fixes));
     }
 
     public static SourceLocation locationOf(ParserRuleContext entry) {
