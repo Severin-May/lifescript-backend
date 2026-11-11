@@ -10,6 +10,7 @@ import com.lifescript.grammar.LifeScriptLexer;
 import com.lifescript.grammar.LifeScriptParser;
 import com.lifescript.model.Plan;
 import com.lifescript.planning.PlanningService;
+import com.lifescript.planning.Schedulers;
 import com.lifescript.scheduler.Scheduler;
 import com.lifescript.scheduler.greedy.GreedyScheduler;
 import org.antlr.v4.runtime.CharStreams;
@@ -23,6 +24,7 @@ import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -49,7 +51,11 @@ public final class TestPlans {
     }
 
     public static PlanningService planning(Scheduler scheduler) {
-        return new PlanningService(compiler(), scheduler, CLOCK);
+        return planning(new Schedulers(Map.of("test", scheduler), "test"));
+    }
+
+    public static PlanningService planning(Schedulers schedulers) {
+        return new PlanningService(compiler(), schedulers, CLOCK);
     }
 
     // From src/test/resources/lifescript/.

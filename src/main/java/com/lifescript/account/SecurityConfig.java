@@ -31,7 +31,7 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.POST, "/api/validate", "/api/compile",
                                 "/api/auth/register", "/api/auth/login").permitAll()
-                        .requestMatchers(HttpMethod.GET, "/api/auth/csrf").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/auth/csrf", "/api/algorithms").permitAll()
                         .requestMatchers("/error").permitAll()
                         .anyRequest().authenticated())
                 // An API answers 401 instead of redirecting to a login page.

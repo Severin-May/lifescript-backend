@@ -2,6 +2,7 @@ package com.lifescript.planning;
 
 import com.lifescript.diagnostics.Stage;
 import com.lifescript.scheduler.Scheduler;
+import com.lifescript.scheduler.greedy.GreedyScheduler;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.boot.test.system.CapturedOutput;
@@ -12,12 +13,14 @@ import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.ZoneId;
 import java.util.List;
+import java.util.Map;
 
 import static com.lifescript.TestPlans.load;
 import static com.lifescript.TestPlans.planning;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class PlanningServiceTest {
@@ -31,6 +34,20 @@ class PlanningServiceTest {
         assertEquals(List.of(), result.diagnostics());
         assertEquals("my_week", result.plan().name());
         assertEquals(7, result.schedule().days().size());
+    }
+
+    @Test
+    void theRequestedAlgorithm_makesTheSchedule() throws IOException {
+        PlanningService planning = planning(new Schedulers(
+                Map.of("crashing", CRASHING, "greedy", new GreedyScheduler()), "crashing"));
+
+        assertEquals(List.of(), planning.schedule(load("fullPlan.ls"), null, "greedy").diagnostics());
+        assertEquals(Stage.INTERNAL, planning.schedule(load("fullPlan.ls"), null, null).diagnostics().get(0).stage());
+    }
+
+    @Test
+    void anUnknownAlgorithm_isRejectedBeforeCompiling() {
+        assertThrows(UnknownAlgorithmException.class, () -> planning().schedule("plan: p\n", null, "genetic"));
     }
 
     @Test

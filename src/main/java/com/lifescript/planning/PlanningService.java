@@ -23,13 +23,17 @@ public class PlanningService {
     private static final Logger log = LoggerFactory.getLogger(PlanningService.class);
 
     private final LifeScriptCompiler compiler;
-    private final Scheduler scheduler;
+    private final Schedulers schedulers;
     private final Clock clock;
 
-    public PlanningService(LifeScriptCompiler compiler, Scheduler scheduler, Clock clock) {
+    public PlanningService(LifeScriptCompiler compiler, Schedulers schedulers, Clock clock) {
         this.compiler = compiler;
-        this.scheduler = scheduler;
+        this.schedulers = schedulers;
         this.clock = clock;
+    }
+
+    public Schedulers schedulers() {
+        return schedulers;
     }
 
     public List<Diagnostic> checkSyntax(String content) {
@@ -42,6 +46,12 @@ public class PlanningService {
     }
 
     public PlanningResult schedule(String content, ZoneId zone) {
+        return schedule(content, zone, null);
+    }
+
+    // algorithm: null/blank = the configured default; an unknown name throws UnknownAlgorithmException.
+    public PlanningResult schedule(String content, ZoneId zone, String algorithm) {
+        Scheduler scheduler = schedulers.find(algorithm);
         Clock userClock = clockIn(zone);
         CompileResult compiled = compiler.compile(content, LocalDate.now(userClock));
         if (compiled.plan() == null) {

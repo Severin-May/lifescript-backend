@@ -124,17 +124,26 @@ and never edit one that has already run.
 Both endpoints take the same JSON body:
 
 ```json
-{ "content": "plan: my_week\n...", "timeZone": "Europe/Budapest" }
+{ "content": "plan: my_week\n...", "timeZone": "Europe/Budapest", "algorithm": "greedy" }
 ```
 
 `timeZone` is the browser's time zone (`Intl.DateTimeFormat().resolvedOptions().timeZone`). It decides what
 "today" and "now" are for the user: a period can't start before today, and nothing is scheduled before now.
 It's optional (the server's zone is used then); an unknown zone is a `400 Bad Request`.
 
+`algorithm` picks the scheduler, one of the names from `GET /api/algorithms`. It's optional (the configured
+default is used then), only `/api/compile` uses it, and an unknown name is a `400 Bad Request`.
+
 | Endpoint | Does | `schedule` in the response |
 |---|---|---|
 | `POST /api/validate` | every check, no scheduling; meant for live feedback while typing (call it debounced) | always `null` |
 | `POST /api/compile` | every check, then scheduling | the schedule, or `null` if there are errors |
+
+`GET /api/algorithms` lists the schedulers for a picker, in a fixed order, with the default to preselect:
+
+```json
+{ "algorithms": ["greedy", "csp", "hybrid"], "default": "greedy" }
+```
 
 Response:
 
@@ -180,7 +189,7 @@ Response:
 
 ### Accounts
 
-Compiling (`/api/validate`, `/api/compile`) is open to everyone. Saved plans need an account: anyone can
+Compiling (`/api/validate`, `/api/compile`, `/api/algorithms`) is open to everyone. Saved plans need an account: anyone can
 register, and every plan belongs to the account that saved it.
 
 | Endpoint | Body | Answer |
@@ -244,6 +253,12 @@ environment variable (Spring drops dashes and turns dots into `_`):
 | `spring.datasource.url` | `SPRING_DATASOURCE_URL` | `jdbc:postgresql://localhost:5432/lifescript` |
 | `spring.datasource.username` | `SPRING_DATASOURCE_USERNAME` | `lifescript` |
 | `spring.datasource.password` | `SPRING_DATASOURCE_PASSWORD` | `lifescript` (local only; a server needs a real secret) |
+| `lifescript.scheduler.algorithm` | `LIFESCRIPT_SCHEDULER_ALGORITHM` | `greedy` (or `csp`, `hybrid`) |
+| `lifescript.scheduler.time-limit` | `LIFESCRIPT_SCHEDULER_TIMELIMIT` | `2s` (how long `csp` and `hybrid` may search) |
+
+**Schedulers:** `greedy` places tasks one by one and answers in milliseconds. `csp` looks at all tasks
+together (a constraint solver, Choco) and usually places more of the important tasks, but takes up to the time limit.
+`hybrid` starts from greedy's schedule and lets the csp solver improve it, so it's never worse than greedy.
 
 CORS is only needed when the frontend calls the API from another address. With a proxy in front (like the
 Vite dev server's), both are on the same address and this setting doesn't matter.

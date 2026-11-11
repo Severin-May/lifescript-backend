@@ -18,6 +18,10 @@
         <maven.compiler.source>17</maven.compiler.source>
         <maven.compiler.target>17</maven.compiler.target>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <!-- Slow comparisons stay out of normal builds; run them with
+             ./mvnw test -Dgroups=benchmark -Dbenchmark.excluded=none        (about 5 minutes)
+             ./mvnw test -Dgroups=benchmark-time -Dbenchmark.excluded=none   (time limits, about 10 minutes) -->
+        <benchmark.excluded>benchmark,benchmark-time</benchmark.excluded>
     </properties>
 
     <dependencies>
@@ -25,6 +29,12 @@
             <groupId>org.antlr</groupId>
             <artifactId>antlr4-runtime</artifactId>
             <version>4.13.1</version>
+        </dependency>
+        <!-- Constraint solver for the CSP scheduler -->
+        <dependency>
+            <groupId>org.choco-solver</groupId>
+            <artifactId>choco-solver</artifactId>
+            <version>4.10.18</version>
         </dependency>
 
         <dependency>
@@ -105,6 +115,13 @@
             <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <configuration>
+                    <excludedGroups>${benchmark.excluded}</excludedGroups>
+                </configuration>
             </plugin>
         </plugins>
     </build>

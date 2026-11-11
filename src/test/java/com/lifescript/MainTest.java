@@ -2,7 +2,7 @@ package com.lifescript;
 
 import com.lifescript.api.compiling.CompilerController;
 import com.lifescript.planning.PlanningService;
-import com.lifescript.scheduler.Scheduler;
+import com.lifescript.planning.Schedulers;
 import com.lifescript.scheduler.greedy.GreedyScheduler;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -24,6 +24,6 @@ class MainTest {
     void contextStarts_andWiresThePlanningBeans() {
         assertNotNull(context.getBean(CompilerController.class));
         assertNotNull(context.getBean(PlanningService.class));
-        assertInstanceOf(GreedyScheduler.class, context.getBean(Scheduler.class));
+        assertInstanceOf(GreedyScheduler.class, context.getBean(Schedulers.class).find(null));
     }
 }

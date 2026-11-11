@@ -1,14 +1,12 @@
 package com.lifescript.scheduler.greedy;
 
-import com.lifescript.model.Durations;
-import com.lifescript.model.Event;
 import com.lifescript.model.Plan;
-import com.lifescript.model.Routine;
 import com.lifescript.model.TimeRange;
 import com.lifescript.scheduler.EnergyFit;
 import com.lifescript.scheduler.EnergyMatch;
 import com.lifescript.scheduler.EntryType;
 import com.lifescript.scheduler.AvailableTime;
+import com.lifescript.scheduler.Placements;
 import com.lifescript.scheduler.Schedule;
 import com.lifescript.scheduler.ScheduleEntry;
 import com.lifescript.scheduler.ScheduleWarning;
@@ -28,8 +26,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.TreeMap;
-import java.util.stream.Collectors;
 
 public class GreedyScheduler implements Scheduler {
 
@@ -46,8 +42,8 @@ public class GreedyScheduler implements Scheduler {
     @Override
     public Schedule schedule(Plan plan, LocalDateTime now) {
         Map<LocalDate, List<TimeRange>> available =
-                AvailableTime.of(plan, roundUpToStep(now));
-        Map<LocalDate, List<ScheduleEntry>> days = fixedCommitments(plan);
+                AvailableTime.of(plan, Placements.roundUpToStep(now, settings.startStep()));
+        Map<LocalDate, List<ScheduleEntry>> days = Placements.fixedCommitments(plan);
         List<UnscheduledTask> unscheduled = new ArrayList<>();
         List<ScheduleWarning> warnings = new ArrayList<>();
 
@@ -60,16 +56,15 @@ public class GreedyScheduler implements Scheduler {
             String failedDependency = dependencies.stream().filter(failed::contains).findFirst().orElse(null);
             if (failedDependency != null) {
                 unscheduled.add(new UnscheduledTask(occurrence.name(), occurrence.date(),
-                        "depends on '" + failedDependency + "', which couldn't be scheduled", occurrence.task().note()));
+                        Placements.dependencyFailedReason(failedDependency), occurrence.task().note()));
                 failed.add(occurrence.name());
                 continue;
             }
 
             LocalDateTime earliestStart = dependencies.stream().map(endOf::get)
                     .max(LocalDateTime::compareTo).orElse(null);
-            Duration rest = restAfter(occurrence, plan);
-            // A task's own break must fit in free time too; the plan's break may run into unavailable time.
-            int strictRest = occurrence.task().breakTime() != null ? (int) rest.toSeconds() : 0;
+            Duration rest = Placements.restAfter(occurrence, plan);
+            int strictRest = Placements.strictRestSeconds(occurrence, plan);
 
             Placement placement = bestPlacement(plan, available, occurrence, earliestStart, occurrence.preferredEnd(), strictRest);
             boolean withoutBuffer = false;
@@ -79,7 +74,7 @@ public class GreedyScheduler implements Scheduler {
             }
 
             if (placement == null) {
-                unscheduled.add(new UnscheduledTask(occurrence.name(), occurrence.date(), reason(occurrence, dependencies, strictRest),
+                unscheduled.add(new UnscheduledTask(occurrence.name(), occurrence.date(), Placements.noSlotReason(occurrence, strictRest),
                         occurrence.task().note()));
                 failed.add(occurrence.name());
                 continue;
@@ -87,7 +82,7 @@ public class GreedyScheduler implements Scheduler {
 
             days.get(placement.date()).add(new ScheduleEntry(EntryType.TASK, occurrence.name(), placement.time(),
                     occurrence.task().note()));
-            Optional<TimeRange> restTime = breakAfter(placement.time(), rest);
+            Optional<TimeRange> restTime = Placements.breakAfter(placement.time(), rest);
             if (restTime.isPresent()) {
                 days.get(placement.date()).add(new ScheduleEntry(EntryType.BREAK, occurrence.name(), restTime.get(), null));
             }
@@ -97,7 +92,7 @@ public class GreedyScheduler implements Scheduler {
             endOf.put(occurrence.name(), placement.time().endOn(placement.date()));
             if (withoutBuffer) {
                 warnings.add(new ScheduleWarning(occurrence.name(), placement.date(),
-                        closeToDeadlineWarning(plan, occurrence, endOf.get(occurrence.name()))));
+                        Placements.closeToDeadlineWarning(plan, occurrence, endOf.get(occurrence.name()))));
             }
         }
 
@@ -107,41 +102,10 @@ public class GreedyScheduler implements Scheduler {
     private record Placement(LocalDate date, TimeRange time) {
     }
 
-    private static Duration restAfter(TaskOccurrence occurrence, Plan plan) {
-        Duration own = occurrence.task().breakTime();
-        return own != null ? own : plan.breakTime();
-    }
-
     private static TimeRange reserved(TimeRange task, Duration before, Duration after) {
         int start = (int) Math.max(0, task.startTime().toSecondOfDay() - before.toSeconds());
         int end = (int) Math.min(TimeRange.SECONDS_PER_DAY, task.endSecondOfDay() + after.toSeconds());
         return TimeRange.ofSeconds(start, end);
-    }
-
-    // Empty without a break, or when the task ends at midnight.
-    private static Optional<TimeRange> breakAfter(TimeRange task, Duration breakTime) {
-        int start = task.endSecondOfDay();
-        int end = (int) Math.min(TimeRange.SECONDS_PER_DAY, start + breakTime.toSeconds());
-        return end > start ? Optional.of(TimeRange.ofSeconds(start, end)) : Optional.empty();
-    }
-
-    private static Map<LocalDate, List<ScheduleEntry>> fixedCommitments(Plan plan) {
-        Map<LocalDate, List<ScheduleEntry>> days = new TreeMap<>();
-        for (LocalDate date : plan.period().dates()) {
-            List<ScheduleEntry> entries = new ArrayList<>();
-            for (Routine routine : plan.routines()) {
-                if (routine.occursOn(date)) {
-                    entries.add(new ScheduleEntry(EntryType.ROUTINE, routine.name(), routine.timeRange(), null));
-                }
-            }
-            for (Event event : plan.events()) {
-                if (event.occursOn(date)) {
-                    entries.add(new ScheduleEntry(EntryType.EVENT, event.name(), event.timeRange(), event.note()));
-                }
-            }
-            days.put(date, entries);
-        }
-        return days;
     }
 
     // Candidates come in time order, so of equally good fits the earliest is kept.
@@ -156,7 +120,7 @@ public class GreedyScheduler implements Scheduler {
         EnergyFit bestFit = null;
         for (LocalDate date : dates) {
             for (TimeRange range : available.get(date)) {
-                for (int start : candidateStarts(range, duration + strictRest, step)) {
+                for (int start : Placements.candidateStarts(range, duration + strictRest, step)) {
                     int end = start + duration;
                     TimeRange time = TimeRange.ofSeconds(start, end);
                     if (earliestStart != null && date.atTime(time.startTime()).isBefore(earliestStart)) {
@@ -174,67 +138,5 @@ public class GreedyScheduler implements Scheduler {
             }
         }
         return best;
-    }
-
-    // The range's own start, then every step on the clock.
-    private static List<Integer> candidateStarts(TimeRange range, int duration, int step) {
-        int rangeStart = range.startTime().toSecondOfDay();
-        int lastStart = range.endSecondOfDay() - duration;
-        List<Integer> starts = new ArrayList<>();
-        if (rangeStart <= lastStart) {
-            starts.add(rangeStart);
-        }
-        for (int start = (rangeStart / step + 1) * step; start <= lastStart; start += step) {
-            starts.add(start);
-        }
-        return starts;
-    }
-
-    // 15:07 -> 15:15 with a 15m step, so tasks start at tidy times.
-    private LocalDateTime roundUpToStep(LocalDateTime now) {
-        long step = settings.startStep().toSeconds();
-        long rounded = (now.toLocalTime().toSecondOfDay() + step - 1) / step * step;
-        return now.toLocalDate().atStartOfDay().plusSeconds(rounded);
-    }
-
-    private static String closeToDeadlineWarning(Plan plan, TaskOccurrence occurrence, LocalDateTime end) {
-        LocalDateTime deadline = plan.tasks().stream().filter(task -> task.name().equals(occurrence.deadlineSetBy()))
-                .findFirst().orElseThrow().deadline();
-        String deadlineText = deadline.toLocalDate().equals(end.toLocalDate())
-                ? deadline.toLocalTime().toString() : deadline.toLocalDate() + " " + deadline.toLocalTime();
-        String ends = "ends at " + end.toLocalTime();
-        if (!occurrence.name().equals(occurrence.deadlineSetBy())) {
-            return ends + ", which leaves little time for '" + occurrence.deadlineSetBy()
-                    + "' (which depends on it) before its deadline at " + deadlineText;
-        }
-        Duration gap = Duration.between(end, deadline);
-        return gap.isZero() ? "ends right at its deadline at " + deadlineText
-                : ends + ", only " + Durations.format(gap) + " before its deadline at " + deadlineText;
-    }
-
-    private static String reason(TaskOccurrence occurrence, List<String> dependencies, int strictRest) {
-        StringBuilder reason = new StringBuilder("no free slot long enough");
-        if (strictRest > 0) {
-            reason.append(" for it and its ").append(Durations.format(Duration.ofSeconds(strictRest))).append(" break");
-        }
-        if (occurrence.date() != null) {
-            return reason.append(" on ").append(occurrence.date()).toString();
-        }
-        if (!dependencies.isEmpty()) {
-            reason.append(" after ").append(dependencies.stream().map(name -> "'" + name + "'").collect(Collectors.joining(", ")))
-                    .append(dependencies.size() == 1 ? " ends" : " end");
-        }
-        if (occurrence.hardEnd() != null) {
-            reason.append(dependencies.isEmpty() ? "" : " and").append(" ending by ")
-                    .append(occurrence.hardEnd().toLocalDate()).append(' ').append(occurrence.hardEnd().toLocalTime());
-            if (!occurrence.name().equals(occurrence.deadlineSetBy())) {
-                reason.append(", so that '").append(occurrence.deadlineSetBy())
-                        .append("' (which depends on it) can meet its deadline");
-            }
-        }
-        if (dependencies.isEmpty() && occurrence.hardEnd() == null) {
-            reason.append(" in the period");
-        }
-        return reason.toString();
     }
 }

@@ -1,12 +1,19 @@
 package com.lifescript.api.compiling;
 
 import com.lifescript.TestPlans;
+import com.lifescript.planning.Schedulers;
+import com.lifescript.scheduler.Scheduler;
+import com.lifescript.scheduler.greedy.GreedyScheduler;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
+import java.util.LinkedHashMap;
+import java.util.Map;
+
 import static org.hamcrest.Matchers.nullValue;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -21,6 +28,59 @@ class CompilerControllerTest {
 
     private static String body(String plan, String timeZone) {
         return body(plan).replace("}", ", \"timeZone\": \"" + timeZone + "\"}");
+    }
+
+    private static String bodyWithAlgorithm(String plan, String algorithm) {
+        return body(plan).replace("}", ", \"algorithm\": \"" + algorithm + "\"}");
+    }
+
+    private static MockMvc withTwoAlgorithms() {
+        Scheduler crashing = (plan, now) -> { throw new IllegalStateException("boom"); };
+        Map<String, Scheduler> byName = new LinkedHashMap<>();
+        byName.put("greedy", new GreedyScheduler());
+        byName.put("crashing", crashing);
+        return MockMvcBuilders.standaloneSetup(
+                new CompilerController(TestPlans.planning(new Schedulers(byName, "greedy")))).build();
+    }
+
+    @Test
+    void algorithms_listsTheNamesInOrder_andTheDefault() throws Exception {
+        withTwoAlgorithms().perform(get("/api/algorithms"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.algorithms[0]").value("greedy"))
+                .andExpect(jsonPath("$.algorithms[1]").value("crashing"))
+                .andExpect(jsonPath("$.default").value("greedy"))
+                .andExpect(jsonPath("$.length()").value(2));
+    }
+
+    @Test
+    void compile_withAlgorithm_usesThatScheduler() throws Exception {
+        withTwoAlgorithms().perform(post("/api/compile").contentType(MediaType.APPLICATION_JSON)
+                        .content(bodyWithAlgorithm(VALID_PLAN, "crashing")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.diagnostics[0].stage").value("INTERNAL"));
+    }
+
+    @Test
+    void compile_withoutAlgorithm_usesTheDefault() throws Exception {
+        withTwoAlgorithms().perform(post("/api/compile").contentType(MediaType.APPLICATION_JSON).content(body(VALID_PLAN)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.valid").value(true));
+    }
+
+    @Test
+    void compile_unknownAlgorithm_isABadRequest() throws Exception {
+        withTwoAlgorithms().perform(post("/api/compile").contentType(MediaType.APPLICATION_JSON)
+                        .content(bodyWithAlgorithm(VALID_PLAN, "genetic")))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void validate_ignoresTheAlgorithm() throws Exception {
+        withTwoAlgorithms().perform(post("/api/validate").contentType(MediaType.APPLICATION_JSON)
+                        .content(bodyWithAlgorithm(VALID_PLAN, "genetic")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.valid").value(true));
     }
 
     @Test
