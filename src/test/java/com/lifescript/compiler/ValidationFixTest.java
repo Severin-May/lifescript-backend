@@ -132,6 +132,33 @@ class ValidationFixTest {
     }
 
     @Test
+    void aRoutineWithOnlyRepeats_isCompletedFixByFix() {
+        String plan = HEAD + "routines:\nroutine: wake_up\nrepeats: daily\n";
+
+        assertEquals(HEAD + "routines:\nroutine: wake_up\nactivities:\n    first_activity: 15m\ntime: 07:00\nrepeats: daily\n",
+                applyAllFixes(plan, 2));
+    }
+
+    @Test
+    void anEventWithOnlyANote_isCompletedFixByFix() {
+        String plan = HEAD + "events:\nevent: dentist\nnote: \"bring the card\"\n";
+
+        assertEquals(HEAD + "events:\nevent: dentist\ntime: 09:00-10:00\ndate: 2030-01-07\nnote: \"bring the card\"\n",
+                applyAllFixes(plan, 2));
+    }
+
+    // Applies the first error's first fix until none are left, checking one error goes away each time.
+    private static String applyAllFixes(String plan, int errorCount) {
+        for (int i = 0; i < errorCount; i++) {
+            List<Diagnostic> errors = compile(plan).diagnostics();
+            assertEquals(errorCount - i, errors.size(), () -> "Errors: " + errors);
+            plan = applyFix(plan, errors.get(0).fixes().get(0));
+        }
+        assertEquals(List.of(), compile(plan).diagnostics());
+        return plan;
+    }
+
+    @Test
     void deadlineWithoutATime_getsTheSuggestedTime() {
         assertFixMakesValid(withTask("deadline: 2030-01-10"), "Add the time 17:00");
         assertEquals(withTask("deadline: 2030-01-10 17:00"),

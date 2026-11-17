@@ -63,42 +63,37 @@ public class SemanticValidator extends LifeScriptParserBaseVisitor<Void> {
     public Void visitTask(LifeScriptParser.TaskContext ctx) {
         String taskName = ctx.IDENTIFIER().getText();
 
-        // A property's first token is its keyword.
         List<LifeScriptParser.TaskPropertyContext> properties =
-                checkDuplicateKeys(ctx.taskProperty(), p -> Keywords.normalize(p.getStart().getText()), "task property");
-
-        boolean hasDuration = false;
-        boolean hasPriority = false;
-        boolean hasEffort = false;
-
-        for (LifeScriptParser.TaskPropertyContext prop : properties) {
-            if (prop.taskDuration() != null) hasDuration = true;
-            if (prop.taskPriority() != null) hasPriority = true;
-            if (prop.taskEffort() != null) hasEffort = true;
-        }
-
-        if (!hasDuration) {
-            reportMissingProperty(ctx, taskName, "duration: 1h");
-        }
-        if (!hasPriority) {
-            reportMissingProperty(ctx, taskName, "priority: medium");
-        }
-        if (!hasEffort) {
-            reportMissingProperty(ctx, taskName, "effort: moderate");
-        }
+                checkDuplicateKeys(ctx.taskProperty(), SemanticValidator::propertyKey, "task property");
+        checkRequired(ctx, "Task", taskName, properties, List.of("duration: 1h", "priority: medium", "effort: moderate"));
 
         visitAll(properties);
         return null;
     }
 
-    // The fix adds the property with a middle value right below "task: ...", indented like the task's other lines;
-    // the user then changes the value.
-    private void reportMissingProperty(LifeScriptParser.TaskContext task, String taskName, String line) {
-        String property = line.substring(0, line.indexOf(':'));
-        Token indentFrom = task.taskProperty().isEmpty() ? task.getStart() : task.taskProperty(0).getStart();
-        diagnostics.error(task, String.format("Task '%s' is missing mandatory property: %s", taskName, property),
-                List.of(Fixes.insertLineBelow(task.getStart().getLine(), indentation(indentFrom) + line,
-                        String.format("Add '%s'", line))));
+    // A property's first token is its keyword.
+    private static String propertyKey(ParserRuleContext property) {
+        return Keywords.normalize(property.getStart().getText());
+    }
+
+    // required: a sample per property, which the fix adds right below the entry's first line, indented like the
+    // entry's other lines; the user then changes the value. A sample may span several lines (activities).
+    private void checkRequired(ParserRuleContext entry, String label, String name,
+                               List<? extends ParserRuleContext> properties, List<String> required) {
+        Set<String> present = new HashSet<>();
+        properties.forEach(p -> present.add(propertyKey(p)));
+        String indent = indentation(properties.isEmpty() ? entry.getStart() : properties.get(0).getStart());
+
+        for (String sample : required) {
+            String property = sample.substring(0, sample.indexOf(':'));
+            if (present.contains(property)) {
+                continue;
+            }
+            String text = String.join("\n", sample.lines().map(line -> indent + line).toList());
+            diagnostics.error(entry, String.format("%s '%s' is missing mandatory property: %s", label, name, property),
+                    List.of(Fixes.insertLineBelow(entry.getStart().getLine(), text,
+                            String.format("Add '%s'", sample.lines().findFirst().orElseThrow()))));
+        }
     }
 
     // The spaces or tabs before the token on its line.
@@ -159,46 +154,23 @@ public class SemanticValidator extends LifeScriptParserBaseVisitor<Void> {
         String routineName = ctx.IDENTIFIER().getText();
 
         List<LifeScriptParser.RoutinePropertyContext> properties =
-                checkDuplicateKeys(ctx.routineProperty(), p -> Keywords.normalize(p.getStart().getText()), "routine property");
+                checkDuplicateKeys(ctx.routineProperty(), SemanticValidator::propertyKey, "routine property");
+        checkRequired(ctx, "Routine", routineName, properties,
+                List.of("time: 07:00", "activities:\n    first_activity: 15m", "repeats: daily"));
 
-        boolean hasTime = false;
-        boolean hasActivities = false;
-        boolean hasRepeats = false;
         String startText = null;
-        Duration total = Duration.ZERO;
-        boolean activityDurationsValid = true;
-
+        Duration total = null;
         for (LifeScriptParser.RoutinePropertyContext prop : properties) {
             if (prop.routineTime() != null) {
-                hasTime = true;
                 startText = prop.routineTime().TIME_VAL().getText();
             }
             if (prop.routineActivities() != null) {
-                hasActivities = true;
-                for (LifeScriptParser.ActivityEntryContext activity : prop.routineActivities().activityEntry()) {
-                    Duration duration = parseDurationWithinLimit(activity.DURATION_VAL().getText());
-                    if (duration == null) {
-                        activityDurationsValid = false;
-                    } else {
-                        total = total.plus(duration);
-                    }
-                }
+                total = totalDuration(prop.routineActivities());
             }
-            if (prop.repeats() != null) hasRepeats = true;
-        }
-
-        if (!hasTime) {
-            diagnostics.error(ctx, String.format("Routine '%s' is missing mandatory property: time", routineName));
-        }
-        if (!hasActivities) {
-            diagnostics.error(ctx, String.format("Routine '%s' is missing mandatory property: activities", routineName));
-        }
-        if (!hasRepeats) {
-            diagnostics.error(ctx, String.format("Routine '%s' is missing mandatory property: repeats", routineName));
         }
 
         // Invalid start times and durations are reported by their own visitors.
-        if (startText != null && hasActivities && activityDurationsValid) {
+        if (startText != null && total != null) {
             try {
                 LocalTime start = Literals.parseTime(startText);
                 if (start.toSecondOfDay() + total.toSeconds() > Duration.ofDays(1).toSeconds()) {
@@ -211,6 +183,19 @@ public class SemanticValidator extends LifeScriptParserBaseVisitor<Void> {
 
         visitAll(properties);
         return null;
+    }
+
+    // null if any activity's duration is invalid.
+    private static Duration totalDuration(LifeScriptParser.RoutineActivitiesContext activities) {
+        Duration total = Duration.ZERO;
+        for (LifeScriptParser.ActivityEntryContext activity : activities.activityEntry()) {
+            Duration duration = parseDurationWithinLimit(activity.DURATION_VAL().getText());
+            if (duration == null) {
+                return null;
+            }
+            total = total.plus(duration);
+        }
+        return total;
     }
 
     @Override
@@ -230,21 +215,9 @@ public class SemanticValidator extends LifeScriptParserBaseVisitor<Void> {
         String eventName = ctx.IDENTIFIER().getText();
 
         List<LifeScriptParser.EventPropertyContext> properties =
-                checkDuplicateKeys(ctx.eventProperty(), p -> Keywords.normalize(p.getStart().getText()), "event property");
-
-        boolean hasDate = false;
-        boolean hasTime = false;
-        for (LifeScriptParser.EventPropertyContext prop : properties) {
-            if (prop.eventDate() != null) hasDate = true;
-            if (prop.eventTime() != null) hasTime = true;
-        }
-
-        if (!hasDate) {
-            diagnostics.error(ctx, String.format("Event '%s' is missing mandatory property: date", eventName));
-        }
-        if (!hasTime) {
-            diagnostics.error(ctx, String.format("Event '%s' is missing mandatory property: time", eventName));
-        }
+                checkDuplicateKeys(ctx.eventProperty(), SemanticValidator::propertyKey, "event property");
+        LocalDate sampleDate = period != null ? period.start() : today;
+        checkRequired(ctx, "Event", eventName, properties, List.of("date: " + sampleDate, "time: 09:00-10:00"));
 
         visitAll(properties);
         return null;
