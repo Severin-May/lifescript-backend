@@ -4,7 +4,6 @@ import com.lifescript.grammar.LifeScriptParser;
 import com.lifescript.grammar.LifeScriptParserBaseVisitor;
 import com.lifescript.model.Durations;
 import com.lifescript.model.PlanPeriod;
-import com.lifescript.model.TimeRange;
 import org.antlr.v4.runtime.ParserRuleContext;
 import org.antlr.v4.runtime.Token;
 import org.antlr.v4.runtime.misc.Interval;
@@ -13,7 +12,6 @@ import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.format.DateTimeParseException;
-import java.time.temporal.ChronoUnit;
 import java.util.*;
 import java.util.function.Function;
 
@@ -21,14 +19,12 @@ public class SemanticValidator extends LifeScriptParserBaseVisitor<Void> {
     // null if the period is invalid; checks that need it are skipped.
     private PlanPeriod period;
     private final DiagnosticCollector diagnostics;
+    private final ValueChecks values;
     private final LocalDate today;
-
-    private static final Duration MAX_DURATION = Duration.ofHours(24);
-    private static final Duration MAX_BREAK = Duration.ofHours(2);
-    private static final int MAX_PERIOD_DAYS = 7;
 
     public SemanticValidator(DiagnosticCollector diagnostics, LocalDate today) {
         this.diagnostics = diagnostics;
+        this.values = new ValueChecks(diagnostics);
         this.today = today;
     }
 
@@ -189,7 +185,7 @@ public class SemanticValidator extends LifeScriptParserBaseVisitor<Void> {
     private static Duration totalDuration(LifeScriptParser.RoutineActivitiesContext activities) {
         Duration total = Duration.ZERO;
         for (LifeScriptParser.ActivityEntryContext activity : activities.activityEntry()) {
-            Duration duration = parseDurationWithinLimit(activity.DURATION_VAL().getText());
+            Duration duration = ValueChecks.parseDurationWithinLimit(activity.DURATION_VAL().getText());
             if (duration == null) {
                 return null;
             }
@@ -226,16 +222,8 @@ public class SemanticValidator extends LifeScriptParserBaseVisitor<Void> {
     @Override
     public Void visitEventDate(LifeScriptParser.EventDateContext ctx) {
         String text = ctx.DATE_VAL().getText();
-
-        LocalDate date;
-        try {
-            date = Literals.parseDate(text);
-        } catch (DateTimeParseException e) {
-            diagnostics.error(ctx, String.format("Event date '%s' isn't a real date", text));
-            return visitChildren(ctx);
-        }
-
-        if (period != null && !period.contains(date)) {
+        LocalDate date = values.checkDate(text, ctx, "Event date");
+        if (date != null && period != null && !period.contains(date)) {
             diagnostics.error(ctx, String.format("Event date '%s' is outside the period (%s to %s)",
                     text, period.start(), period.end()));
         }
@@ -244,66 +232,20 @@ public class SemanticValidator extends LifeScriptParserBaseVisitor<Void> {
 
     @Override
     public Void visitRoutineTime(LifeScriptParser.RoutineTimeContext ctx) {
-        checkTime(ctx.TIME_VAL().getText(), ctx);
+        values.checkTime(ctx.TIME_VAL().getText(), ctx);
         return visitChildren(ctx);
     }
 
     @Override
     public Void visitTaskDuration(LifeScriptParser.TaskDurationContext ctx) {
-        checkDuration(ctx.DURATION_VAL().getSymbol(), ctx);
+        values.checkDuration(ctx.DURATION_VAL().getSymbol(), ctx);
         return visitChildren(ctx);
     }
 
     @Override
     public Void visitActivityEntry(LifeScriptParser.ActivityEntryContext ctx) {
-        checkDuration(ctx.DURATION_VAL().getSymbol(), ctx);
+        values.checkDuration(ctx.DURATION_VAL().getSymbol(), ctx);
         return visitChildren(ctx);
-    }
-
-    private void checkDuration(Token value, ParserRuleContext entry) {
-        String text = value.getText();
-        Duration duration = parseDurationWithinLimit(text);
-        if (duration == null) {
-            diagnostics.error(entry, String.format("Duration '%s' is too long (at most 24h)", text));
-            return;
-        }
-        if (duration.isZero()) {
-            diagnostics.error(entry, String.format("Duration '%s' must be greater than zero", text));
-            return;
-        }
-
-        checkMinutes(value, duration, entry);
-    }
-
-    // Unlike a task's duration, a break may be zero.
-    private void checkBreak(Token value, ParserRuleContext entry) {
-        String text = value.getText();
-        Duration duration = parseDurationWithinLimit(text);
-        if (duration == null || duration.compareTo(MAX_BREAK) > 0) {
-            diagnostics.error(entry, String.format("Break '%s' is too long (at most %s)", text, Durations.format(MAX_BREAK)));
-            return;
-        }
-        checkMinutes(value, duration, entry);
-    }
-
-    // Minutes after hours (1h75m) must stay under 60; minutes alone (90m) are fine.
-    private void checkMinutes(Token value, Duration duration, ParserRuleContext entry) {
-        Literals.DurationLiteral literal = Literals.parseDurationLiteral(value.getText());
-        if (literal.hasHours() && literal.minutes() > 59) {
-            String fixed = Durations.format(duration);
-            diagnostics.error(entry, String.format("Minutes in '%s' must be at most 59 (write %s)", value.getText(), fixed),
-                    List.of(Fixes.replace(value, value, fixed)));
-        }
-    }
-
-    // null if over 24h or too large to read.
-    private static Duration parseDurationWithinLimit(String text) {
-        try {
-            Duration duration = Literals.parseDuration(text);
-            return duration.compareTo(MAX_DURATION) <= 0 ? duration : null;
-        } catch (IllegalArgumentException e) {
-            return null;
-        }
     }
 
     private static int repeatsLine(LifeScriptParser.TaskContext task) {
@@ -331,87 +273,26 @@ public class SemanticValidator extends LifeScriptParserBaseVisitor<Void> {
         }
         String timeText = ctx.TIME_VAL().getText();
 
-        checkTime(timeText, ctx);
+        values.checkTime(timeText, ctx);
 
-        try {
-            LocalDate deadline = Literals.parseDate(dateText);
-            // A deadline after the period is allowed: it still orders tasks by urgency.
-            if (period != null && deadline.isBefore(period.start())) {
-                diagnostics.error(ctx, String.format("Deadline '%s %s' is before the period starts (%s)",
-                        dateText, timeText, period.start()));
-            }
-        }
-        catch (DateTimeParseException e) {
-            diagnostics.error(ctx, String.format("Deadline date '%s' isn't a real date", dateText));
+        LocalDate deadline = values.checkDate(dateText, ctx, "Deadline date");
+        // A deadline after the period is allowed: it still orders tasks by urgency.
+        if (deadline != null && period != null && deadline.isBefore(period.start())) {
+            diagnostics.error(ctx, String.format("Deadline '%s %s' is before the period starts (%s)",
+                    dateText, timeText, period.start()));
         }
         return visitChildren(ctx);
     }
 
-    // The lexer accepts any HH:MM, e.g. 25:00.
-    private LocalTime checkTime(String text, ParserRuleContext entry) {
-        try {
-            return Literals.parseTime(text);
-        } catch (DateTimeParseException e) {
-            diagnostics.error(entry, String.format("Time '%s' isn't valid (hours 00-23, minutes 00-59; midnight is 00:00)", text));
-            return null;
-        }
-    }
-
     @Override
     public Void visitTimeRange(LifeScriptParser.TimeRangeContext ctx) {
-        LocalTime start = checkTime(ctx.TIME_VAL(0).getText(), ctx);
-        LocalTime end = checkTime(ctx.TIME_VAL(1).getText(), ctx);
-
-        if (start == null || end == null) {
-            return visitChildren(ctx);
-        }
-
-        TimeRange range = new TimeRange(start, end);
-
-        if (!range.isOrdered()) {
-            String hint = end.isBefore(start) && !range.endsAtMidnight()
-                    ? " (to go past midnight, end at 00:00 and continue on the next day)"
-                    : "";
-            diagnostics.error(ctx, String.format("Start time '%s' must be before end time '%s'%s",
-                    ctx.TIME_VAL(0).getText(), ctx.TIME_VAL(1).getText(), hint));
-        }
+        values.checkTimeRange(ctx);
         return visitChildren(ctx);
     }
 
     @Override
     public Void visitPeriod(LifeScriptParser.PeriodContext ctx) {
-        LocalDate start;
-        try {
-            start = Literals.parseDate(ctx.DATE_VAL(0).getText());
-        } catch (DateTimeParseException e) {
-            diagnostics.error(ctx, String.format("Date '%s' isn't a real date", ctx.DATE_VAL(0).getText()));
-            return visitChildren(ctx);
-        }
-
-        LocalDate end;
-        try {
-            end = Literals.parseDate(ctx.DATE_VAL(1).getText());
-        } catch (DateTimeParseException e) {
-            diagnostics.error(ctx, String.format("Date '%s' isn't a real date", ctx.DATE_VAL(1).getText()));
-            return visitChildren(ctx);
-        }
-
-        if (start.isAfter(end)) {
-            diagnostics.error(ctx, String.format("Start date '%s' can't be after end date '%s'", start, end));
-            return visitChildren(ctx);
-        }
-        if (start.isBefore(today)) {
-            diagnostics.error(ctx, String.format("Period can't start in the past (today is %s)", today));
-            return visitChildren(ctx);
-        }
-        long days = ChronoUnit.DAYS.between(start, end) + 1;
-        if (days > MAX_PERIOD_DAYS) {
-            diagnostics.error(ctx, String.format("Period can be at most %d days (this one is %d days)",
-                    MAX_PERIOD_DAYS, days));
-            return visitChildren(ctx);
-        }
-
-        period = new PlanPeriod(start, end);
+        period = values.checkPeriod(ctx, today);
         return visitChildren(ctx);
     }
 
@@ -424,14 +305,14 @@ public class SemanticValidator extends LifeScriptParserBaseVisitor<Void> {
 
     @Override
     public Void visitTaskBreak(LifeScriptParser.TaskBreakContext ctx) {
-        checkBreak(ctx.DURATION_VAL().getSymbol(), ctx);
+        values.checkBreak(ctx.DURATION_VAL().getSymbol(), ctx);
         return visitChildren(ctx);
     }
 
     @Override
     public Void visitSettingsEntry(LifeScriptParser.SettingsEntryContext ctx) {
         if (ctx.BREAK() != null) {
-            checkBreak(ctx.DURATION_VAL().getSymbol(), ctx);
+            values.checkBreak(ctx.DURATION_VAL().getSymbol(), ctx);
         }
         return visitChildren(ctx);
     }
