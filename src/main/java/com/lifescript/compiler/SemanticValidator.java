@@ -62,9 +62,21 @@ public class SemanticValidator extends LifeScriptParserBaseVisitor<Void> {
         List<LifeScriptParser.TaskPropertyContext> properties =
                 checkDuplicateKeys(ctx.taskProperty(), SemanticValidator::propertyKey, "task property");
         checkRequired(ctx, "Task", taskName, properties, List.of("duration: 1h", "priority: medium", "effort: moderate"));
+        checkRepeatingWithDeadline(taskName, properties);
 
         visitAll(properties);
         return null;
+    }
+
+    private void checkRepeatingWithDeadline(String taskName, List<LifeScriptParser.TaskPropertyContext> properties) {
+        Optional<LifeScriptParser.TaskPropertyContext> repeats = properties.stream().filter(p -> p.repeats() != null).findFirst();
+        Optional<LifeScriptParser.TaskPropertyContext> deadline = properties.stream().filter(p -> p.taskDeadline() != null).findFirst();
+        if (repeats.isEmpty() || deadline.isEmpty()) {
+            return;
+        }
+        diagnostics.error(deadline.get(), String.format("Repeating task '%s' can't have a deadline", taskName),
+                List.of(Fixes.removeLine(deadline.get().getStart().getLine(), "Remove the deadline"),
+                        Fixes.removeLine(repeats.get().getStart().getLine(), "Remove 'repeats' (make it a one-time task)")));
     }
 
     // A property's first token is its keyword.
@@ -248,22 +260,9 @@ public class SemanticValidator extends LifeScriptParserBaseVisitor<Void> {
         return visitChildren(ctx);
     }
 
-    private static int repeatsLine(LifeScriptParser.TaskContext task) {
-        return task.taskProperty().stream().filter(p -> p.repeats() != null).findFirst().orElseThrow()
-                .getStart().getLine();
-    }
-
     @Override
     public Void visitTaskDeadline(LifeScriptParser.TaskDeadlineContext ctx) {
         String dateText = ctx.DATE_VAL().getText();
-
-        // A deadline's parent is a task property, whose parent is the task.
-        LifeScriptParser.TaskContext task = (LifeScriptParser.TaskContext) ctx.getParent().getParent();
-        if (DependencyChecker.isRepeating(task)) {
-            diagnostics.error(ctx, String.format("Repeating task '%s' can't have a deadline", task.IDENTIFIER().getText()),
-                    List.of(Fixes.removeLine(ctx.getStart().getLine(), "Remove the deadline"),
-                            Fixes.removeLine(repeatsLine(task), "Remove 'repeats' (make it a one-time task)")));
-        }
 
         // The grammar allows a missing time only so this can explain it better than a syntax error.
         if (ctx.TIME_VAL() == null) {

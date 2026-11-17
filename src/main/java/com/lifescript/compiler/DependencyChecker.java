@@ -17,8 +17,7 @@ import java.util.Set;
 // The rules between tasks: unknown, duplicate or repeating dependencies, and dependency cycles.
 class DependencyChecker {
 
-    private static final String GRAY = "GRAY";
-    private static final String BLACK = "BLACK";
+    private enum Visit { ON_PATH, DONE }
 
     private final DiagnosticCollector diagnostics;
     private final Set<String> taskNames = new HashSet<>();
@@ -38,7 +37,7 @@ class DependencyChecker {
         }
     }
 
-    static boolean isRepeating(LifeScriptParser.TaskContext task) {
+    private static boolean isRepeating(LifeScriptParser.TaskContext task) {
         return task.taskProperty().stream().anyMatch(p -> p.repeats() != null);
     }
 
@@ -95,18 +94,18 @@ class DependencyChecker {
     }
 
     void checkCycles() {
-        Map<String, String> colors = new HashMap<>();
+        Map<String, Visit> visits = new HashMap<>();
         for (String taskName : taskNames) {
-            if (!colors.containsKey(taskName)) {
-                detectTaskCycle(taskName, colors, new ArrayList<>());
+            if (!visits.containsKey(taskName)) {
+                detectTaskCycle(taskName, visits, new ArrayList<>());
             }
         }
     }
 
-    // GRAY = on the current path, BLACK = done. A task is always finished, even after a cycle,
-    // so GRAY means on `path`. The cycle is reported at the closing task's dependencies line.
-    private void detectTaskCycle(String task, Map<String, String> colors, List<String> path) {
-        if (GRAY.equals(colors.get(task))) {
+    // A task is always finished (DONE), even after a cycle, so ON_PATH means it's in `path`.
+    // The cycle is reported at the closing task's dependencies line.
+    private void detectTaskCycle(String task, Map<String, Visit> visits, List<String> path) {
+        if (visits.get(task) == Visit.ON_PATH) {
             int cycleStart = path.indexOf(task);
             List<String> cycle = path.subList(cycleStart, path.size());
             String closingTask = path.get(path.size() - 1);
@@ -114,16 +113,16 @@ class DependencyChecker {
                     String.join(" → ", cycle), task));
             return;
         }
-        if (BLACK.equals(colors.get(task))) return;
+        if (visits.get(task) == Visit.DONE) return;
 
-        colors.put(task, GRAY);
+        visits.put(task, Visit.ON_PATH);
         path.add(task);
 
         for (String dep : dependencyGraph.getOrDefault(task, List.of())) {
-            detectTaskCycle(dep, colors, path);
+            detectTaskCycle(dep, visits, path);
         }
 
         path.remove(path.size() - 1);
-        colors.put(task, BLACK);
+        visits.put(task, Visit.DONE);
     }
 }

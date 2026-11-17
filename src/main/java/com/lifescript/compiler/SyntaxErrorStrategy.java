@@ -1,7 +1,6 @@
 package com.lifescript.compiler;
 
 import com.lifescript.diagnostics.Fix;
-import com.lifescript.diagnostics.TextEdit;
 import org.antlr.v4.runtime.DefaultErrorStrategy;
 import org.antlr.v4.runtime.InputMismatchException;
 import org.antlr.v4.runtime.NoViableAltException;
@@ -10,7 +9,6 @@ import org.antlr.v4.runtime.RecognitionException;
 import org.antlr.v4.runtime.Token;
 import org.antlr.v4.runtime.misc.IntervalSet;
 
-import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
@@ -66,8 +64,7 @@ class SyntaxErrorStrategy extends DefaultErrorStrategy {
         if (!expected.contains(COLON) || previous == null || previous.getType() == NEWLINE) {
             return Optional.empty();
         }
-        int end = previous.getCharPositionInLine() + 1 + previous.getStopIndex() - previous.getStartIndex() + 1;
-        return Optional.of(new Fix("Insert ':'", List.of(new TextEdit(previous.getLine(), end, previous.getLine(), end, ":"))));
+        return Optional.of(Fixes.insertAfter(previous, ":", "Insert ':'"));
     }
 
     @Override
