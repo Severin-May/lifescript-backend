@@ -15,6 +15,8 @@ import org.antlr.v4.runtime.misc.Interval;
 
 import java.util.List;
 
+import static com.lifescript.compiler.SyntaxWords.isKeyword;
+
 // Turns ANTLR's syntax errors into diagnostics, with clearer messages for keywords used as names.
 class SyntaxErrorListener extends BaseErrorListener {
 
@@ -61,12 +63,6 @@ class SyntaxErrorListener extends BaseErrorListener {
 
     private static String reservedWord(Token keyword) {
         return String.format("'%s' is a reserved word and can't be used as a name", keyword.getText());
-    }
-
-    // Keywords are the tokens whose fixed text is a word, e.g. 'low' (not symbols like ':').
-    private static boolean isKeyword(Token token) {
-        String literal = LifeScriptLexer.VOCABULARY.getLiteralName(token.getType());
-        return literal != null && literal.matches("'[a-z]+'");
     }
 
     private static boolean isKeywordWhereNameExpected(Recognizer<?, ?> recognizer, Token offending) {

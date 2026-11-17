@@ -1,6 +1,5 @@
 package com.lifescript.compiler;
 
-import com.lifescript.grammar.LifeScriptLexer;
 import org.antlr.v4.runtime.BufferedTokenStream;
 import org.antlr.v4.runtime.Parser;
 import org.antlr.v4.runtime.Token;
@@ -12,7 +11,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
-import static com.lifescript.compiler.SyntaxErrorStrategy.*;
+import static com.lifescript.compiler.SyntaxWords.*;
 import static com.lifescript.grammar.LifeScriptLexer.*;
 
 // Messages that depend on where the mistake is: right after a name, on a property line, or at the plan's start.
@@ -157,10 +156,6 @@ final class ContextHints {
     }
 
     private static boolean isWord(Token token) {
-        if (token.getType() == IDENTIFIER || token.getType() == UNKNOWN_WORD) {
-            return true;
-        }
-        String literal = LifeScriptLexer.VOCABULARY.getLiteralName(token.getType());
-        return literal != null && literal.matches("'[a-z]+'");
+        return token.getType() == IDENTIFIER || token.getType() == UNKNOWN_WORD || isKeyword(token);
     }
 }
