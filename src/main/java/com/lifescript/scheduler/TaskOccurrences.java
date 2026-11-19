@@ -6,7 +6,9 @@ import com.lifescript.model.Task;
 import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Deque;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -50,18 +52,38 @@ public final class TaskOccurrences {
     // that task's effective deadline minus its duration (it must end before its dependent starts).
     // Terminates because SemanticValidator rejects dependency cycles. `computed` keeps each task's result,
     // otherwise layered dependencies are recomputed once per path (exponential).
-    private static EffectiveDeadline effectiveDeadline(Task task, Duration buffer, Map<String, List<Task>> dependents,
+    // An explicit stack rather than recursion, so a long chain of dependents can't overflow: a task waits on the
+    // stack until all its dependents are computed.
+    private static EffectiveDeadline effectiveDeadline(Task start, Duration buffer, Map<String, List<Task>> dependents,
                                                        Map<String, EffectiveDeadline> computed) {
-        if (computed.containsKey(task.name())) {
-            return computed.get(task.name());
+        Deque<Task> stack = new ArrayDeque<>();
+        stack.push(start);
+        while (!stack.isEmpty()) {
+            Task task = stack.peek();
+            if (computed.containsKey(task.name())) {
+                stack.pop();
+                continue;
+            }
+            List<Task> waitingFor = dependents.getOrDefault(task.name(), List.of()).stream()
+                    .filter(dependent -> !computed.containsKey(dependent.name())).toList();
+            if (!waitingFor.isEmpty()) {
+                waitingFor.forEach(stack::push);
+                continue;
+            }
+            stack.pop();
+            computed.put(task.name(), fromOwnAndDependents(task, buffer, dependents, computed));
         }
+        return computed.get(start.name());
+    }
+
+    // All the task's dependents must already be computed.
+    private static EffectiveDeadline fromOwnAndDependents(Task task, Duration buffer, Map<String, List<Task>> dependents,
+                                                          Map<String, EffectiveDeadline> computed) {
         EffectiveDeadline deadline = task.deadline() == null
                 ? EffectiveDeadline.NONE : new EffectiveDeadline(task.deadline().minus(buffer), task.name());
         for (Task dependent : dependents.getOrDefault(task.name(), List.of())) {
-            deadline = earlier(deadline,
-                    effectiveDeadline(dependent, buffer, dependents, computed).minus(dependent.duration()));
+            deadline = earlier(deadline, computed.get(dependent.name()).minus(dependent.duration()));
         }
-        computed.put(task.name(), deadline);
         return deadline;
     }
 

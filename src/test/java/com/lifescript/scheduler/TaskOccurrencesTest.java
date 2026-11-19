@@ -8,12 +8,14 @@ import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static com.lifescript.TestPlans.build;
 import static com.lifescript.TestPlans.load;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class TaskOccurrencesTest {
 
@@ -78,6 +80,37 @@ class TaskOccurrencesTest {
                 () -> TaskOccurrences.of(build(plan.toString()), SchedulerSettings.DEFAULTS));
 
         assertEquals(2 * layers, occurrences.size());
+    }
+
+    @Test
+    void longChainOfDependents_isComputedOnASmallStack() throws InterruptedException {
+        // t1 depends on t0, t2 on t1, and so on; only the last task has a deadline.
+        int count = 5000;
+        StringBuilder source = new StringBuilder("plan: p\nperiod: 2024-01-01 to 2024-01-07\n\navailability:\nmonday: flexible\n\ntasks:\n");
+        for (int i = 0; i < count; i++) {
+            source.append("task: t").append(i).append("\nduration: 15m\npriority: low\neffort: low\n")
+                    .append(i == 0 ? "" : "dependencies: t" + (i - 1) + "\n")
+                    .append(i == count - 1 ? "deadline: 2024-01-07 17:00\n" : "").append("\n");
+        }
+        Plan plan = build(source.toString());
+
+        AtomicReference<Object> outcome = new AtomicReference<>();
+        // A small stack would overflow on any machine if the deadlines were passed down recursively.
+        Thread thread = new Thread(null, () -> {
+            try {
+                outcome.set(TaskOccurrences.of(plan, SchedulerSettings.DEFAULTS));
+            } catch (Throwable t) {
+                outcome.set(t);
+            }
+        }, "small-stack", 256 * 1024);
+        thread.start();
+        thread.join();
+
+        assertTrue(outcome.get() instanceof List<?>, () -> "Got: " + outcome.get());
+        @SuppressWarnings("unchecked")
+        TaskOccurrence first = find((List<TaskOccurrence>) outcome.get(), "t0");
+        assertEquals(at("2024-01-07T17:00").minusMinutes(15L * (count - 1)), first.hardEnd());
+        assertEquals("t" + (count - 1), first.deadlineSetBy());
     }
 
     @Test

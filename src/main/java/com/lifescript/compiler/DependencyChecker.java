@@ -6,9 +6,12 @@ import org.antlr.v4.runtime.ParserRuleContext;
 import org.antlr.v4.runtime.Token;
 import org.antlr.v4.runtime.tree.TerminalNode;
 
+import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Deque;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -97,32 +100,47 @@ class DependencyChecker {
         Map<String, Visit> visits = new HashMap<>();
         for (String taskName : taskNames) {
             if (!visits.containsKey(taskName)) {
-                detectTaskCycle(taskName, visits, new ArrayList<>());
+                walkFrom(taskName, visits);
             }
         }
     }
 
-    // A task is always finished (DONE), even after a cycle, so ON_PATH means it's in `path`.
-    // The cycle is reported at the closing task's dependencies line.
-    private void detectTaskCycle(String task, Map<String, Visit> visits, List<String> path) {
-        if (visits.get(task) == Visit.ON_PATH) {
-            int cycleStart = path.indexOf(task);
-            List<String> cycle = path.subList(cycleStart, path.size());
-            String closingTask = path.get(path.size() - 1);
-            diagnostics.error(dependencyLines.get(closingTask), String.format("Circular dependency detected: %s → %s",
-                    String.join(" → ", cycle), task));
-            return;
-        }
-        if (visits.get(task) == Visit.DONE) return;
+    // Depth-first with an explicit stack rather than recursion, so a long chain of dependencies can't overflow.
+    // path holds the tasks being walked; pending holds, for each of them, the dependencies still to visit.
+    // A task is always finished (DONE), even after a cycle, so ON_PATH means it's in path.
+    private void walkFrom(String start, Map<String, Visit> visits) {
+        List<String> path = new ArrayList<>();
+        Deque<Iterator<String>> pending = new ArrayDeque<>();
+        enter(start, visits, path, pending);
 
+        while (!pending.isEmpty()) {
+            Iterator<String> deps = pending.peek();
+            if (!deps.hasNext()) {
+                pending.pop();
+                visits.put(path.remove(path.size() - 1), Visit.DONE);
+                continue;
+            }
+            String dep = deps.next();
+            Visit visit = visits.get(dep);
+            if (visit == Visit.ON_PATH) {
+                reportCycle(path, dep);
+            } else if (visit == null) {
+                enter(dep, visits, path, pending);
+            }
+        }
+    }
+
+    private void enter(String task, Map<String, Visit> visits, List<String> path, Deque<Iterator<String>> pending) {
         visits.put(task, Visit.ON_PATH);
         path.add(task);
+        pending.push(dependencyGraph.getOrDefault(task, List.of()).iterator());
+    }
 
-        for (String dep : dependencyGraph.getOrDefault(task, List.of())) {
-            detectTaskCycle(dep, visits, path);
-        }
-
-        path.remove(path.size() - 1);
-        visits.put(task, Visit.DONE);
+    // Reported at the dependencies line of the task that closes the cycle.
+    private void reportCycle(List<String> path, String task) {
+        List<String> cycle = path.subList(path.indexOf(task), path.size());
+        String closingTask = path.get(path.size() - 1);
+        diagnostics.error(dependencyLines.get(closingTask), String.format("Circular dependency detected: %s → %s",
+                String.join(" → ", cycle), task));
     }
 }

@@ -4,9 +4,6 @@ import com.lifescript.diagnostics.Diagnostic;
 import com.lifescript.diagnostics.Severity;
 import com.lifescript.diagnostics.Stage;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.springframework.boot.test.system.CapturedOutput;
-import org.springframework.boot.test.system.OutputCaptureExtension;
 
 import java.io.IOException;
 import java.util.List;
@@ -48,29 +45,43 @@ class LifeScriptCompilerTest {
     }
 
     @Test
-    @ExtendWith(OutputCaptureExtension.class)
-    void stackOverflow_isReportedAsInternalError_andLoggedWithoutThePlansContents(CapturedOutput output) throws Exception {
+    void longDependencyChain_compilesOnASmallStack() throws Exception {
+        assertEquals(List.of(), compileOnSmallStack(chainOfTasks(5000, false)).diagnostics());
+    }
+
+    @Test
+    void longDependencyCycle_isReportedOnceOnASmallStack() throws Exception {
+        List<Diagnostic> diagnostics = compileOnSmallStack(chainOfTasks(5000, true)).diagnostics();
+
+        assertEquals(1, diagnostics.size(), () -> "Got: " + diagnostics);
+        assertTrue(diagnostics.get(0).message().startsWith("Circular dependency detected: "));
+    }
+
+    // t1 depends on t0, t2 on t1, and so on; closed: t0 depends on the last task too.
+    private static String chainOfTasks(int count, boolean closed) {
         StringBuilder plan = new StringBuilder("plan: p\nperiod: 2024-01-01 to 2024-01-07\n\navailability:\nmonday: flexible\n\ntasks:\n");
-        for (int i = 0; i < 5000; i++) {
+        for (int i = 0; i < count; i++) {
+            String dependency = i > 0 ? "t" + (i - 1) : closed ? "t" + (count - 1) : null;
             plan.append("task: t").append(i).append("\nduration: 15m\npriority: low\neffort: low\n")
-                    .append(i == 0 ? "" : "dependencies: t" + (i - 1) + "\n").append("\n");
+                    .append(dependency == null ? "" : "dependencies: " + dependency + "\n").append("\n");
         }
+        return plan.toString();
+    }
+
+    // A small stack would overflow on any machine if the checks recursed along the chain.
+    private static CompileResult compileOnSmallStack(String plan) throws InterruptedException {
         AtomicReference<Object> outcome = new AtomicReference<>();
-        // A small stack makes the dependency recursion overflow on any machine.
         Thread thread = new Thread(null, () -> {
             try {
-                outcome.set(compile(plan.toString()));
+                outcome.set(compile(plan));
             } catch (Throwable t) {
                 outcome.set(t);
             }
         }, "small-stack", 256 * 1024);
         thread.start();
         thread.join();
-
         assertTrue(outcome.get() instanceof CompileResult, () -> "Got: " + outcome.get());
-        assertEquals(Stage.INTERNAL, ((CompileResult) outcome.get()).diagnostics().get(0).stage());
-        assertTrue(output.getOut().contains("Compiler crashed"), output::getOut);
-        assertFalse(output.getOut().contains("duration: 15m"), output::getOut);
+        return (CompileResult) outcome.get();
     }
 
     @Test

@@ -50,7 +50,7 @@ public class LifeScriptCompiler {
     }
 
     // A crash is a compiler bug, not the user's: report it instead of failing the request.
-    // StackOverflowError is caught too: very deep dependency chains overflow the recursive checks.
+    // StackOverflowError is caught too: any deep recursion is a crash like the others.
     private static Diagnostic internalError(String content, Throwable e) {
         // Plans are personal data, so only their size is logged, never their text.
         log.error("Compiler crashed on a plan of {} characters, {} lines", content.length(), content.lines().count(), e);
