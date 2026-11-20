@@ -1,5 +1,6 @@
 package com.lifescript.account;
 
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -45,9 +46,16 @@ public class AccountService implements UserDetailsService {
         if (accounts.existsByEmail(normalized)) {
             throw new EmailTakenException();
         }
-        Account account = accounts.save(new Account(UUID.randomUUID(), normalized, passwordEncoder.encode(password),
-                clock.instant().truncatedTo(ChronoUnit.MICROS)));
-        return principal(account);
+        Account account = new Account(UUID.randomUUID(), normalized, passwordEncoder.encode(password),
+                clock.instant().truncatedTo(ChronoUnit.MICROS));
+        try {
+            // Flushed here, not at commit, so a clash is caught below.
+            return principal(accounts.saveAndFlush(account));
+        } catch (DataIntegrityViolationException e) {
+            // Someone registered the same email between the check above and this insert; the unique email
+            // is the only constraint the checked input can still break.
+            throw new EmailTakenException();
+        }
     }
 
     // Used by Spring Security when someone logs in.
